@@ -1,0 +1,56 @@
+# Copy to application.properties (gitignored). Secrets and config come from .env, loaded via the
+# spring.config.import line below; the defaults here are safe fallbacks only.
+spring.config.import=optional:file:.env[.properties]
+
+spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/database_name}
+spring.datasource.username=${DB_USER:postgres}
+spring.datasource.password=${DB_PASSWORD:YOUR_PASSWORD_HERE}
+spring.datasource.hikari.maximum-pool-size=${DB_POOL_MAX_SIZE:5}
+spring.datasource.hikari.minimum-idle=${DB_POOL_MIN_IDLE:1}
+
+# Boot behavior. Flyway owns the schema (src/main/resources/db/migration); Hibernate only
+# VALIDATES it, never mutates. Leave these at the defaults.
+#   JPA_DDL_AUTO=validate  -> assert entities match the DB, never auto-migrate
+#   JPA_SHOW_SQL=true      -> log every SQL statement (debugging only; off by default)
+#   SQL_INIT_MODE=never    -> schema.sql/data.sql are retired; Flyway builds the schema
+spring.jpa.hibernate.ddl-auto=${JPA_DDL_AUTO:validate}
+spring.jpa.show-sql=${JPA_SHOW_SQL:false}
+spring.jpa.properties.hibernate.format_sql=${JPA_FORMAT_SQL:false}
+# No hibernate.dialect on purpose: Hibernate 6 resolves it from JDBC metadata and warns
+# (HHH90000025) if set. Auto-detection also reads the server version, where a hardcoded
+# PostgreSQLDialect would pin us to the base dialect. Don't re-add it.
+# OFF deliberately: read paths fetch-join what they need or map inside a transaction, so no query
+# should run during response rendering.
+#   JPA_OPEN_IN_VIEW=true  -> emergency escape hatch only; setting it means a fetch regressed
+spring.jpa.open-in-view=${JPA_OPEN_IN_VIEW:false}
+spring.sql.init.mode=${SQL_INIT_MODE:never}
+
+# Flyway: baseline an already-populated DB at V1; a fresh empty one runs V1 to build the schema.
+# New schema changes go in db/migration as the next V<n>__*.sql.
+spring.flyway.baseline-on-migrate=true
+spring.flyway.baseline-version=1
+
+app.cors.allowed-origins=${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174}
+app.jwt.secret=${JWT_SECRET:CHANGE_ME_TO_A_LONG_RANDOM_BASE64_SECRET}
+# Hard session length for everyone, student and admin: 1h from login, non-renewable (there is no
+# refresh endpoint). Past it every request is anonymous -> 401 -> the SPA signs the user out.
+app.jwt.expiration-ms=${JWT_EXPIRATION_MS:3600000}
+# Session cookie Secure flag. MUST stay true in production (https); false ONLY for local http dev,
+# else the browser drops the httpOnly session cookie.
+app.cookie.secure=${APP_COOKIE_SECURE:true}
+
+# Initial admin-account seed passwords, set via env. No fallback default: a blank value means the
+# account is NOT created on a fresh DB, so there is nothing guessable. Only ADMIN and PRINCIPAL are
+# seedable — HOD/DEPT_OFFICE/PROCTOR need a department, so create those via Manage Users.
+admin.password.principal=${ADMIN_PASSWORD_PRINCIPAL:}
+admin.password.admin=${ADMIN_PASSWORD_ADMIN:}
+
+spring.application.name=backlog
+server.port=8080
+server.error.include-message=never
+
+# Gzip API responses; Boot's default mime-type list already covers application/json. Registration
+# and subject list payloads compress ~5-10x. PDFs are already compressed and stay untouched, since
+# application/pdf isn't listed.
+server.compression.enabled=true
+server.compression.min-response-size=1024

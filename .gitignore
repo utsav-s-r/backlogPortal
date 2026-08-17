@@ -1,0 +1,47 @@
+# Local developer notes, working files and tooling config — never shared.
+# claude-work/ holds working notes INCLUDING test credentials; keep this rule.
+CLAUDE.local.md
+claude-work/
+.claude/
+
+# Backend
+backend/backlog/target/
+# Ignore only the downloaded wrapper binary, not the shareable wrapper config
+backend/backlog/.mvn/wrapper/maven-wrapper.jar
+backend/backlog/*.class
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+
+# Environment — NEVER push these. No leading slash, so they match at EVERY depth: one rule
+# covers the repo root, frontend/, and backend/backlog/. `!.env.example` keeps the template.
+backend/backlog/src/main/resources/application.properties
+backend/backlog/src/main/resources/application-local.properties
+.env
+.env.*
+!.env.example
+
+# Logs and local DB dumps. NEVER write a bare `*.sql` rule here: db/migration/V*.sql are the
+# schema and must stay tracked. These are root-anchored with `/` so they can't reach them.
+*.log
+nohup.out
+/dump*.sql
+/*-schema.sql
+
+# Frontend coverage output
+frontend/coverage/
+
+# Cypress run artifacts
+frontend/cypress/downloads/
+frontend/cypress/screenshots/
+frontend/cypress/videos/
