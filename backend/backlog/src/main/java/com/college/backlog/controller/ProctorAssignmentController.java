@@ -12,6 +12,7 @@ import com.college.backlog.service.StudentManagementService;
 import com.college.backlog.service.StudentSpecification;
 import com.college.backlog.service.Usn;
 import com.college.backlog.service.CallerScope;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -126,15 +127,15 @@ public class ProctorAssignmentController {
     // ---- claim / assign (batch) ----
 
     @PostMapping("/assignments")
-    public BatchResult assign(@RequestBody ProctorAssignRequest req, Authentication auth) {
+    public BatchResult assign(@Valid @RequestBody ProctorAssignRequest req, Authentication auth) {
         User actor = callerScope.requireActor(auth);
         User target = resolveTargetProctor(actor, req.getProctor());
         String deptCode = requireDeptCode(target);
 
-        List<String> rollNos = req.getRollNos() == null ? List.of() : req.getRollNos();
-        if (rollNos.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No students selected.");
-        }
+        // Null and empty are refused at binding by @NotEmpty on the DTO (400, same
+        // {"message": "No students selected."} body the hand-rolled check used to return).
+        // @Valid is what makes that annotation live; dropping it turns an empty batch into a 200 no-op.
+        List<String> rollNos = req.getRollNos();
         if (rollNos.size() > MAX_BATCH) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "At most " + MAX_BATCH + " students per batch.");

@@ -49,6 +49,13 @@ app.jwt.expiration-ms=${JWT_EXPIRATION_MS:3600000}
 # Session cookie Secure flag. MUST stay true in production (https); false ONLY for local http dev,
 # else the browser drops the httpOnly session cookie.
 app.cookie.secure=${APP_COOKIE_SECURE:true}
+# Session cookie SameSite: Lax | Strict | None (any casing). VALIDATED AT BOOT — anything else, or
+# None without app.cookie.secure=true, fails the app fast instead of silently shipping a downgraded
+# cookie policy. LEAVE AT Lax unless the SPA and API end up on different registrable domains; this
+# is settable so it needs no rebuild, not because it should be changed. Strict logs students out on
+# inbound links from email/the college site for no real CSRF gain (the double-submit token already
+# covers cross-site POST). None stays available on purpose for a future cross-origin deployment.
+app.cookie.same-site=${APP_COOKIE_SAME_SITE:Lax}
 
 # PDF rate limiting (PdfRateLimitService). OFF by default so local runs and tests need no Redis.
 # Set RATELIMIT_ENABLED=true and REDIS_URL on a deployed host to switch it on.

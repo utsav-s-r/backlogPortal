@@ -101,17 +101,37 @@ is never rewritten. Watch for: Postgres rejects `SELECT DISTINCT … ORDER BY` o
 column (the spec sets `distinct(true)` when a subject filter is active), `IN` does not preserve
 order, and an empty ID list is invalid SQL.
 
-## Verifying a change here (do not trust a green suite)
+## Verifying a change here
 
-Nothing in CI can catch a regression in this area. The backend suite only boots the Spring
-context, and **every Cypress spec `cy.intercept`s its API calls**, so the e2e suite passes
-regardless of what the persistence layer does.
+**`FetchStatementCountTest` now covers this automatically** (added 2026-08-25). It counts JDBC
+statements via Hibernate's `Statistics` and asserts the four properties this ADR turns on: the
+admin list costs the same number of statements at 3 rows as at 12 (the N+1), only one page of
+`Registration` entities is hydrated (trap 1 — in-memory pagination is otherwise invisible, since
+content and totals stay correct), `findByRegId`'s result is fully walkable outside a transaction
+(trap 2 — the `type = LOAD` fix), and the paginated query's `subjects` really is lazy, which is
+what makes `listSummaries`' `@Transactional` load-bearing.
 
-Real proof: boot against local Postgres and curl the endpoints as a **dept-scoped role** — as
-ADMIN the scope check returns early and never touches `getSubjects()`, so ADMIN proves nothing.
-Then run a **negative control**: remove the `findByRegId` graph and confirm the events endpoint
-500s with `failed to lazily initialize a collection … no Session`. Without that control, a passing
-run proves nothing.
+**That test is deliberately NOT `@Transactional`, and it must stay that way.** A test-managed
+transaction holds one persistence context open across the call — `open-in-view=true` rebuilt by
+hand — under which every assertion above passes while proving nothing. The cost is committed
+fixtures, cleaned in `@AfterEach`. Counts are asserted as flatness rather than as a magic
+constant: a constant needs editing whenever the fixture changes, and gets "fixed" by bumping the
+number, which is how a real N+1 is waved through.
+
+Each assertion was proven able to fail, by mutation (2026-08-25): `@BatchSize(30)` → `1`, adding
+`subjects` to the paginated `@EntityGraph`, dropping `type = LOAD` from `findByRegId` (which
+reproduced the original `Subject.eligibleDepartments … no Session` verbatim), and removing
+`@Transactional` from `listSummaries`.
+
+What the test still does NOT cover: the **proxy self-invocation** gotcha below — calling
+`listSummaries` from inside `RegistrationService` bypasses the proxy, and no test can see that
+from outside. For anything subtler than the four properties above, the manual method still
+applies: boot against local Postgres and curl as a **dept-scoped role** — as ADMIN the scope check
+returns early and never touches `getSubjects()`, so ADMIN proves nothing — and pair it with a
+negative control.
+
+Note the Cypress suite remains blind here: **every spec `cy.intercept`s its API calls**, so the
+e2e suite passes regardless of what the persistence layer does.
 
 ## Related
 
