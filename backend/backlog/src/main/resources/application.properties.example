@@ -50,6 +50,27 @@ app.jwt.expiration-ms=${JWT_EXPIRATION_MS:3600000}
 # else the browser drops the httpOnly session cookie.
 app.cookie.secure=${APP_COOKIE_SECURE:true}
 
+# PDF rate limiting (PdfRateLimitService). OFF by default so local runs and tests need no Redis.
+# Set RATELIMIT_ENABLED=true and REDIS_URL on a deployed host to switch it on.
+# Limits the two iText endpoints ONLY — /api/admin/export-pdf and the student registration PDF.
+# LOGIN IS DELIBERATELY NOT LIMITED and no login path may ever return 429: throttling there is a
+# declined feature, see docs/adr/student-authentication.md. Do not add login paths here.
+app.ratelimit.enabled=${RATELIMIT_ENABLED:false}
+app.ratelimit.pdf.max-per-window=${RATELIMIT_PDF_MAX:10}
+app.ratelimit.pdf.window-minutes=${RATELIMIT_PDF_WINDOW_MINUTES:60}
+# Redis connection is set ONLY as an environment variable on the deployed host:
+#     SPRING_DATA_REDIS_URL=rediss://default:<password>@<host>.upstash.io:6379
+# (Upstash TCP tab. `rediss://` — two s — is TLS. The REST tab's URL+TOKEN are an HTTP API and are
+# NOT usable here; Spring Data Redis speaks the RESP protocol over TCP.)
+#
+# There is deliberately NO `spring.data.redis.url=` line: Spring VALIDATES the URL eagerly at
+# startup and an empty string throws `RedisUrlSyntaxException: Invalid Redis URL ''`, which kills
+# the whole context (it broke all 22 context tests when first added). With the property absent,
+# Redis auto-config falls back to localhost, Lettuce connects lazily, and PdfRateLimitService's
+# fail-open path handles the unreachable connection — so local runs and tests need no Redis at all.
+# Nothing else uses Redis, so scanning JPA repositories as Redis repositories is pure noise:
+spring.data.redis.repositories.enabled=false
+
 # Initial admin-account seed passwords, set via env. No fallback default: a blank value means the
 # account is NOT created on a fresh DB, so there is nothing guessable. Only ADMIN and PRINCIPAL are
 # seedable — HOD/DEPT_OFFICE/PROCTOR need a department, so create those via Manage Users.
