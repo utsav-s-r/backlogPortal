@@ -35,7 +35,13 @@ WORKDIR /build
 # Wrapper + pom on their own layer so dependency resolution is cached across source edits.
 COPY backend/backlog/.mvn/ .mvn/
 COPY backend/backlog/mvnw backend/backlog/pom.xml ./
-RUN chmod +x mvnw && ./mvnw -B -q dependency:go-offline
+# Pre-warming the dependency cache is an OPTIMISATION ONLY — `package` below resolves anything
+# missing anyway. It is deliberately non-fatal: dependency:go-offline tries to resolve plugins for
+# every profile (including the parent's `native` profile, which pulls GraalVM tooling nobody here
+# uses) and fails the whole build on any single hiccup. It failed on Render's builder while
+# succeeding locally. Note NO -q: quiet mode hid the real Maven error the first time this broke.
+RUN chmod +x mvnw && (./mvnw -B dependency:go-offline \
+      || echo ">>> dependency:go-offline failed; continuing — package will fetch what it needs")
 
 COPY backend/backlog/src/ src/
 
