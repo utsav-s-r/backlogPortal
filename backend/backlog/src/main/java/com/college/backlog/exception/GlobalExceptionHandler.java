@@ -1,6 +1,7 @@
 package com.college.backlog.exception;
 
 import jakarta.validation.ConstraintViolationException;
+import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -119,6 +120,19 @@ public class GlobalExceptionHandler {
         logger.warn("Data integrity violation: {}", ex.getMessage());
         return Map.of("message",
             "This change conflicts with existing data (for example, a duplicate value). Check the values and try again.");
+    }
+
+    // The client hung up mid-response (browser refresh, navigate away, cancelled download). NOT an
+    // application error, so it must not reach the catch-all below: that logged every closed tab at
+    // ERROR with a full stack trace, and then failed itself with "No converter for ... with preset
+    // Content-Type 'image/png'" — by the time bytes are streaming (a static asset, or a PDF), the
+    // response is committed with a binary content type and a JSON body can no longer be written.
+    // Returning void writes nothing, which is right: there is no one left to write to.
+    // Spring dispatches to the most specific handler by exception type, so this wins over
+    // Exception.class regardless of declaration order.
+    @ExceptionHandler(ClientAbortException.class)
+    public void handleClientAbort(ClientAbortException ex) {
+        logger.debug("Client disconnected before the response finished: {}", ex.getMessage());
     }
 
     // Last resort: log in full, return nothing specific. Deliberately NOT extended to

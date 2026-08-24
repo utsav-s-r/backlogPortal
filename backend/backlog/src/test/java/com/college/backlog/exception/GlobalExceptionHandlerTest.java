@@ -1,7 +1,10 @@
 package com.college.backlog.exception;
 
+import org.apache.catalina.connector.ClientAbortException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+
+import java.io.IOException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -10,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -45,6 +49,13 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/boom")
         String boom() { throw new IllegalStateException("internal detail that must not leak"); }
+
+        // `throws` because ClientAbortException extends IOException and so is CHECKED — the same
+        // reason the real one surfaces from streaming writes rather than from handler logic.
+        @GetMapping("/aborted")
+        String aborted() throws ClientAbortException {
+            throw new ClientAbortException(new IOException("Broken pipe"));
+        }
     }
 
     private final MockMvc mvc = MockMvcBuilders
@@ -116,5 +127,19 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message")
                         .value("An unexpected internal error occurred. Please try again later or contact support."));
+    }
+
+    /**
+     * A client hanging up mid-response is NOT a server error. Observed live on 2026-08-24: a
+     * cancelled PNG request reached the catch-all, logged ERROR with a 130-line stack trace, and
+     * then the handler itself failed — "No converter for ... with preset Content-Type 'image/png'"
+     * — because a committed binary response cannot carry a JSON body. Asserting no 500 and an
+     * EMPTY body is what pins both halves: not misreported as a server error, and nothing written.
+     */
+    @Test
+    void aClientDisconnectIsNotReportedAsAServerError() throws Exception {
+        mvc.perform(get("/probe/aborted"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(""));
     }
 }
