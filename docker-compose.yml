@@ -1,0 +1,86 @@
+# Local run of the PRODUCTION artifact: one container serving the SPA and the API, plus a
+# throwaway Postgres 18. Deliberately the same image the cloud host will run, so what is tested
+# here is what ships — there is no nginx or second container in production to diverge from.
+#
+# Quick start:
+#   cp compose.env.example .env      # then edit — JWT_SECRET and an admin seed are required
+#   docker compose up --build
+#   open http://localhost:8081
+#
+# Reads the gitignored root .env automatically. That is NOT backend/backlog/.env, which points at
+# live Neon — do not copy the Neon one here or this stack will migrate and seed production.
+#
+# Day-to-day frontend work does not need this: `npm run dev` + `./mvnw spring-boot:run` still uses
+# Vite's proxy and gives hot reload. This stack is for verifying the real artifact.
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: backlog-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${DB_USER:-backlog}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-backlog}
+      POSTGRES_DB:       ${DB_NAME:-backlog}
+    volumes:
+      # /var/lib/postgresql, NOT the /var/lib/postgresql/data that every pre-18 example uses.
+      # Postgres 18 images place the cluster in a major-version subdirectory (so `pg_upgrade
+      # --link` works without crossing a mount boundary). Mounting the old path makes the
+      # container refuse to start, and compose surfaces it only as "container is unhealthy" —
+      # the real reason is buried in `docker logs`.
+      - backlog-pgdata:/var/lib/postgresql
+    # Not published: the throwaway `backlog-test` container that `./mvnw test` needs already owns
+    # host port 5433, and nothing here needs host access. Uncomment to inspect with psql — 5434
+    # avoids that collision.
+    # ports:
+    #   - "5434:5432"
+    healthcheck:
+      # The app runs Flyway at boot and fails hard if the database is not ready, so this gate is
+      # what makes `depends_on: service_healthy` meaningful rather than decorative.
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-backlog} -d ${DB_NAME:-backlog}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  app:
+    build:
+      # Repo root: the image needs frontend/ and backend/ both.
+      context: .
+    container_name: backlog-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # JDBC spelling, host = the compose service name. NOT the libpq spelling
+      # (postgresql://user:pass@host/db), which does not parse as a JDBC URL.
+      DB_URL:      jdbc:postgresql://postgres:5432/${DB_NAME:-backlog}
+      DB_USER:     ${DB_USER:-backlog}
+      DB_PASSWORD: ${DB_PASSWORD:-backlog}
+
+      # Required, no default: JwtService rejects anything under 32 bytes at startup.
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env — 32+ bytes, e.g. openssl rand -base64 48}
+
+      # FALSE only because this stack is plain http on localhost; a Secure cookie is dropped by the
+      # browser over http, so login would appear to work while every later request is anonymous.
+      # MUST be true (the application default) on any https deployment.
+      APP_COOKIE_SECURE: "false"
+
+      # Seed accounts on a fresh volume. Unset means the account is NOT created — no guessable
+      # fallback — so at least one must be set to sign in the first time.
+      ADMIN_PASSWORD_ADMIN:     ${ADMIN_PASSWORD_ADMIN:-}
+      ADMIN_PASSWORD_PRINCIPAL: ${ADMIN_PASSWORD_PRINCIPAL:-}
+    ports:
+      # 8081 on the host, not 8080: a developer running `./mvnw spring-boot:run` already holds
+      # 8080, and that clash is a confusing failure.
+      - "8081:8080"
+
+# No CORS variable here on purpose: one origin means CORS is never exercised. app.cors
+# .allowed-origins keeps its localhost dev default for `npm run dev`.
+#
+# No redis service: evaluated 2026-08-17 and parked — see claude-work/OPEN.md §5. Nothing in the
+# application reads it, so a container would start, hold memory, and never be connected to.
+
+volumes:
+  backlog-pgdata:

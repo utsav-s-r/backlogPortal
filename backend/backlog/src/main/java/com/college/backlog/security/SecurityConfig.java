@@ -19,6 +19,8 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -32,6 +34,13 @@ import java.util.List;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+
+    /** Every path under /api, matched with the SAME PathPattern engine Spring MVC dispatches with.
+     *  Used only by the static-asset permitAll rule below; see the comment there for why a raw
+     *  getRequestURI() prefix check is not a valid substitute. */
+    private static final RequestMatcher API_PATHS =
+            PathPatternRequestMatcher.withDefaults().matcher("/api/**");
+
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
@@ -104,6 +113,30 @@ public class SecurityConfig {
                         // PROCTOR clears this coarse gate; each /api/admin controller's own
                         // @PreAuthorize decides if proctors may use it (default: no)
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "PRINCIPAL", "HOD", "DEPT_OFFICE", "PROCTOR")
+                        // The SPA shell and its assets, served from this same jar (see
+                        // SpaStaticResourceConfig). Without this they hit anyRequest().authenticated()
+                        // below and 401 — the login page itself could never load.
+                        //
+                        // A PREDICATE, not a path list, because React Router owns arbitrary
+                        // client-side routes (/admin/students, /student/login, ...) and any
+                        // hardcoded list breaks silently the next time one is added.
+                        //
+                        // Cannot widen the API surface, by construction: it is scoped to GET AND to
+                        // paths outside /api/, so every /api request still falls through to the
+                        // rules above and then to anyRequest().authenticated(). A new API endpoint
+                        // that forgets its rule stays DENIED, not opened. Keep both halves of that
+                        // condition — dropping either makes this a fail-open rule.
+                        //
+                        // The path test MUST go through API_PATHS, never request.getRequestURI().
+                        // getRequestURI() is the RAW, undecoded URI, while Spring MVC dispatches on
+                        // the decoded, normalised path — so a raw prefix check and the router
+                        // disagree about what the path is. Demonstrated 2026-08-18: with a
+                        // getRequestURI() check, GET /%61pi/nonexistent was PERMITTED here (the raw
+                        // string does not start with "/api/") and then routed as /api/nonexistent.
+                        // Only @PreAuthorize stopped it reaching admin data. PathPatternRequestMatcher
+                        // uses the same PathPattern engine as the dispatcher, so the two agree.
+                        .requestMatchers(request -> "GET".equals(request.getMethod())
+                                && !API_PATHS.matches(request)).permitAll()
                         .anyRequest().authenticated());
         return http.build();
     }

@@ -7,6 +7,17 @@ spring.datasource.username=${DB_USER:postgres}
 spring.datasource.password=${DB_PASSWORD:YOUR_PASSWORD_HERE}
 spring.datasource.hikari.maximum-pool-size=${DB_POOL_MAX_SIZE:5}
 spring.datasource.hikari.minimum-idle=${DB_POOL_MIN_IDLE:1}
+# Serverless Postgres (Neon) auto-suspends when idle and takes a second or two to wake. Hikari's
+# own default is already 30s; stated explicitly so it is tunable per environment.
+spring.datasource.hikari.connection-timeout=${DB_CONNECTION_TIMEOUT_MS:30000}
+# FLYWAY is what actually hits a sleeping database first — it migrates at boot, before Hikari
+# serves anything, so Hikari timeouts alone do NOT stop a cold start from dying on a suspended
+# Neon. Retries default to 0 (Flyway's own default) so LOCAL behaviour is unchanged: a genuinely
+# stopped test container still fails immediately instead of hanging for 20s, which is the
+# "ApplicationContext failure threshold -> check Docker first" path. Set FLYWAY_CONNECT_RETRIES
+# on a deployed host (10 is reasonable) so a wake-up is ridden out rather than crashing the boot.
+spring.flyway.connect-retries=${FLYWAY_CONNECT_RETRIES:0}
+spring.flyway.connect-retries-interval=${FLYWAY_CONNECT_RETRIES_INTERVAL:2}
 
 # Boot behavior. Flyway owns the schema (src/main/resources/db/migration); Hibernate only
 # VALIDATES it, never mutates. Leave these at the defaults.
@@ -46,7 +57,9 @@ admin.password.principal=${ADMIN_PASSWORD_PRINCIPAL:}
 admin.password.admin=${ADMIN_PASSWORD_ADMIN:}
 
 spring.application.name=backlog
-server.port=8080
+# ${PORT:8080} so a hosting platform that assigns a port at runtime (Render, Cloud Run, Heroku and
+# most PaaS set PORT) is obeyed, while local runs and docker-compose keep 8080 unchanged.
+server.port=${PORT:8080}
 server.error.include-message=never
 
 # Gzip API responses; Boot's default mime-type list already covers application/json. Registration
