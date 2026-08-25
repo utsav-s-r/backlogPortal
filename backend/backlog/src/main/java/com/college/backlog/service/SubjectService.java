@@ -76,9 +76,11 @@ public class SubjectService {
         subject.setDepartment(department);
 
         SubjectType type = resolveSubjectType(request.getSubjectType());
+        assertElectiveNamesItsDepartments(type, request.getEligibleDeptIds());
         subject.setSubjectType(type);
 
-        if (type == SubjectType.ELECTIVE && request.getEligibleDeptIds() != null && !request.getEligibleDeptIds().isEmpty()) {
+        // No emptiness test needed — the guard above already refused an ELECTIVE without ids.
+        if (type == SubjectType.ELECTIVE) {
             subject.setEligibleDepartments(resolveEligibleDepartments(request.getEligibleDeptIds()));
         }
 
@@ -114,11 +116,14 @@ public class SubjectService {
         subject.setCredits(request.getCredits());
 
         SubjectType type = resolveSubjectType(request.getSubjectType());
+        assertElectiveNamesItsDepartments(type, request.getEligibleDeptIds());
         subject.setSubjectType(type);
-        if (type == SubjectType.ELECTIVE
-                && request.getEligibleDeptIds() != null && !request.getEligibleDeptIds().isEmpty()) {
+        if (type == SubjectType.ELECTIVE) {
             subject.setEligibleDepartments(resolveEligibleDepartments(request.getEligibleDeptIds()));
         } else {
+            // REGULAR carries no eligibility list, so clear anything left from when this subject
+            // was an ELECTIVE. Before the guard above, this branch ALSO caught an ELECTIVE whose
+            // ids were merely omitted from the payload, silently wiping real eligibility.
             subject.setEligibleDepartments(new ArrayList<>());
         }
 
@@ -241,6 +246,32 @@ public class SubjectService {
      * ids, so a stale one silently saved the subject with narrower eligibility than the admin
      * chose. Same size check RegistrationService already applies to subject ids.
      */
+    /**
+     * {@link SubjectType} states the invariant — "ELECTIVE carries an eligible-department list" —
+     * and nothing enforced it. An ELECTIVE saved with an empty list is registrable by NOBODY and
+     * says so nowhere: {@code StudentController.branchMatches} and {@code RegistrationService}'s
+     * elective check both {@code anyMatch} over that collection, and an empty stream is false for
+     * every student. The subject still lists in the admin catalog, so the only way to notice is to
+     * diff the catalog against what students can actually see.
+     *
+     * <p>400, matching {@code resolveSubjectType}'s unknown-type refusal: the submission is wrong
+     * and the caller can resubmit. Both React forms already block this
+     * ({@code AddSubjectTab}, {@code ManageTab}), so this is the server-side half of a rule the UI
+     * was enforcing alone — "UI gating is a convenience, never the control" (docs/adr/auth-scoping.md).
+     * It is reachable today by any direct API call, and by clone if a source elective were ever in
+     * this state (clone forwards the source's list and cannot edit it).
+     *
+     * <p>Checking the REQUEST ids is sufficient: {@link #resolveEligibleDepartments} 400s on an id
+     * that resolves to nothing rather than dropping it, so a non-empty request cannot become an
+     * empty persisted list.
+     */
+    private void assertElectiveNamesItsDepartments(SubjectType type, Collection<Long> eligibleDeptIds) {
+        if (type == SubjectType.ELECTIVE && (eligibleDeptIds == null || eligibleDeptIds.isEmpty())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "An elective must have at least one eligible department.");
+        }
+    }
+
     private List<Department> resolveEligibleDepartments(Collection<Long> ids) {
         List<Department> found = departmentRepository.findAllById(ids);
         if (found.size() != new java.util.HashSet<>(ids).size()) {

@@ -24,9 +24,17 @@ public class Registration {
     // examCycle), keeping pagination a real SQL LIMIT — a collection fetch-join would force
     // in-memory paging. `subjects` then loads lazily during mapping, which is why that mapping
     // must stay inside RegistrationService.listSummaries' transaction (open-in-view is off);
-    // BatchSize collapses those N loads into a few IN queries per page.
+    // BatchSize collapses those N loads into ONE query per page. It only has to EXCEED the page —
+    // AdminController.MAX_PAGE_SIZE is 200, so 1000 is headroom, NOT a tuned value; below the page
+    // the count climbs in steps of the batch size (at 30: 11 queries for page 200 vs 5). Oversizing
+    // is free, which is why this deliberately isn't pinned to MAX_PAGE_SIZE: the loader binds ONE
+    // Postgres array param (`where reg_id = any (?)`), so SQL text and bind count are independent
+    // of both the declared size and the row count — no padding to pay for. Measured 2026-08-25:
+    // 1000 indistinguishable from 200 at pages 25/100/200. Only this path batches; the three
+    // unpaginated graphs in RegistrationRepository fetch-join `subjects`.
+    // docs/adr/persistence-fetching.md.
     @ManyToMany
-    @BatchSize(size = 30)
+    @BatchSize(size = 1000)
     @JoinTable(
         name = "registration_subjects",
         joinColumns = @JoinColumn(

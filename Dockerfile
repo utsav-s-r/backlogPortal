@@ -53,6 +53,12 @@ COPY --from=frontend /web/dist/ src/main/resources/static/
 # fail at startup (app.jwt.secret has no default). Generate it from the tracked template, which is
 # pure ${ENV:default} placeholders — every real value still arrives from the environment at
 # runtime. This is also what makes a laptop build identical to a CI/platform build.
+#
+# "app.jwt.secret has no default" was NOT true until 2026-08-25: the template shipped a 40-byte
+# placeholder that passed JwtService's 32-byte floor, so an image built here and run WITHOUT
+# JWT_SECRET booted green on a signing key published in the repo. The template default is now
+# empty and JwtService rejects the old placeholder by value. Keep it that way — this line is the
+# reason a missing secret has to fail the container rather than silently sign tokens.
 RUN cp src/main/resources/application.properties.example src/main/resources/application.properties \
  && ./mvnw -B clean package -DskipTests
 

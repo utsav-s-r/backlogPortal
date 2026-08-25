@@ -196,4 +196,103 @@ class SubjectServiceTest {
                 .hasMessageContaining("no longer exist");
         verify(subjectRepository, never()).saveAndFlush(any());
     }
+
+    // ---- ELECTIVE must name at least one eligible department ----
+    // SubjectType's javadoc states this invariant and nothing enforced it. An ELECTIVE with an
+    // empty list is registrable by NOBODY — branchMatches and RegistrationService both anyMatch
+    // over that collection — while still listing in the admin catalog. Both React forms already
+    // block it, so these cover the server-side half that a direct API call reaches.
+
+    @Test
+    void anElectiveCannotBeCreatedWithNoEligibleDepartments() {
+        // createSubject resolves the owning department BEFORE the type, so this must be stubbed or
+        // the request dies on "Unknown department." and proves nothing about the elective rule.
+        when(departmentRepository.findById(1L))
+                .thenReturn(Optional.of(new com.college.backlog.model.Department(1L, "CSE", null)));
+        SubjectCreateRequest req = createRequest(2022, "22CSL44");
+        req.setSubjectType("ELECTIVE");
+        req.setEligibleDeptIds(java.util.List.of());
+
+        assertThatThrownBy(() -> service.createSubject(req))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("at least one eligible department");
+        verify(subjectRepository, never()).save(any());
+    }
+
+    /** Omitting the field entirely is the same mistake as sending an empty list — and is what a
+     *  partial payload from a non-browser client actually looks like. */
+    @Test
+    void anElectiveCannotBeCreatedWithTheEligibleListOmittedAltogether() {
+        when(departmentRepository.findById(1L))
+                .thenReturn(Optional.of(new com.college.backlog.model.Department(1L, "CSE", null)));
+        SubjectCreateRequest req = createRequest(2022, "22CSL44");
+        req.setSubjectType("ELECTIVE");   // eligibleDeptIds left null
+
+        assertThatThrownBy(() -> service.createSubject(req))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("at least one eligible department");
+        verify(subjectRepository, never()).save(any());
+    }
+
+    /**
+     * The sharp edge. On update the old code did not merely fail to ADD eligibility — the else
+     * branch overwrote it with an empty list, so an ELECTIVE whose ids were simply omitted from
+     * the payload had its real eligibility destroyed and became invisible to every student.
+     */
+    @Test
+    void anUpdateThatOmitsTheEligibleListDoesNotWipeAnExistingElectivesEligibility() {
+        Subject existing = subject(1L, 2022);
+        existing.setSubjectType(SubjectType.ELECTIVE);
+        existing.setEligibleDepartments(new java.util.ArrayList<>(java.util.List.of(
+                new com.college.backlog.model.Department(1L, "CSE", null))));
+        when(subjectRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        SubjectUpdateRequest req = updateRequest("22CSL44");
+        req.setSubjectType("ELECTIVE");   // eligibleDeptIds left null
+
+        assertThatThrownBy(() -> service.updateSubject(1L, req, null))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("at least one eligible department");
+        verify(subjectRepository, never()).saveAndFlush(any());
+        // the refusal must leave the stored eligibility untouched, not half-applied
+        assertThat(existing.getEligibleDepartments()).hasSize(1);
+    }
+
+    /** The guard must not narrow the REGULAR path: no eligibility is required, and switching an
+     *  ELECTIVE back to REGULAR must still clear the list it no longer has any use for. */
+    @Test
+    void switchingAnElectiveBackToRegularStillClearsItsEligibility() {
+        Subject existing = subject(1L, 2022);
+        existing.setSubjectType(SubjectType.ELECTIVE);
+        existing.setEligibleDepartments(new java.util.ArrayList<>(java.util.List.of(
+                new com.college.backlog.model.Department(1L, "CSE", null))));
+        when(subjectRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(subjectRepository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+
+        SubjectUpdateRequest req = updateRequest("22CSL44");
+        req.setSubjectType("REGULAR");   // no eligibleDeptIds, and none needed
+
+        Subject saved = service.updateSubject(1L, req, null);
+
+        assertThat(saved.getSubjectType()).isEqualTo(SubjectType.REGULAR);
+        assertThat(saved.getEligibleDepartments()).isEmpty();
+    }
+
+    /** A well-formed elective must still go through unchanged. */
+    @Test
+    void anElectiveNamingItsDepartmentsIsStillAccepted() {
+        when(subjectRepository.findById(1L)).thenReturn(Optional.of(subject(1L, 2022)));
+        when(departmentRepository.findAllById(any()))
+                .thenReturn(java.util.List.of(new com.college.backlog.model.Department(1L, "CSE", null)));
+        when(subjectRepository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+
+        SubjectUpdateRequest req = updateRequest("22CSL44");
+        req.setSubjectType("ELECTIVE");
+        req.setEligibleDeptIds(java.util.List.of(1L));
+
+        Subject saved = service.updateSubject(1L, req, null);
+
+        assertThat(saved.getSubjectType()).isEqualTo(SubjectType.ELECTIVE);
+        assertThat(saved.getEligibleDepartments()).hasSize(1);
+    }
 }

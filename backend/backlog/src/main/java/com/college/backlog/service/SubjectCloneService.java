@@ -111,11 +111,46 @@ public class SubjectCloneService {
                     }
                 } catch (org.springframework.web.server.ResponseStatusException e) {
                     // e.g. createSubject's prefix=year validation — shouldn't fire since the
-                    // prefix is locked to the target year, but kept defensive
+                    // prefix is locked to the target year, but kept defensive. Must stay ABOVE the
+                    // generic catch: RSE is itself a RuntimeException, and that one would flatten
+                    // this actionable reason into the generic sentence.
                     results.add(new SubjectCloneResult.ResultRow(code, row.getSemester(), "ERROR", e.getReason()));
                     errors++;
+                } catch (NumberFormatException e) {
+                    // NFE extends IllegalArgumentException, so without this clause it would be
+                    // caught below and its raw message ("For input string: \"null\"") shown to the
+                    // admin as if the ROW were malformed — a server bug dressed as a data problem,
+                    // and counted as a normal errors row instead of logged. Same reason
+                    // GlobalExceptionHandler refuses to map IAE centrally. Must precede the IAE
+                    // clause; the reverse order does not compile.
+                    log.error("CLONE_ROW_FAILED code={} semester={}", code, row.getSemester(), e);
+                    results.add(new SubjectCloneResult.ResultRow(code, row.getSemester(), "ERROR",
+                        "Could not create this subject."));
+                    errors++;
                 } catch (IllegalArgumentException e) {
+                    // Only this method's OWN validation above throws IAE, with curated literal
+                    // messages, so surfacing getMessage() is safe here.
                     results.add(new SubjectCloneResult.ResultRow(code, row.getSemester(), "ERROR", e.getMessage()));
+                    errors++;
+                } catch (RuntimeException e) {
+                    // The batch is deliberately NOT transactional (see above), so every row before
+                    // this one is ALREADY COMMITTED. Letting an unexpected failure escape aborted
+                    // the loop and surfaced as a request-level 500: CloneSubjectsTab never calls
+                    // setResult, so the admin saw "Apply failed." with no result table and no way
+                    // to know that some subjects now exist in the target year. Re-running is
+                    // survivable (SKIPPED_EXISTS), but the record of what actually happened was
+                    // destroyed. Both sibling batch paths already had this clause —
+                    // StudentManagementController.importStudents and
+                    // ProctorAssignmentController.assign — and clone was the one that was missed.
+                    //
+                    // Not hypothetical on this deployment: a Neon connection drop mid-batch is a
+                    // DataAccessResourceFailureException and a commit-time failure is a
+                    // TransactionSystemException; both extend RuntimeException, NEITHER extends
+                    // DataIntegrityViolationException, so all three clauses above miss them.
+                    // Logged because the result row cannot carry a stack trace.
+                    log.error("CLONE_ROW_FAILED code={} semester={}", code, row.getSemester(), e);
+                    results.add(new SubjectCloneResult.ResultRow(code, row.getSemester(), "ERROR",
+                        "Could not create this subject."));
                     errors++;
                 }
             }

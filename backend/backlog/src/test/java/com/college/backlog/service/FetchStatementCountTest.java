@@ -65,11 +65,20 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 class FetchStatementCountTest {
 
     /** Enough rows that a per-row query is unmistakable, and above the number of distinct subjects
-     *  so {@code @BatchSize(30)} still collapses them into one statement. */
+     *  so {@code @BatchSize} still collapses them into one statement. */
     private static final int MANY = 12;
     private static final int FEW = 3;
 
-    /** The admin list's page size in the UI's default. Nothing here depends on the exact value. */
+    /** Rows for the page-size case below: must exceed {@link #PAGE}'s size, and exceed any batch
+     *  size a regression would plausibly land on — 30 (the historical value) and 50 (what
+     *  harmonising with {@code Subject.eligibleDepartments} would give). Deliberately far below
+     *  MAX_PAGE_SIZE: statement count follows rows RETURNED, not the size requested, so 60 catches
+     *  the same regressions 200 would at a fraction of the fixture cost. Don't trim it to ~40 to
+     *  save inserts — that stops catching 50. */
+    private static final int ACROSS_BATCH = 60;
+
+    /** The admin list's UI default. The page-size case needs this to stay below
+     *  {@link #ACROSS_BATCH}; nothing else here depends on the exact value. */
     private static final Pageable PAGE = PageRequest.of(0, 25);
 
     @Autowired private UserRepository userRepository;
@@ -128,6 +137,28 @@ class FetchStatementCountTest {
         assertThat(few)
                 .as("a small bounded number of statements: count, rows, subjects batch, eligible-depts batch")
                 .isLessThanOrEqualTo(6);
+    }
+
+    @Test
+    void theAdminListCostsTheSameNumberOfStatementsAtAFullPageAsAtTheDefaultPage() {
+        seedRegistrations(ACROSS_BATCH);
+
+        long defaultPage = statementsFor(() -> registrationService.listSummaries(anyRegistration(), PAGE));
+        long fullPage = statementsFor(() ->
+                registrationService.listSummaries(anyRegistration(), PageRequest.of(0, ACROSS_BATCH)));
+
+        // A DIFFERENT axis from the test above, which varies rows at a FIXED page size and so cannot
+        // see this: @BatchSize batches the lazy `subjects` loads one page-row at a time, so a batch
+        // size below the page issues ceil(rows / batchSize) statements — a staircase in page size.
+        // It was real. The rule is that @BatchSize EXCEEDS the page, not that it equals any
+        // constant; see Registration.subjects and docs/adr/persistence-fetching.md.
+        //
+        // Bounds what it proves: this fails on any batch size under ACROSS_BATCH — the shape a
+        // revert or a tidy-up produces. It cannot see a MAX_PAGE_SIZE raised past the batch size,
+        // which is what the headroom on that annotation is for.
+        assertThat(fullPage)
+                .as("statement count must not grow with PAGE SIZE: @BatchSize must cover a full page")
+                .isEqualTo(defaultPage);
     }
 
     @Test

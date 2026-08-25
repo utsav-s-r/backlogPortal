@@ -1,5 +1,7 @@
 package com.college.backlog.security;
 
+import com.college.backlog.model.User;
+import com.college.backlog.model.UserRole;
 import com.college.backlog.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
@@ -11,6 +13,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -37,6 +40,18 @@ class AccountExistenceFilterTest {
         SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
+    /** The `users` row the filter reads. Its role is the one that must win over the token's. */
+    private void accountRowIs(String username, UserRole role) {
+        User u = new User();
+        u.setUsername(username);
+        u.setRole(role);
+        when(userRepository.findById(username)).thenReturn(Optional.of(u));
+    }
+
+    private void noAccountRowFor(String username) {
+        when(userRepository.findById(username)).thenReturn(Optional.empty());
+    }
+
     private MockHttpServletRequest request(String method, String uri) {
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.setMethod(method);
@@ -51,7 +66,7 @@ class AccountExistenceFilterTest {
     @Test
     void deletedAccountIsRejectedEvenWithAValidToken() throws Exception {
         authenticateAs("hodcse", "HOD");
-        when(userRepository.existsById("hodcse")).thenReturn(false);
+        noAccountRowFor("hodcse");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
@@ -67,7 +82,7 @@ class AccountExistenceFilterTest {
     @Test
     void deletedAccountCannotReachTheChangePasswordEndpointEither() throws Exception {
         authenticateAs("admin", "ADMIN");
-        when(userRepository.existsById("admin")).thenReturn(false);
+        noAccountRowFor("admin");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
@@ -80,11 +95,81 @@ class AccountExistenceFilterTest {
     @Test
     void existingAdminPassesThrough() throws Exception {
         authenticateAs("admin", "ADMIN");
-        when(userRepository.existsById("admin")).thenReturn(true);
+        accountRowIs("admin", UserRole.ADMIN);
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
         MockHttpServletRequest req = request("GET", "/api/admin/registrations");
+        filter.doFilter(req, response, chain);
+
+        verify(chain, times(1)).doFilter(req, response);
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    /**
+     * THE privilege-retention case. Role is immutable by owner decision, so changing one means
+     * delete + recreate under the same username — which restores existence while the live cookie
+     * still carries the old role. An existence-only check passes this; every {@code @PreAuthorize}
+     * then decides on the token, and ExamCycleController's writes resolve no caller at all, so
+     * ROLE_ADMIN on a DEPT_OFFICE row would still open and close registration college-wide.
+     */
+    @Test
+    void aDemotedAccountCannotKeepUsingItsOldRolesToken() throws Exception {
+        authenticateAs("admin-user", "ADMIN");          // the token, minted before the demotion
+        accountRowIs("admin-user", UserRole.DEPT_OFFICE); // what the row says now
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request("POST", "/api/admin/exam-cycles"), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(response.getContentAsString()).contains("Your account has changed");
+        verify(chain, never()).doFilter(any(), any());
+    }
+
+    /** The same check has to bind upward, or a recreate that PROMOTES hands a session powers the
+     *  SPA never rendered controls for — it caches adminRole at login. */
+    @Test
+    void aPromotedAccountAlsoHasToSignInAgain() throws Exception {
+        authenticateAs("dept-user", "DEPT_OFFICE");
+        accountRowIs("dept-user", UserRole.ADMIN);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request("GET", "/api/admin/registrations"), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        verify(chain, never()).doFilter(any(), any());
+    }
+
+    /**
+     * users.role is nullable and its CHECK admits NULL (NULL = ANY(...) is NULL, not false), so
+     * such a row is storable. CallerScope answers a clearer 403 — but only on endpoints that
+     * resolve a scope, and the exam-cycle writes do not. Honouring the token against a row that
+     * claims no role would leave exactly that hole open, so fail closed here.
+     */
+    @Test
+    void aRowWithNoRoleAtAllCannotHaveItsTokenTrusted() throws Exception {
+        authenticateAs("broken-user", "ADMIN");
+        accountRowIs("broken-user", null);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request("POST", "/api/admin/exam-cycles"), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        verify(chain, never()).doFilter(any(), any());
+    }
+
+    /** An unchanged dept role must still pass — the check narrows nothing when nothing changed. */
+    @Test
+    void anUnchangedDeptRolePassesThrough() throws Exception {
+        authenticateAs("hod-user", "HOD");
+        accountRowIs("hod-user", UserRole.HOD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        MockHttpServletRequest req = request("GET", "/api/admin/subjects");
         filter.doFilter(req, response, chain);
 
         verify(chain, times(1)).doFilter(req, response);

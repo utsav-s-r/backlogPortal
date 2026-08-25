@@ -85,14 +85,43 @@ no transaction starts, and this breaks again — with no compile error and no fa
 - The admin list hydrates `Subject` entities, which drag in EAGER `eligibleDepartments` that the
   list never displays. Accepted for now — see below.
 - Measured cost of the admin list (25 rows, dev box, 2026-08-09): 5 SQL statements — auth user
-  lookup, `Page` count, row query, `subjects` batch, `eligibleDepartments` batch. **Flat with
-  respect to page size**, which is the property that matters.
+  lookup, `Page` count, row query, `subjects` batch, `eligibleDepartments` batch.
+
+**Correction, 2026-08-25 — that count was NOT flat in page size, only in row count.** `@BatchSize`
+batches the lazy `subjects` loads a page-row at a time, so a batch size below the page costs
+`ceil(rows / batchSize)` statements: at `@BatchSize(30)`, page 200 cost **11** statements to page
+25's 5, a staircase climbing in steps of 30. Fixed by raising it above any page. Measured on the
+local container, 400 registrations × 4 subjects, median of 10 iterations after warmup, with a
+raw-JDBC arm as a per-run control: **−22.8% wall time at page 200, −13.0% at page 100, and no
+change at page 25** (identical statement plan there — an internal control confirming the harness
+resolves well below the differences it reports).
+
+**The rule is "batch EXCEEDS the page", not "batch equals `MAX_PAGE_SIZE`".** The value is
+`@BatchSize(size = 1000)` against a cap of 200: headroom, deliberately not pinned to the constant.
+Oversizing is free, and structurally so — Hibernate emits
+`… from registration_subjects s1_0 … where s1_0.reg_id = any (?)`, **one Postgres array
+parameter**, so the SQL text and the bind count are independent of both the declared batch size and
+the row count. There is no key-array padding to pay for, which is why 1000 measured
+indistinguishable from 200 at pages 25/100/200 across two rounds (2026-08-25). An exact
+constant-to-constant coupling would have bought nothing and cost a cross-package dependency plus a
+comment to maintain. `FetchStatementCountTest`'s page-size case guards the staircase; the headroom
+covers a raised cap, which no test here can see.
 
 ## Alternatives considered
 
 **Full DTO projection for the list — DEFERRED, not rejected.** It would stop the list hydrating
 entities at all. Trigger to revisit: a measurement showing server-side work dominating, most
 likely at large pages (`MAX_PAGE_SIZE=200`).
+
+**That measurement was taken on 2026-08-25, and the deferral STANDS.** Method as above; arm A was
+`listSummaries`, arm B a raw-JDBC projection of the same page building the same DTOs. At page 200
+the SQL floor was 33% of arm A, i.e. **hydration + mapping is ~67% of the cost — but only 11 ms**.
+Proportionally it dominates; absolutely it is noise next to the Render→Neon hop and the browser
+render. Not worth the `SELECT DISTINCT … ORDER BY` hazard, the `IN`-ordering re-sort, the empty-ID
+short-circuit, and a trap-1 assertion that goes vacuous once no entities are hydrated. The
+`eligibleDepartments` statement this section calls dead weight measured **0.63 ms** — real, and
+also not worth chasing. The batch-size fix above was taken instead: it targets round trips, the
+axis a loopback benchmark hides and a networked database bills for.
 
 If implemented, use the **ID-pagination pattern** — apply the existing `Specification` to a
 `CriteriaQuery<Long>` selecting `id`, paginate that, then project the IDs — so
@@ -104,12 +133,19 @@ order, and an empty ID list is invalid SQL.
 ## Verifying a change here
 
 **`FetchStatementCountTest` now covers this automatically** (added 2026-08-25). It counts JDBC
-statements via Hibernate's `Statistics` and asserts the four properties this ADR turns on: the
+statements via Hibernate's `Statistics` and asserts the properties this ADR turns on: the
 admin list costs the same number of statements at 3 rows as at 12 (the N+1), only one page of
 `Registration` entities is hydrated (trap 1 — in-memory pagination is otherwise invisible, since
 content and totals stay correct), `findByRegId`'s result is fully walkable outside a transaction
 (trap 2 — the `type = LOAD` fix), and the paginated query's `subjects` really is lazy, which is
-what makes `listSummaries`' `@Transactional` load-bearing.
+what makes `listSummaries`' `@Transactional` load-bearing. A fifth case added 2026-08-25 covers the
+**page-size** axis the other four cannot see (they vary rows at a fixed page): 60 rows, page 25 vs
+page 60, statement counts must match. 60 rather than 200 because statement count follows rows
+RETURNED, not the size requested — same regression caught, a fraction of the fixture cost. 60 also
+clears **50**, the value harmonising with `Subject.eligibleDepartments` would give; do not trim it
+to ~40 to save inserts. It cannot see a `MAX_PAGE_SIZE` raised past the batch size — that is what
+the annotation's headroom is for, not the test. Mutation-proven 2026-08-25 by restoring
+`@BatchSize(30)` — exactly that case failed (`expected: 4L` against 5), the other five passed.
 
 **That test is deliberately NOT `@Transactional`, and it must stay that way.** A test-managed
 transaction holds one persistence context open across the call — `open-in-view=true` rebuilt by
