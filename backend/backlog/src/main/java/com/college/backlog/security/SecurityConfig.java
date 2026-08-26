@@ -179,7 +179,17 @@ public class SecurityConfig {
                         // string does not start with "/api/") and then routed as /api/nonexistent.
                         // Only @PreAuthorize stopped it reaching admin data. PathPatternRequestMatcher
                         // uses the same PathPattern engine as the dispatcher, so the two agree.
-                        .requestMatchers(request -> "GET".equals(request.getMethod())
+                        //
+                        // HEAD rides along with GET: it is GET without a response body, and Spring
+                        // MVC answers it from the same handler. Without it `HEAD /` fell through to
+                        // anyRequest().authenticated() and answered 401 while `GET /` answered 200
+                        // — harmless for browsers and the keep-alive cron (both send GET), but an
+                        // uptime monitor defaults to HEAD and would report the site permanently
+                        // down. Measured on production 2026-08-26.
+                        // This does NOT widen the API surface: the !API_PATHS half is untouched, so
+                        // HEAD /api/** still falls through to authenticated() exactly as before.
+                        .requestMatchers(request -> ("GET".equals(request.getMethod())
+                                    || "HEAD".equals(request.getMethod()))
                                 && !API_PATHS.matches(request)).permitAll()
                         .anyRequest().authenticated());
         return http.build();

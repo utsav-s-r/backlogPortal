@@ -39,7 +39,54 @@
 		     Staying on 7.2.x deliberately — 8.x/9.x are major versions and PdfService has only the
 		     one test guarding it. -->
 		<itext.version>7.2.6</itext.version>
+		<!-- Ahead of Boot 3.5.16's managed 42.7.11, which carries CVE-2026-54291
+		     (GHSA-j92g-9f8w-j867): a SILENT channel-binding downgrade when the server does not
+		     support it. Directly relevant here — DB_URL sets channelBinding=require precisely to
+		     demand it, and the CVE lets that requirement be dropped without error. Fixed in
+		     42.7.12. Found 2026-08-26 by scanning the resolved runtime tree against OSV.dev. -->
+		<postgresql.version>42.7.12</postgresql.version>
+		<!-- iText 7.2.6 pulls BouncyCastle 1.75, which carries NINE advisories; 1.84 clears all of
+		     them. Overridden here rather than by moving iText, since 8.x/9.x are major versions and
+		     PdfService has only the one test guarding it (see itext.version above).
+		     NOT reachable in this app — the "signature row" on the form is a drawn line for a human
+		     to sign, not a cryptographic PdfSigner, and nothing here parses untrusted certificates.
+		     Bumped anyway: 1.75 is from 2023, the override is free, and reachability is a judgement
+		     that could quietly stop being true. -->
+		<bouncycastle.version>1.84</bouncycastle.version>
+		<!-- The three below are all Boot-managed and were all UNREACHABLE here (jackson's advisories
+		     need @JsonView/@JsonUnwrapped, which this app never uses; netty's is Bzip2Decoder;
+		     log4j-api's is MapMessage encoding, and we log through logback via log4j-to-slf4j).
+		     Bumped anyway because each is a patch/minor within the same line, i.e. nearly free —
+		     and "unreachable" is a judgement that stops being true the moment someone adds an
+		     annotation. Drop these overrides once a Boot 3.5.x patch carries the same versions. -->
+		<jackson-bom.version>2.21.5</jackson-bom.version>
+		<netty.version>4.1.136.Final</netty.version>
+		<log4j2.version>2.25.5</log4j2.version>
 	</properties>
+	<dependencyManagement>
+		<dependencies>
+			<!-- Boot's BOM does not manage BouncyCastle, so the <bouncycastle.version> property
+			     alone is INERT — verified 2026-08-26, the tree still resolved iText's 1.75. These
+			     three entries are what actually pin it. bcutil is listed because bcpkix depends on
+			     it and a version skew across the trio is its own failure mode. -->
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcprov-jdk18on</artifactId>
+				<version>${bouncycastle.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcpkix-jdk18on</artifactId>
+				<version>${bouncycastle.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcutil-jdk18on</artifactId>
+				<version>${bouncycastle.version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

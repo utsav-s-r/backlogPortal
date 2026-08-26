@@ -7,9 +7,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -85,6 +87,39 @@ class SecurityHeadersTest {
         mockMvc.perform(get(PUBLIC_ENDPOINT))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andExpect(header().string("X-Frame-Options", "DENY"));
+    }
+
+    /**
+     * HEAD is GET without a body, and uptime monitors default to it. The public-route predicate
+     * used to test {@code "GET".equals(method)} alone, so {@code HEAD /} answered 401 while
+     * {@code GET /} answered 200 — measured on production 2026-08-26.
+     *
+     * <p>The second half is the one that must never regress: widening the predicate to HEAD must
+     * NOT widen the API surface. {@code !API_PATHS} still excludes {@code /api/**}, so an
+     * unauthenticated HEAD there stays denied. Assert both directions — the permit alone would pass
+     * just as well if the rule had been widened to everything.
+     */
+    @Test
+    void permitsHeadWhereverItPermitsGetButNotOnTheApi() throws Exception {
+        // Asserted as "HEAD matches GET" rather than a literal 200: the SPA shell only reaches
+        // classpath:/static/ at image-build time, so in tests BOTH are 404 (the resource resolver,
+        // not security) while in production both are 200. A hardcoded 200 would fail here for a
+        // reason that has nothing to do with the rule under test.
+        int getStatus = mockMvc.perform(get("/")).andReturn().getResponse().getStatus();
+        int headStatus = mockMvc.perform(head("/")).andReturn().getResponse().getStatus();
+        assertThat(headStatus).isEqualTo(getStatus);
+        assertThat(headStatus).isNotEqualTo(401); // the bug: HEAD fell through to authenticated()
+
+        // The half that must never regress — widening to HEAD must not widen the API surface.
+        //
+        // Probed at a path with NO handler, deliberately. An existing endpoint like
+        // /api/admin/users has @PreAuthorize behind it, which answers 401 for an anonymous caller
+        // whether or not this rule permitted the request — so asserting there passes even with the
+        // !API_PATHS half deleted. Verified by mutation 2026-08-26: that version could not fail.
+        // With no handler there is no second layer: 401 means the request was DENIED here, while a
+        // fail-open would let it through to 404. Same shape as the /%61pi/nonexistent bypass
+        // recorded in SecurityConfig's comment.
+        mockMvc.perform(head("/api/nonexistent")).andExpect(status().isUnauthorized());
     }
 
     /**

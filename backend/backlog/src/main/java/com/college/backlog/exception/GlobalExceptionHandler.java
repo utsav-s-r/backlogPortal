@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import com.college.backlog.web.RequestBodyTooLargeException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -57,12 +58,32 @@ public class GlobalExceptionHandler {
     // picks the most specific handler, and the catch-all only wins when nothing else matches.
     // Messages stay generic: the exception text carries class names, field paths and parse offsets.
 
+    /** A body that outran the size cap mid-read (chunked, so RequestSizeLimitFilter could not
+     *  reject it on Content-Length). 413, not 400 — the submission is not malformed, it is too big,
+     *  and telling the client "not valid JSON" would send them debugging the wrong thing. */
+    @ExceptionHandler(RequestBodyTooLargeException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public Map<String, String> handleBodyTooLarge(RequestBodyTooLargeException ex) {
+        logger.debug("Request body over the cap: {}", ex.getMessage());
+        return Map.of("message", "Request body is too large.");
+    }
+
     /** Malformed JSON, or a JSON value of the wrong type for its field. */
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Map<String, String> handleUnreadableBody(HttpMessageNotReadableException ex) {
+    public ResponseEntity<Map<String, String>> handleUnreadableBody(HttpMessageNotReadableException ex) {
+        // Jackson wraps whatever the stream threw, so an over-limit body arrives here disguised as
+        // malformed JSON. Unwrap before deciding — without this the cap answers 400 and reads as a
+        // client formatting bug.
+        for (Throwable t = ex.getCause(); t != null; t = t.getCause()) {
+            if (t instanceof RequestBodyTooLargeException) {
+                logger.debug("Request body over the cap: {}", t.getMessage());
+                return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                        .body(Map.of("message", "Request body is too large."));
+            }
+        }
         logger.debug("Unreadable request body: {}", ex.getMessage());
-        return Map.of("message", "Request body is missing or not valid JSON.");
+        return ResponseEntity.badRequest()
+                .body(Map.of("message", "Request body is missing or not valid JSON."));
     }
 
     /** A path variable or query parameter that won't convert (e.g. ?page=abc). Naming the

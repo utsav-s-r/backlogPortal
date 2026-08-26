@@ -111,3 +111,21 @@ server.forward-headers-strategy=${FORWARD_HEADERS_STRATEGY:framework}
 # application/pdf isn't listed.
 server.compression.enabled=true
 server.compression.min-response-size=1024
+
+# ---- Request size limits (§15: none were set, so container defaults applied and a single large
+# POST could exhaust heap on the 512 MB free instance).
+# The cap is enforced by RequestSizeLimitFilter, which checks Content-Length BEFORE reading and
+# also counts a chunked body as it streams. Deliberately GENEROUS, not tight: the bulk student
+# import POSTs the whole parsed CSV as one JSON array (~120 bytes/row), so 8 MB still carries tens
+# of thousands of rows, and a cap that breaks a legitimate import is worse than no cap.
+app.request.max-body-bytes=${APP_MAX_REQUEST_BYTES:8388608}
+# Defence in depth, enforced by Tomcat itself and covering shapes the filter does not parse.
+# Form posts are not used by the SPA (everything is JSON), so this is a floor, not a constraint.
+server.tomcat.max-http-form-post-size=2MB
+# No upload endpoint exists; these keep it that way rather than inheriting Boot's 1MB/10MB should
+# one ever be added without thinking about size.
+spring.servlet.multipart.max-file-size=1MB
+spring.servlet.multipart.max-request-size=2MB
+# How much of a REJECTED request body Tomcat will still read before closing. Without a bound, a
+# client that ignores the 413 can keep sending. 2MB is enough to let normal aborts finish cleanly.
+server.tomcat.max-swallow-size=2MB
