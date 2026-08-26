@@ -38,6 +38,18 @@ jobs:
           java-version: "21"        # Boot 3.5.16 targets 21; pom sets java.version=21
           distribution: temurin
           cache: maven
+      # application.properties is GITIGNORED, so a clean checkout does not have it — and the test
+      # profile only overrides the datasource, JWT secret and open-in-view, INHERITING the rest.
+      # Without this the context tests die on `Could not resolve placeholder
+      # 'app.jwt.expiration-ms'` (reproduced locally 2026-08-26 by hiding the file).
+      # Do NOT "fix" that by adding the property to application-test.properties instead: the test
+      # profile also inherits ddl-auto=validate from here, and Boot's default is `none` — the suite
+      # would go green while silently losing the entity/schema mismatch check.
+      # Same copy the Dockerfile does, and the documented first-run step.
+      - name: Provide application.properties (gitignored; template is what ships)
+        working-directory: backend/backlog
+        run: cp src/main/resources/application.properties.example src/main/resources/application.properties
+
       # No -o here, unlike local runs: the runner has no populated ~/.m2 to work offline from.
       - run: ./mvnw --batch-mode test
         working-directory: backend/backlog
