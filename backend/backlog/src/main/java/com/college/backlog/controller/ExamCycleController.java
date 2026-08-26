@@ -1,8 +1,14 @@
 package com.college.backlog.controller;
 
 import com.college.backlog.controller.dto.ExamCycleRequest;
+import com.college.backlog.model.AdminAuditAction;
+import com.college.backlog.model.AuditTargetType;
 import com.college.backlog.model.ExamCycle;
+import com.college.backlog.model.User;
 import com.college.backlog.repository.ExamCycleRepository;
+import com.college.backlog.service.AdminAuditService;
+import com.college.backlog.service.CallerScope;
+import org.springframework.security.core.Authentication;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -27,6 +33,15 @@ public class ExamCycleController {
     @Autowired
     private ExamCycleRepository examCycleRepository;
 
+    // Until P3-9 these writes resolved NO caller at all — the college-wide registration switch
+    // could be thrown with nothing recording who did it. Both are needed now: the actor for the
+    // audit row, and requireActor's own 401 on an account whose row is gone.
+    @Autowired
+    private CallerScope callerScope;
+
+    @Autowired
+    private AdminAuditService auditService;
+
     // The one deliberate widening: every admin role plus PROCTOR needs to READ the list, because
     // the registrations page's cycle filter is built from it. Reading which cycles exist changes
     // nothing; only the writes below are restricted.
@@ -38,30 +53,45 @@ public class ExamCycleController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ExamCycle create(@Valid @RequestBody ExamCycleRequest request) {
+    @Transactional
+    public ExamCycle create(@Valid @RequestBody ExamCycleRequest request, Authentication auth) {
+        User actor = callerScope.requireActor(auth);
         ExamCycle cycle = new ExamCycle(request.getName(), request.getExamMonthYear());
-        return examCycleRepository.save(cycle);
+        ExamCycle saved = examCycleRepository.save(cycle);
+        auditService.record(AdminAuditAction.EXAM_CYCLE_CREATE, actor, AuditTargetType.EXAM_CYCLE,
+                String.valueOf(saved.getId()), "name=" + saved.getName());
+        return saved;
     }
 
     // Opens registrations for exactly this cycle: close whatever is open, then open the target,
     // atomically — there is never more than one active cycle.
     @PutMapping("/{id}/activate")
     @Transactional
-    public ExamCycle activate(@PathVariable Long id) {
+    public ExamCycle activate(@PathVariable Long id, Authentication auth) {
+        User actor = callerScope.requireActor(auth);
         ExamCycle target = examCycleRepository.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Exam cycle not found: " + id));
         examCycleRepository.deactivateAll();
         target.setActive(true);
-        return examCycleRepository.save(target);
+        ExamCycle saved = examCycleRepository.save(target);
+        // Inside the method's existing transaction: opening registration college-wide can never
+        // commit without the row naming who opened it.
+        auditService.record(AdminAuditAction.EXAM_CYCLE_ACTIVATE, actor, AuditTargetType.EXAM_CYCLE,
+                String.valueOf(id), "name=" + saved.getName() + " (registration OPEN)");
+        return saved;
     }
 
     // Ends the cycle. With no active cycle the portal reports registrations as closed.
     @PutMapping("/{id}/deactivate")
     @Transactional
-    public ExamCycle deactivate(@PathVariable Long id) {
+    public ExamCycle deactivate(@PathVariable Long id, Authentication auth) {
+        User actor = callerScope.requireActor(auth);
         ExamCycle target = examCycleRepository.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Exam cycle not found: " + id));
         target.setActive(false);
-        return examCycleRepository.save(target);
+        ExamCycle saved = examCycleRepository.save(target);
+        auditService.record(AdminAuditAction.EXAM_CYCLE_DEACTIVATE, actor, AuditTargetType.EXAM_CYCLE,
+                String.valueOf(id), "name=" + saved.getName() + " (registration CLOSED)");
+        return saved;
     }
 }

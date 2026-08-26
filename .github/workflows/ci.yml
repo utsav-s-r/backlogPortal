@@ -1,0 +1,110 @@
+# P3-11: nothing ran tests, lint or a dependency scan automatically, and a deploy gated on none of
+# them — the only automated check was that the image compiled. That is why the P1-2 advisories sat
+# unnoticed.
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  # Advisories appear without anyone pushing, so the scan also runs on a schedule.
+  schedule:
+    - cron: "0 3 * * 1"
+
+jobs:
+  backend:
+    name: Backend — full suite
+    runs-on: ubuntu-latest
+    services:
+      # 13 test classes boot the Spring context, which runs every Flyway migration plus Hibernate
+      # validate. They need a real Postgres; the test profile points hard at localhost:5433, so the
+      # port mapping below must stay 5433 and the credentials must stay verify/verify.
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: verify
+          POSTGRES_PASSWORD: verify
+          POSTGRES_DB: backlog
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "21"        # Boot 3.5.16 targets 21; pom sets java.version=21
+          distribution: temurin
+          cache: maven
+      # No -o here, unlike local runs: the runner has no populated ~/.m2 to work offline from.
+      - run: ./mvnw --batch-mode test
+        working-directory: backend/backlog
+
+  frontend:
+    name: Frontend — build, lint, e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # .node-version pins 26.7.0 for local fnm. package.json `engines` is the real floor
+          # (^22.12.0 || >=24) — read the pin so CI matches what developers run.
+          node-version-file: frontend/.node-version
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # ci, not install: the lockfile is the point, and cypress's postinstall is pre-approved via
+      # allowScripts in package.json (strip that and e2e is silently unrunnable here).
+      - run: npm ci
+        working-directory: frontend
+
+      - run: npm run build
+        working-directory: frontend
+
+      # ⚠️ THE LINT TRAP — do not "simplify" this to `npm run lint`.
+      # The repo carries exactly 9 react-hooks/set-state-in-effect errors ON PURPOSE, each with a
+      # NOTE comment explaining why it is correct. So lint ALWAYS exits non-zero, and a naive step
+      # is red from its first run — whose likely fix is suppressing the nine, destroying exactly the
+      # visibility they exist for. Assert the COUNT instead: a different number means something
+      # real changed, in either direction.
+      - name: Lint — must be exactly 9 errors, 0 warnings
+        working-directory: frontend
+        run: |
+          set +e
+          output="$(npm run lint 2>&1)"
+          set -e
+          echo "$output"
+          if ! echo "$output" | grep -qE '✖ 9 problems \(9 errors, 0 warnings\)'; then
+            echo "::error::Expected exactly 9 errors and 0 warnings (the documented intentional set)."
+            echo "::error::A different count means a real change — investigate, do NOT suppress."
+            exit 1
+          fi
+
+      # Boots its own dev server on 127.0.0.1:4173; every spec cy.intercepts its API calls, so no
+      # backend is needed.
+      - run: npm run test:e2e
+        working-directory: frontend
+
+  audit:
+    name: Dependency scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.node-version
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      # --omit=dev deliberately: vite, tailwind, cypress and eslint are devDependencies that never
+      # reach a user, and their advisories drown the ones that do. This must stay at zero.
+      - name: npm audit (production dependencies only)
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=low
+      # Informational: the full tree, never failing the build.
+      - name: npm audit (full tree, informational)
+        working-directory: frontend
+        continue-on-error: true
+        run: npm audit

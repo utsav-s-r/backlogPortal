@@ -4,7 +4,10 @@ import com.college.backlog.controller.dto.SubjectCloneApplyRequest;
 import com.college.backlog.controller.dto.SubjectCloneResult;
 import com.college.backlog.controller.dto.SubjectClonePreviewRequest;
 import com.college.backlog.controller.dto.SubjectClonePreviewResponse;
+import com.college.backlog.model.AdminAuditAction;
+import com.college.backlog.model.AuditTargetType;
 import com.college.backlog.model.Department;
+import com.college.backlog.service.AdminAuditService;
 import com.college.backlog.model.User;
 import com.college.backlog.model.UserRole;
 import com.college.backlog.repository.DepartmentRepository;
@@ -32,6 +35,9 @@ import java.util.Set;
 public class SubjectCloneController {
 
     @Autowired
+    private AdminAuditService auditService;
+
+    @Autowired
     private CallerScope callerScope;
 
     private static final Set<UserRole> DEPT_ROLES = Set.of(UserRole.HOD, UserRole.DEPT_OFFICE);
@@ -49,9 +55,18 @@ public class SubjectCloneController {
 
     @PostMapping("/apply")
     public SubjectCloneResult apply(@RequestBody SubjectCloneApplyRequest req, Authentication auth) {
+        User actor = callerScope.requireActor(auth);
         Department dept = resolveDept(auth, req.getDeptId());
         validateYear(req.getTargetYear());
-        return cloneService.apply(dept.getId(), req.getTargetYear(), req.getRows());
+        SubjectCloneResult result = cloneService.apply(dept.getId(), req.getTargetYear(), req.getRows());
+        // ONE row for the whole operation, not one per subject: cloning a year's catalog is a single
+        // administrative act. NOT @Transactional here on purpose — SubjectCloneService.apply commits
+        // each row separately by design, so there is no enclosing transaction to join and the audit
+        // row records what actually happened, after it happened.
+        auditService.record(AdminAuditAction.SUBJECT_CLONE, actor, AuditTargetType.DEPARTMENT,
+                String.valueOf(dept.getId()),
+                "targetYear=" + req.getTargetYear() + " rows=" + (req.getRows() == null ? 0 : req.getRows().size()));
+        return result;
     }
 
     /** Department the caller may act on: own for HOD/DEPT_OFFICE, any for ADMIN/PRINCIPAL. */

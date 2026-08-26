@@ -3,7 +3,11 @@ package com.college.backlog.controller;
 import com.college.backlog.controller.dto.*;
 import com.college.backlog.model.ProctorAssignment;
 import com.college.backlog.model.Student;
+import com.college.backlog.model.AdminAuditAction;
+import com.college.backlog.model.AuditTargetType;
 import com.college.backlog.model.User;
+import com.college.backlog.service.AdminAuditService;
+import org.springframework.transaction.annotation.Transactional;
 import com.college.backlog.model.UserRole;
 import com.college.backlog.repository.ProctorAssignmentRepository;
 import com.college.backlog.repository.StudentRepository;
@@ -44,6 +48,9 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/admin/proctor")
 @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD', 'PROCTOR')")
 public class ProctorAssignmentController {
+
+    @Autowired
+    private AdminAuditService auditService;
 
     @Autowired
     private CallerScope callerScope;
@@ -195,6 +202,7 @@ public class ProctorAssignmentController {
 
     @DeleteMapping("/assignments/{rollNo}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
     public void unassign(@PathVariable String rollNo, Authentication auth) {
         User actor = callerScope.requireActor(auth);
         String roll = studentService.normalizeUsn(rollNo);
@@ -214,6 +222,11 @@ public class ProctorAssignmentController {
                     "Outside your department's scope.");
             }
         }
+        // Records which proctor lost the student — the assignment row is about to be gone, and the
+        // audit row carries no FK precisely so it survives that.
+        auditService.record(AdminAuditAction.PROCTOR_UNASSIGN, actor,
+                AuditTargetType.PROCTOR_ASSIGNMENT, roll,
+                "proctor=" + assignment.getProctorUsername());
         assignmentRepository.delete(assignment);
     }
 

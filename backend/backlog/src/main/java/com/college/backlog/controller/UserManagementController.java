@@ -1,6 +1,10 @@
 package com.college.backlog.controller;
 
 import com.college.backlog.controller.dto.CreateUserRequest;
+import com.college.backlog.model.AdminAuditAction;
+import com.college.backlog.model.AuditTargetType;
+import com.college.backlog.service.AdminAuditService;
+import org.springframework.transaction.annotation.Transactional;
 import com.college.backlog.controller.dto.UserResponse;
 import com.college.backlog.model.Department;
 import com.college.backlog.model.User;
@@ -59,6 +63,9 @@ public class UserManagementController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private AdminAuditService auditService;
+
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD')")
     public List<UserResponse> listUsers(Authentication auth) {
@@ -76,6 +83,7 @@ public class UserManagementController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD')")
+    @Transactional
     public Map<String, String> createUser(@Valid @RequestBody CreateUserRequest req, Authentication auth) {
         User actor = callerScope.requireActor(auth);
 
@@ -112,12 +120,17 @@ public class UserManagementController {
         user.setRole(role);
         user.setDepartment(department);
         userRepository.save(user);
+        // Same transaction as the save: the account must never exist without the record of who
+        // granted it, and of which role/department it was granted (P3-9).
+        auditService.record(AdminAuditAction.USER_CREATE, actor, AuditTargetType.USER, username,
+                "role=" + role + (department == null ? "" : " dept=" + department.getDeptName()));
 
         return accountResponse(user);
     }
 
     @PostMapping("/{username}/reset")
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD')")
+    @Transactional
     public Map<String, String> resetPassword(@PathVariable String username, Authentication auth) {
         User actor = callerScope.requireActor(auth);
         User target = loadManageableTarget(actor, username);
@@ -128,6 +141,8 @@ public class UserManagementController {
 
         target.setPassword(passwordEncoder.encode(defaultPasswordFor(target.getUsername())));
         userRepository.save(target);
+        auditService.record(AdminAuditAction.USER_PASSWORD_RESET, actor, AuditTargetType.USER,
+                target.getUsername(), "reset to the derived default");
 
         return accountResponse(target);
     }
@@ -137,6 +152,7 @@ public class UserManagementController {
     @DeleteMapping("/{username}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD')")
+    @Transactional
     public void deleteUser(@PathVariable String username, Authentication auth) {
         User actor = callerScope.requireActor(auth);
         User target = loadManageableTarget(actor, username);
@@ -149,6 +165,10 @@ public class UserManagementController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot delete the last administrator account");
         }
 
+        // Record BEFORE the delete: target.getRole() is read while the row is still loaded, and
+        // the audit row deliberately carries no FK so it survives its subject.
+        auditService.record(AdminAuditAction.USER_DELETE, actor, AuditTargetType.USER,
+                target.getUsername(), "role=" + target.getRole());
         userRepository.delete(target);
     }
 

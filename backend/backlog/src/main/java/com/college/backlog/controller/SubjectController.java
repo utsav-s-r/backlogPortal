@@ -2,7 +2,11 @@ package com.college.backlog.controller;
 
 import com.college.backlog.controller.dto.SubjectUpdateRequest;
 import com.college.backlog.model.Subject;
+import com.college.backlog.model.AdminAuditAction;
+import com.college.backlog.model.AuditTargetType;
 import com.college.backlog.model.User;
+import com.college.backlog.service.AdminAuditService;
+import org.springframework.transaction.annotation.Transactional;
 import com.college.backlog.model.UserRole;
 import com.college.backlog.repository.SubjectRepository;
 import com.college.backlog.service.SubjectService;
@@ -32,6 +36,9 @@ import java.util.Set;
 @RequestMapping("/api/admin/subjects")
 @PreAuthorize("hasAnyRole('ADMIN','PRINCIPAL','HOD','DEPT_OFFICE')")
 public class SubjectController {
+
+    @Autowired
+    private AdminAuditService auditService;
 
     @Autowired
     private CallerScope callerScope;
@@ -70,16 +77,31 @@ public class SubjectController {
     }
 
     @PutMapping("/{id}")
+    // @Transactional so the audit row joins the service's transaction rather than committing on its
+    // own — the edit must never land without its record (P3-9).
+    @Transactional
     public Subject update(@PathVariable Long id,
                           @Valid @RequestBody SubjectUpdateRequest request,
                           Authentication auth) {
-        return subjectService.updateSubject(id, request, resolveCallerDeptId(auth));
+        Subject saved = subjectService.updateSubject(id, request, resolveCallerDeptId(auth));
+        auditService.record(AdminAuditAction.SUBJECT_UPDATE, callerScope.requireActor(auth),
+                AuditTargetType.SUBJECT, String.valueOf(id),
+                "code=" + saved.getCourseCode() + " sem=" + saved.getSemester());
+        return saved;
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
     public void delete(@PathVariable Long id, Authentication auth) {
+        // Read the identifying values BEFORE the delete: the audit row carries no FK, so this is
+        // the only place they survive.
+        String detail = subjectRepository.findById(id)
+                .map(sub -> "code=" + sub.getCourseCode() + " sem=" + sub.getSemester())
+                .orElse("unknown subject");
         subjectService.deleteSubject(id, resolveCallerDeptId(auth));
+        auditService.record(AdminAuditAction.SUBJECT_DELETE, callerScope.requireActor(auth),
+                AuditTargetType.SUBJECT, String.valueOf(id), detail);
     }
 
     /** Dept id a caller is pinned to; null ONLY for a genuinely unrestricted ADMIN/PRINCIPAL —

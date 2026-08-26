@@ -11,7 +11,11 @@ import com.college.backlog.model.ExamCycle;
 import com.college.backlog.model.Registration;
 import com.college.backlog.model.RegistrationStatus;
 import com.college.backlog.model.Subject;
+import com.college.backlog.model.AdminAuditAction;
+import com.college.backlog.model.AuditTargetType;
 import com.college.backlog.model.User;
+import com.college.backlog.service.AdminAuditService;
+import org.springframework.transaction.annotation.Transactional;
 import com.college.backlog.model.UserRole;
 import com.college.backlog.repository.DepartmentRepository;
 import com.college.backlog.repository.ExamCycleRepository;
@@ -54,6 +58,9 @@ public class AdminController {
     // (see proctorRollNos below).
     private static final java.util.Set<UserRole> DEPT_ROLES =
         java.util.Set.of(UserRole.HOD, UserRole.DEPT_OFFICE, UserRole.PROCTOR);
+
+    @Autowired
+    private AdminAuditService auditService;
 
     @Autowired
     private RegistrationRepository registrationRepository;
@@ -282,6 +289,7 @@ public class AdminController {
     @PostMapping("/subjects")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD', 'DEPT_OFFICE')")
+    @Transactional
     public Subject addSubject(@Valid @RequestBody SubjectCreateRequest request, Authentication authentication) {
         // dept-scoped roles may only create subjects for their own department — server-side,
         // not just pinned in the UI
@@ -290,7 +298,11 @@ public class AdminController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                 "You can only add subjects for your own department.");
         }
-        return subjectService.createSubject(request);
+        Subject saved = subjectService.createSubject(request);
+        auditService.record(AdminAuditAction.SUBJECT_CREATE, callerUser(authentication),
+                AuditTargetType.SUBJECT, String.valueOf(saved.getId()),
+                "code=" + saved.getCourseCode() + " sem=" + saved.getSemester());
+        return saved;
     }
 
     // Read is open to all admin roles like the other reads here; the writes below stay ADMIN/PRINCIPAL.
@@ -303,7 +315,10 @@ public class AdminController {
     @PostMapping("/departments")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL')")
-    public Department addDepartment(@Valid @RequestBody DepartmentRequest request) {
+    @Transactional
+    public Department addDepartment(@Valid @RequestBody DepartmentRequest request,
+                                    Authentication authentication) {
+        User actor = callerUser(authentication);
         String code = request.getCode().trim().toUpperCase();
         if (departmentRepository.existsByCodeIgnoreCase(code)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -313,12 +328,18 @@ public class AdminController {
         dept.setDeptName(request.getDeptName().trim());
         dept.setCode(code);
         dept.setContactEmail(request.getContactEmail() != null ? request.getContactEmail().trim() : null);
-        return departmentRepository.save(dept);
+        Department saved = departmentRepository.save(dept);
+        auditService.record(AdminAuditAction.DEPARTMENT_CREATE, actor, AuditTargetType.DEPARTMENT,
+                String.valueOf(saved.getId()), "code=" + saved.getCode() + " name=" + saved.getDeptName());
+        return saved;
     }
 
     @PutMapping("/departments/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL')")
-    public Department updateDepartment(@PathVariable Long id, @Valid @RequestBody DepartmentRequest request) {
+    @Transactional
+    public Department updateDepartment(@PathVariable Long id, @Valid @RequestBody DepartmentRequest request,
+                                       Authentication authentication) {
+        User actor = callerUser(authentication);
         Department dept = departmentRepository.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Department not found with ID: " + id));
         // The @Version lock only guards a race within this request — it can't catch a stale-page
@@ -336,13 +357,19 @@ public class AdminController {
                     "A department with code '" + code + "' already exists.");
             }
         });
+        // Read BEFORE mutating: the code is what every student of that branch matches on, so a
+        // code change silently reassigns them and the old value is the only way to see that later.
+        String previous = "code=" + dept.getCode() + " name=" + dept.getDeptName();
         dept.setDeptName(request.getDeptName().trim());
         dept.setCode(code);
         dept.setContactEmail(request.getContactEmail() != null ? request.getContactEmail().trim() : null);
         try {
             // saveAndFlush so the @Version backstop for the window between the check above and
             // the flush fires here, not later. Rethrown as 409 — the generic handler maps it to 500.
-            return departmentRepository.saveAndFlush(dept);
+            Department saved = departmentRepository.saveAndFlush(dept);
+            auditService.record(AdminAuditAction.DEPARTMENT_UPDATE, actor, AuditTargetType.DEPARTMENT,
+                    String.valueOf(id), previous + " -> code=" + saved.getCode() + " name=" + saved.getDeptName());
+            return saved;
         } catch (ObjectOptimisticLockingFailureException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "This department was just changed by someone else. Reload and try again.");
@@ -355,7 +382,9 @@ public class AdminController {
     @DeleteMapping("/departments/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL')")
-    public void deleteDepartment(@PathVariable Long id) {
+    @Transactional
+    public void deleteDepartment(@PathVariable Long id, Authentication authentication) {
+        User actor = callerUser(authentication);
         Department dept = departmentRepository.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Department not found with ID: " + id));
 
@@ -371,7 +400,15 @@ public class AdminController {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "This department has students of its branch and cannot be deleted.");
         }
+        auditService.record(AdminAuditAction.DEPARTMENT_DELETE, actor, AuditTargetType.DEPARTMENT,
+                String.valueOf(id), "code=" + dept.getCode() + " name=" + dept.getDeptName());
         departmentRepository.delete(dept);
+    }
+
+    /** admin_audit_events.detail is varchar(500); an export's filter context can exceed that, and a
+     *  truncated record beats a 500 on a successful export. */
+    private static String truncateDetail(String detail) {
+        return detail.length() <= 500 ? detail : detail.substring(0, 497) + "...";
     }
 
     @GetMapping("/subjects-for-filter")
@@ -466,6 +503,12 @@ public class AdminController {
         // JSON into the file and the browser saved a corrupt PDF. Summary rows are small, and the
         // per-student form PDF already buffers the same way.
         byte[] pdf = pdfService.generateRegistrationsSummaryPdf(registrations, context);
+
+        // Personal data for every student in scope is leaving the system. Recorded AFTER the PDF is
+        // built successfully — a failed generation exported nothing — and the filter context is the
+        // detail, since a bulk export has no single target.
+        auditService.record(AdminAuditAction.PDF_BULK_EXPORT, caller, AuditTargetType.EXPORT, null,
+                truncateDetail(registrations.size() + " registrations; " + context));
 
         response.setContentType(MediaType.APPLICATION_PDF_VALUE);
         response.setContentLength(pdf.length);
