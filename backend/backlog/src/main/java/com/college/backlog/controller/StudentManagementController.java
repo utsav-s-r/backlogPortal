@@ -109,7 +109,7 @@ public class StudentManagementController {
         }
         Student saved;
         try {
-            saved = studentService.createStudent(req);
+            saved = studentService.createStudent(req, actor.getUsername());
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
@@ -126,7 +126,7 @@ public class StudentManagementController {
         Student student = loadInScope(actor, rollNo);
         Student saved;
         try {
-            saved = studentService.updateStudent(student, req);
+            saved = studentService.updateStudent(student, req, actor.getUsername());
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
@@ -143,7 +143,7 @@ public class StudentManagementController {
         User actor = callerScope.requireActor(auth);
         Student student = loadInScope(actor, rollNo);
         try {
-            studentService.resetDob(student, req.getDateOfBirth());
+            studentService.resetDob(student, req.getDateOfBirth(), actor.getUsername());
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
@@ -159,7 +159,7 @@ public class StudentManagementController {
             "Proctors cannot delete student accounts — remove the student from your supervision instead.");
         Student student = loadInScope(actor, rollNo);
         try {
-            studentService.deleteStudent(student);
+            studentService.deleteStudent(student, actor.getUsername());
         } catch (IllegalStateException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
         }
@@ -207,7 +207,7 @@ public class StudentManagementController {
                     create.setDateOfBirth(row.getDateOfBirth());
                     create.setCurrentSemester(currentSem);
                     create.setEntrySemester(entrySem);
-                    studentService.createStudent(create);
+                    studentService.createStudent(create, actor.getUsername());
                     results.add(new ProgressionRowResult(roll, currentSem, "CREATED", null));
                     created++;
                 }

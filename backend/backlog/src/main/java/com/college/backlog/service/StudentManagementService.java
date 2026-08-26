@@ -44,10 +44,11 @@ public class StudentManagementService {
      * Create one student, in its own transaction so a bad row can't poison a bulk import.
      * The caller has already enforced USN uniqueness and department scope.
      *
+     * @param actor username of the staff account making the change — logged, never persisted
      * @throws IllegalArgumentException on any validation failure
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public Student createStudent(StudentCreateRequest req) {
+    public Student createStudent(StudentCreateRequest req, String actor) {
         String rollNo = normalizeUsn(req.getRollNo());
         validateUsn(rollNo);
         Department dept = resolveBranchDept(rollNo);
@@ -74,8 +75,8 @@ public class StudentManagementService {
         s.setYearOfJoining(Usn.admissionYear(rollNo));
 
         Student saved = studentRepository.save(s);
-        log.info("STUDENT_CREATE rollNo={} currentSem={} entrySem={}",
-                rollNo, saved.getCurrentSemester(), saved.getEntrySemester());
+        log.info("STUDENT_CREATE actor={} rollNo={} currentSem={} entrySem={}",
+                actor, rollNo, saved.getCurrentSemester(), saved.getEntrySemester());
 
         // Seed the FULL timeline up front: entry..8, mapped linearly from the admission year
         // (1-2 -> join year, 3-4 -> +1, ...); pre-entry sems stay empty for lateral entrants.
@@ -86,9 +87,10 @@ public class StudentManagementService {
         return saved;
     }
 
-    /** Apply an edit to an already-loaded student. DOB and USN are not touched here. */
+    /** Apply an edit to an already-loaded student. DOB and USN are not touched here.
+     *  {@code actor} is the staff username, logged for attribution. */
     @Transactional
-    public Student updateStudent(Student existing, StudentUpdateRequest req) {
+    public Student updateStudent(Student existing, StudentUpdateRequest req, String actor) {
         validateSemesters(req.getCurrentSemester(), req.getEntrySemester());
         if (req.getName() == null || req.getName().isBlank()) {
             throw new IllegalArgumentException("Name is required.");
@@ -100,31 +102,32 @@ public class StudentManagementService {
         existing.setCurrentSemester(req.getCurrentSemester());
         existing.setEntrySemester(req.getEntrySemester());
         Student saved = studentRepository.save(existing);
-        log.info("STUDENT_UPDATE rollNo={} currentSem={} entrySem={}",
-                saved.getRollNo(), saved.getCurrentSemester(), saved.getEntrySemester());
+        log.info("STUDENT_UPDATE actor={} rollNo={} currentSem={} entrySem={}",
+                actor, saved.getRollNo(), saved.getCurrentSemester(), saved.getEntrySemester());
         return saved;
     }
 
-    /** Reset the login credential (DOB). The value is never logged. */
+    /** Reset the login credential (DOB). The value is never logged — only who reset it, for whom. */
     @Transactional
-    public void resetDob(Student existing, LocalDate dateOfBirth) {
+    public void resetDob(Student existing, LocalDate dateOfBirth, String actor) {
         if (dateOfBirth == null) {
             throw new IllegalArgumentException("Date of birth is required.");
         }
         existing.setDateOfBirth(dateOfBirth);
         studentRepository.save(existing);
-        log.info("STUDENT_DOB_RESET rollNo={}", existing.getRollNo());
+        log.info("STUDENT_DOB_RESET actor={} rollNo={}", actor, existing.getRollNo());
     }
 
-    /** Delete a student that no registration references; otherwise reject. */
+    /** Delete a student that no registration references; otherwise reject.
+     *  {@code actor} is the staff username: this is the one irreversible action here. */
     @Transactional
-    public void deleteStudent(Student existing) {
+    public void deleteStudent(Student existing, String actor) {
         if (registrationRepository.existsByStudent_RollNo(existing.getRollNo())) {
             throw new IllegalStateException(
                 "This student has registrations and cannot be deleted.");
         }
         studentRepository.delete(existing);
-        log.info("STUDENT_DELETE rollNo={}", existing.getRollNo());
+        log.info("STUDENT_DELETE actor={} rollNo={}", actor, existing.getRollNo());
     }
 
     // ---- validation helpers (also reused by the controller for dry-run import) ----

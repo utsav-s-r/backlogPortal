@@ -15,6 +15,7 @@ import BrandHeader from "../components/layout/BrandHeader";
 import MagneticCta from "../components/ui/MagneticCta";
 import api, { getAdminToken, logoutAdmin } from "../lib/api";
 import { rememberExpiry } from "../lib/session";
+import { safeRedirect } from "../lib/redirect";
 
 const DEPT_ROLES = new Set(["HOD", "DEPT_OFFICE", "PROCTOR"]);
 
@@ -141,12 +142,8 @@ function AdminLoginPage() {
           sessionStorage.removeItem("adminDepartmentId");
         }
 
-        const redirectUrl = searchParams.get("redirect");
-        if (redirectUrl) {
-          navigate(redirectUrl);
-        } else {
-          navigate("/admin");
-        }
+        // Validated, never trusted: the param is attacker-controllable on a real login link.
+        navigate(safeRedirect(searchParams.get("redirect"), "/admin"));
       } else {
         // login succeeded server-side (cookie set) but the role is unexpected — clear the
         // cookie too, not just local state

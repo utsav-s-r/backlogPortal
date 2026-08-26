@@ -19,11 +19,11 @@
     "test:e2e:live": "start-server-and-test dev:e2e http://127.0.0.1:4173 cy:run:live"
   },
   "dependencies": {
-    "axios": "^1.15.0",
+    "axios": "^1.20.0",
     "lucide-react": "^1.8.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.14.1"
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

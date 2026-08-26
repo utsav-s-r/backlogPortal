@@ -5,6 +5,7 @@ import BrandHeader from "../components/layout/BrandHeader";
 import MagneticCta from "../components/ui/MagneticCta";
 import api, { getStudentToken } from "../lib/api";
 import { rememberExpiry } from "../lib/session";
+import { safeRedirect } from "../lib/redirect";
 import AlertBanner from "../components/AlertBanner";
 
 const USN_PATTERN = /^1MS\d{2}[A-Z]{2}\d{3}$/;
@@ -51,10 +52,12 @@ function StudentLoginPage() {
         sessionStorage.setItem("studentRollNo", res.data.rollNo || usn);
         sessionStorage.setItem("studentName", res.data.name || "");
         rememberExpiry("student", res.data.expiresIn);
-        // Always land on the dashboard, even when the guard bounced the student here from a
-        // deep link like /register: it is the home base (profile, status, past registrations),
-        // and registration is one CTA click away.
-        navigate("/student");
+        // The dashboard is home base (profile, status, past registrations) and stays the default.
+        // But when ProtectedStudentRoute bounced the student off an explicit deep link it encodes
+        // that destination, and dropping it read as a broken link. Honour it — validated, never
+        // raw: the param is attacker-controllable, and only /register and /student are reachable
+        // anyway (RegistrationPage loads its own data, so it is a complete entry point).
+        navigate(safeRedirect(searchParams.get("redirect"), "/student"));
       } else {
         setError("Login failed. Please try again.");
       }

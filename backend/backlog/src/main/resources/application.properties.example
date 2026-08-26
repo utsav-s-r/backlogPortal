@@ -95,6 +95,17 @@ spring.application.name=backlog
 server.port=${PORT:8080}
 server.error.include-message=never
 
+# Honour X-Forwarded-* from the platform proxy. Render terminates TLS and forwards plain HTTP, so
+# WITHOUT this the app considers every request insecure and Spring Security emits NO
+# Strict-Transport-Security header — measured 2026-08-26, absent even when X-Forwarded-Proto: https
+# was sent. Easy to miss because the session cookie is Secure by its own property
+# (app.cookie.secure), so TLS looks handled. `framework` = Spring's ForwardedHeaderFilter, portable
+# across containers; `native` would instead need the container's own proxy valve configured.
+# Only safe because the app is reachable ONLY through that proxy — a directly-reachable instance
+# would let any client spoof the scheme. Nothing here reads the client address (PdfRateLimitService
+# keys on the authenticated principal, deliberately), so the changed remote-address view is inert.
+server.forward-headers-strategy=${FORWARD_HEADERS_STRATEGY:framework}
+
 # Gzip API responses; Boot's default mime-type list already covers application/json. Registration
 # and subject list payloads compress ~5-10x. PDFs are already compressed and stay untouched, since
 # application/pdf isn't listed.
