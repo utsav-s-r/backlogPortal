@@ -6,9 +6,20 @@ spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/database_name}
 spring.datasource.username=${DB_USER:postgres}
 spring.datasource.password=${DB_PASSWORD:YOUR_PASSWORD_HERE}
 spring.datasource.hikari.maximum-pool-size=${DB_POOL_MAX_SIZE:5}
-spring.datasource.hikari.minimum-idle=${DB_POOL_MIN_IDLE:1}
+# 0, NOT 1 — to Neon an idle pooled connection IS activity, so it defeats the 5-min autosuspend and
+# bills compute 24/7. Only bites a long-lived process: a local run dies and closes the connection,
+# the Render container never does (the GET / keep-alive cron stops it sleeping). Measured
+# 2026-08-27 with min-idle=1: 18.94 CU-h in 3.2 days = a 100% duty cycle -> ~186 CU-h/month against
+# the 100 CU-h/PROJECT/month free allowance, which SUSPENDS the production database around day 17
+# and presents as a boot failure. The keep-alive itself is innocent — it touches no DB.
+spring.datasource.hikari.minimum-idle=${DB_POOL_MIN_IDLE:0}
+# Must stay BELOW Neon's 5-min autosuspend timer or min-idle=0 buys nothing: Hikari's own default is
+# 10 MINUTES, so the connection would outlive the quiet window that lets the compute sleep. Applies
+# only while minimum-idle < maximum-pool-size, i.e. it goes inert if min-idle is raised back to 5.
+spring.datasource.hikari.idle-timeout=${DB_POOL_IDLE_TIMEOUT_MS:30000}
 # Serverless Postgres (Neon) auto-suspends when idle and takes a second or two to wake. Hikari's
-# own default is already 30s; stated explicitly so it is tunable per environment.
+# own default is already 30s; stated explicitly so it is tunable per environment. It is also what
+# absorbs the resume that min-idle=0 makes routine on the first query after a quiet spell.
 spring.datasource.hikari.connection-timeout=${DB_CONNECTION_TIMEOUT_MS:30000}
 # FLYWAY is what actually hits a sleeping database first — it migrates at boot, before Hikari
 # serves anything, so Hikari timeouts alone do NOT stop a cold start from dying on a suspended
