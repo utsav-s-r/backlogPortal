@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   KeyRound,
   LoaderCircle,
+  PencilLine,
   Trash2,
   UserPlus,
   Users,
@@ -39,6 +40,9 @@ function ManageUsersPage() {
   // HOD manages only their own department's accounts. The server enforces it; pinning the
   // dropdown just keeps the UI honest.
   const deptLocked = adminRole === "HOD";
+  // Renaming somebody else is ADMIN only, narrower than the create/reset/delete ladder above.
+  // Mirrors PATCH /api/admin/users/{username}'s @PreAuthorize, which is the actual control.
+  const canRename = adminRole === "ADMIN";
 
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -165,6 +169,35 @@ function ManageUsersPage() {
     }
   };
 
+  // ADMIN only — PRINCIPAL and HOD are read-only for renames. The server's @PreAuthorize is the
+  // control; this only keeps the UI from offering a button that 403s.
+  const handleRename = async (username) => {
+    const next = window.prompt(`New username for "${username}":`, username);
+    if (next === null) return; // cancelled
+    const trimmed = next.trim();
+    if (!trimmed || trimmed === username) return;
+
+    setError("");
+    setBusyUser(username);
+    try {
+      const res = await api.patch(
+        `/admin/users/${encodeURIComponent(username)}`,
+        { newUsername: trimmed },
+        { headers: getAdminHeaders() },
+      );
+      setNotice({
+        username: res.data.username,
+        label: "Account renamed",
+        renamedFrom: username,
+      });
+      loadUsers();
+    } catch (apiError) {
+      setError(apiError.response?.data?.message || "Could not rename user.");
+    } finally {
+      setBusyUser("");
+    }
+  };
+
   const handleDelete = async (username) => {
     if (!window.confirm(`Delete user "${username}"? This cannot be undone.`)) {
       return;
@@ -239,18 +272,29 @@ function ManageUsersPage() {
           )}
 
           {/* No secret to transport: the password is derived from the username, so this states the
-              convention rather than revealing a value that can never be shown again. */}
+              convention rather than revealing a value that can never be shown again.
+              A RENAME must not use that wording — it leaves the password untouched, so the derived
+              default (if they are still on one) still matches their OLD name. */}
           {notice && (
             <div
               role="status"
               className="flex items-start justify-between gap-3 rounded-xl border border-stroke bg-primary-tint px-4 py-3 text-sm text-ink"
             >
-              <p>
-                <strong>{notice.label}.</strong> The password for{" "}
-                <strong>{notice.username}</strong> is{" "}
-                <code className="select-all font-mono">{notice.username}4321</code> — they can
-                change it any time from My Password.
-              </p>
+              {notice.renamedFrom ? (
+                <p>
+                  <strong>{notice.label}.</strong>{" "}
+                  <strong>{notice.renamedFrom}</strong> is now{" "}
+                  <strong>{notice.username}</strong>. Their password is unchanged, and they have
+                  been signed out — they sign back in with the new username.
+                </p>
+              ) : (
+                <p>
+                  <strong>{notice.label}.</strong> The password for{" "}
+                  <strong>{notice.username}</strong> is{" "}
+                  <code className="select-all font-mono">{notice.username}4321</code> — they can
+                  change it any time from My Password.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={() => setNotice(null)}
@@ -417,6 +461,16 @@ function ManageUsersPage() {
                                 )}{" "}
                                 Reset
                               </button>
+                              {canRename && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRename(u.username)}
+                                  disabled={busy}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-stroke px-2.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-primary hover:text-primary-ink disabled:opacity-50"
+                                >
+                                  <PencilLine size={13} /> Rename
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => handleDelete(u.username)}

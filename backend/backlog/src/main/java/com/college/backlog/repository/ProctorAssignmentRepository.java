@@ -10,11 +10,9 @@ import java.util.List;
 @Repository
 public interface ProctorAssignmentRepository extends JpaRepository<ProctorAssignment, String> {
 
-    List<ProctorAssignment> findByProctorUsername(String proctorUsername);
+    List<ProctorAssignment> findByProctorUserId(Long proctorUserId);
 
     // batch lookup for the claim picker: which students on a page are already supervised, in
     // one query rather than N
     List<ProctorAssignment> findByRollNoIn(Collection<String> rollNos);
-
-    boolean existsByProctorUsername(String proctorUsername);
 }

@@ -67,10 +67,9 @@ services:
       # MUST be true (the application default) on any https deployment.
       APP_COOKIE_SECURE: "false"
 
-      # Seed accounts on a fresh volume. Unset means the account is NOT created — no guessable
-      # fallback — so at least one must be set to sign in the first time.
+      # Seeds the ADMIN account on a fresh volume — the only seedable role. Unset means it is NOT
+      # created — no guessable fallback — so it must be set to sign in the first time.
       ADMIN_PASSWORD_ADMIN:     ${ADMIN_PASSWORD_ADMIN:-}
-      ADMIN_PASSWORD_PRINCIPAL: ${ADMIN_PASSWORD_PRINCIPAL:-}
     ports:
       # 8081 on the host, not 8080: a developer running `./mvnw spring-boot:run` already holds
       # 8080, and that clash is a confusing failure.

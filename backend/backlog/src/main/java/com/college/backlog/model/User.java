@@ -6,7 +6,17 @@ import jakarta.persistence.*;
 @Table(name = "users")
 public class User {
 
+    // Surrogate key (V4). Identity is the id; username is a mutable attribute, which is what lets
+    // an account be renamed without touching proctor_students' FK. The SECURITY principal is still
+    // the username (JwtService subject, auth.getName()) — only the database key is the id, so a
+    // rename revokes the live session via AccountExistenceFilter rather than silently continuing.
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    // Login credential and JWT subject, so still globally unique — uq_users_username in V4 is the
+    // control; `unique` here is documentation, as validate never checks unique constraints.
+    @Column(nullable = false, unique = true)
     private String username;
 
     private String password;
@@ -27,6 +37,9 @@ public class User {
         this.password = password;
         this.role = role;
     }
+
+    /** Assigned by the database; no setter — nothing may reassign an account's identity. */
+    public Long getId() { return id; }
 
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }

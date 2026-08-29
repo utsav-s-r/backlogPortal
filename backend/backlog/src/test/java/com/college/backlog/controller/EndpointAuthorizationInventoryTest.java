@@ -55,7 +55,12 @@ class EndpointAuthorizationInventoryTest {
      * the honest fix would be to name it, which is what this is.
      */
     private static final Set<String> AUTHENTICATED_ANY_ROLE = Set.of(
-            "POST /api/auth/change-password");
+            "POST /api/auth/change-password",
+            // Same category and same reasoning: renaming your OWN account is every staff role's
+            // business, the target is the caller's own row, and the identity comes from the JWT.
+            // Renaming SOMEONE ELSE is a different endpoint, PATCH /api/admin/users/{username},
+            // which is ADMIN-only and role-guarded.
+            "POST /api/auth/change-username");
 
     @Autowired
     private RequestMappingHandlerMapping handlerMapping;

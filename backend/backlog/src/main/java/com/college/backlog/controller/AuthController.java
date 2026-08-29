@@ -1,12 +1,17 @@
 package com.college.backlog.controller;
 
 import com.college.backlog.controller.dto.ChangePasswordRequest;
+import com.college.backlog.controller.dto.ChangeUsernameRequest;
+import com.college.backlog.model.AdminAuditAction;
+import com.college.backlog.model.AuditTargetType;
 import com.college.backlog.model.User;
 import com.college.backlog.model.UserRole;
 import com.college.backlog.repository.UserRepository;
 import com.college.backlog.security.JwtService;
 import com.college.backlog.security.SessionCookieService;
+import com.college.backlog.service.AdminAuditService;
 import com.college.backlog.service.CallerScope;
+import org.springframework.transaction.annotation.Transactional;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +47,9 @@ public class AuthController {
     @Autowired
     private SessionCookieService sessionCookieService;
 
+    @Autowired
+    private AdminAuditService auditService;
+
     @PostMapping("/login")
     public Map<String, String> login(@RequestBody Map<String, String> body,
                                      HttpServletResponse response) {
@@ -53,7 +61,7 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username and password are required");
         }
 
-        User user = userRepository.findById(username).orElse(null);
+        User user = userRepository.findByUsername(username).orElse(null);
         // Unknown user and wrong password are deliberately indistinguishable — same 401, same text
         if (user == null || !matchesPassword(user, password)) {
             throw invalidCredentials();
@@ -128,6 +136,58 @@ public class AuthController {
 
         Map<String, String> resp = new HashMap<>();
         resp.put("message", "Password changed");
+        return resp;
+    }
+
+    /**
+     * Self-service rename for any authenticated admin-type user; requires the current password, as
+     * change-password does — a live session alone must not be enough to change a sign-in credential.
+     *
+     * <p><b>This signs the caller out, deliberately.</b> The JWT subject is the username (V4 moved
+     * only the DB key to a surrogate id), so the live token no longer resolves; the cookie is
+     * cleared here rather than left for {@code AccountExistenceFilter} to 401 on the next request.
+     * Same outcome, but chosen instead of stumbled into — and the SPA caches {@code adminUsername}
+     * at login, so it has to re-authenticate to refresh it either way.
+     *
+     * <p>The password is NOT reset to the new derived default. An account still on
+     * {@code oldname + "4321"} keeps that password after the rename; resetting a credential as a
+     * side effect of renaming would be a worse surprise than the drift.
+     */
+    @PostMapping("/change-username")
+    @Transactional
+    public Map<String, String> changeUsername(@Valid @RequestBody ChangeUsernameRequest req,
+                                              Authentication auth, HttpServletResponse response) {
+        User user = callerScope.requireActor(auth);
+
+        if (!matchesPassword(user, req.getCurrentPassword())) {
+            // 400, not 401, for the reason spelled out on changePassword: the session is valid, a
+            // mistyped currentPassword is a bad FIELD.
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
+        }
+
+        String newUsername = req.getNewUsername();
+        String oldUsername = user.getUsername();
+        if (newUsername.equals(oldUsername)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "New username must be different from the current one");
+        }
+        if (userRepository.existsByUsername(newUsername)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A user with that username already exists");
+        }
+
+        // Recorded BEFORE the mutation so `actor` is who they were when they acted — the audit
+        // convention everywhere else. Same transaction: the rename must never commit without it.
+        auditService.record(AdminAuditAction.USER_RENAME, user, AuditTargetType.USER, newUsername,
+                "self-rename from=" + oldUsername);
+
+        user.setUsername(newUsername);
+        userRepository.save(user);
+        sessionCookieService.clear(response, SessionCookieService.ADMIN_COOKIE);
+
+        Map<String, String> resp = new HashMap<>();
+        resp.put("message", "Username changed. Please sign in again.");
+        resp.put("signedOut", "true");
         return resp;
     }
 

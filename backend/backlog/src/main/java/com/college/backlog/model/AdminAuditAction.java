@@ -10,7 +10,7 @@ package com.college.backlog.model;
  */
 public enum AdminAuditAction {
     // 1. privilege surface
-    USER_CREATE, USER_DELETE, USER_PASSWORD_RESET,
+    USER_CREATE, USER_DELETE, USER_PASSWORD_RESET, USER_RENAME,
     // 2. the college-wide registration switch
     EXAM_CYCLE_CREATE, EXAM_CYCLE_ACTIVATE, EXAM_CYCLE_DEACTIVATE,
     // 3. personal data leaving the system

@@ -45,11 +45,11 @@ class AccountExistenceFilterTest {
         User u = new User();
         u.setUsername(username);
         u.setRole(role);
-        when(userRepository.findById(username)).thenReturn(Optional.of(u));
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(u));
     }
 
     private void noAccountRowFor(String username) {
-        when(userRepository.findById(username)).thenReturn(Optional.empty());
+        when(userRepository.findByUsername(username)).thenReturn(Optional.empty());
     }
 
     private MockHttpServletRequest request(String method, String uri) {

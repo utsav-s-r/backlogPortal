@@ -10,6 +10,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -27,8 +28,11 @@ class ProctorScopeServiceTest {
     @Mock private ProctorAssignmentRepository assignmentRepository;
     @InjectMocks private ProctorScopeService service;
 
-    private User user(String username, UserRole role) {
+    /** Scope keys on the surrogate id since V4, and {@code User.id} has no setter by design —
+     *  nothing may reassign an account's identity — so a unit test has to inject it. */
+    private User user(Long id, String username, UserRole role) {
         User u = new User();
+        ReflectionTestUtils.setField(u, "id", id);
         u.setUsername(username);
         u.setRole(role);
         return u;
@@ -38,33 +42,33 @@ class ProctorScopeServiceTest {
 
     @Test
     void nonProctorsAreUnrestrictedAtTheAssignmentLayer() {
-        assertThat(service.assignedRollNos(user("hod_cs", UserRole.HOD))).isNull();
-        assertThat(service.assignedRollNos(user("admin", UserRole.ADMIN))).isNull();
+        assertThat(service.assignedRollNos(user(10L, "hod_cs", UserRole.HOD))).isNull();
+        assertThat(service.assignedRollNos(user(11L, "admin", UserRole.ADMIN))).isNull();
         assertThat(service.assignedRollNos(null)).isNull();
         verifyNoInteractions(assignmentRepository);
     }
 
     @Test
     void proctorGetsExactlyTheirAssignedSet() {
-        when(assignmentRepository.findByProctorUsername("proc1")).thenReturn(List.of(
-            new ProctorAssignment("1MS22CS001", "proc1", "hod_cs"),
-            new ProctorAssignment("1MS22CS002", "proc1", "proc1")));
+        when(assignmentRepository.findByProctorUserId(1L)).thenReturn(List.of(
+            new ProctorAssignment("1MS22CS001", 1L, "hod_cs"),
+            new ProctorAssignment("1MS22CS002", 1L, "proc1")));
 
-        assertThat(service.assignedRollNos(user("proc1", UserRole.PROCTOR)))
+        assertThat(service.assignedRollNos(user(1L, "proc1", UserRole.PROCTOR)))
             .containsExactlyInAnyOrder("1MS22CS001", "1MS22CS002");
     }
 
     @Test
     void proctorWithNoAssignmentsGetsAnEmptySetNotNull() {
-        when(assignmentRepository.findByProctorUsername("proc1")).thenReturn(List.of());
-        assertThat(service.assignedRollNos(user("proc1", UserRole.PROCTOR))).isEmpty();
+        when(assignmentRepository.findByProctorUserId(1L)).thenReturn(List.of());
+        assertThat(service.assignedRollNos(user(1L, "proc1", UserRole.PROCTOR))).isEmpty();
     }
 
     // ---- assertSupervises ----
 
     @Test
     void assertSupervisesIsANoOpForNonProctors() {
-        assertThatCode(() -> service.assertSupervises(user("hod_cs", UserRole.HOD), "1MS22CS001"))
+        assertThatCode(() -> service.assertSupervises(user(10L, "hod_cs", UserRole.HOD), "1MS22CS001"))
             .doesNotThrowAnyException();
         verifyNoInteractions(assignmentRepository);
     }
@@ -72,9 +76,9 @@ class ProctorScopeServiceTest {
     @Test
     void proctorPassesOnTheirOwnStudent() {
         when(assignmentRepository.findById("1MS22CS001"))
-            .thenReturn(Optional.of(new ProctorAssignment("1MS22CS001", "proc1", "hod_cs")));
+            .thenReturn(Optional.of(new ProctorAssignment("1MS22CS001", 1L, "hod_cs")));
 
-        assertThatCode(() -> service.assertSupervises(user("proc1", UserRole.PROCTOR), "1MS22CS001"))
+        assertThatCode(() -> service.assertSupervises(user(1L, "proc1", UserRole.PROCTOR), "1MS22CS001"))
             .doesNotThrowAnyException();
     }
 
@@ -82,7 +86,7 @@ class ProctorScopeServiceTest {
     void proctorIsForbiddenOnAnUnassignedStudent() {
         when(assignmentRepository.findById("1MS22CS009")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.assertSupervises(user("proc1", UserRole.PROCTOR), "1MS22CS009"))
+        assertThatThrownBy(() -> service.assertSupervises(user(1L, "proc1", UserRole.PROCTOR), "1MS22CS009"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
     }
@@ -90,9 +94,9 @@ class ProctorScopeServiceTest {
     @Test
     void proctorIsForbiddenOnAnotherProctorsStudent() {
         when(assignmentRepository.findById("1MS22CS001"))
-            .thenReturn(Optional.of(new ProctorAssignment("1MS22CS001", "proc2", "hod_cs")));
+            .thenReturn(Optional.of(new ProctorAssignment("1MS22CS001", 2L, "hod_cs")));
 
-        assertThatThrownBy(() -> service.assertSupervises(user("proc1", UserRole.PROCTOR), "1MS22CS001"))
+        assertThatThrownBy(() -> service.assertSupervises(user(1L, "proc1", UserRole.PROCTOR), "1MS22CS001"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
     }
@@ -101,10 +105,10 @@ class ProctorScopeServiceTest {
 
     @Test
     void rejectProctorOnlyBlocksProctors() {
-        assertThatCode(() -> service.rejectProctor(user("hod_cs", UserRole.HOD), "no"))
+        assertThatCode(() -> service.rejectProctor(user(10L, "hod_cs", UserRole.HOD), "no"))
             .doesNotThrowAnyException();
 
-        assertThatThrownBy(() -> service.rejectProctor(user("proc1", UserRole.PROCTOR), "no"))
+        assertThatThrownBy(() -> service.rejectProctor(user(1L, "proc1", UserRole.PROCTOR), "no"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
     }

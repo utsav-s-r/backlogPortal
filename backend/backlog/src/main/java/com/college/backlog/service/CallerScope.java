@@ -40,7 +40,10 @@ public class CallerScope {
         if (auth == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
         }
-        User user = userRepository.findById(auth.getName())
+        // By username, not id: the JWT subject is the username (V4 moved only the DB key to a
+        // surrogate id). A renamed account therefore stops resolving here — intended, see
+        // AccountExistenceFilter.
+        User user = userRepository.findByUsername(auth.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unknown account"));
         if (user.getRole() == null) {
             // users.role is nullable in the DB and its CHECK admits NULL (NULL = ANY(...) is NULL,

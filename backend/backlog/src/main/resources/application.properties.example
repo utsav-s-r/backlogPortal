@@ -94,10 +94,10 @@ app.ratelimit.pdf.window-minutes=${RATELIMIT_PDF_WINDOW_MINUTES:60}
 # Nothing else uses Redis, so scanning JPA repositories as Redis repositories is pure noise:
 spring.data.redis.repositories.enabled=false
 
-# Initial admin-account seed passwords, set via env. No fallback default: a blank value means the
-# account is NOT created on a fresh DB, so there is nothing guessable. Only ADMIN and PRINCIPAL are
-# seedable — HOD/DEPT_OFFICE/PROCTOR need a department, so create those via Manage Users.
-admin.password.principal=${ADMIN_PASSWORD_PRINCIPAL:}
+# Initial admin-account seed password, set via env. No fallback default: a blank value means the
+# account is NOT created on a fresh DB, so there is nothing guessable. ADMIN is the ONLY seedable
+# role — it creates every other one from Manage Users, PRINCIPAL included; HOD/DEPT_OFFICE/PROCTOR
+# additionally need a department a seeder cannot assign.
 admin.password.admin=${ADMIN_PASSWORD_ADMIN:}
 
 spring.application.name=backlog

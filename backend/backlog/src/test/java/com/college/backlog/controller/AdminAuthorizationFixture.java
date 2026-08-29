@@ -81,20 +81,26 @@ public final class AdminAuthorizationFixture {
     public static final String CS_SUBJECT_CODE = "24CS44";
     public static final String CV_SUBJECT_CODE = "24CV44";
 
-    /** Ids of the seeded departments and subjects, which are {@code @GeneratedValue} and so cannot
-     *  be constants. Returned rather than re-queried, because the dept-scoping assertions turn on
-     *  which id is which. */
+    /** Ids of the seeded departments, subjects and proctors, which are {@code @GeneratedValue} and
+     *  so cannot be constants. Returned rather than re-queried, because the dept-scoping assertions
+     *  turn on which id is which. Proctor ids joined the set in V4, when {@code proctor_students}
+     *  started keying on {@code users.id} instead of the username. */
     public static final class Ids {
         public final Long csDeptId;
         public final Long cvDeptId;
         public final Long csSubjectId;
         public final Long cvSubjectId;
+        public final Long proctorId;
+        public final Long proctorOtherDeptId;
 
-        private Ids(Long csDeptId, Long cvDeptId, Long csSubjectId, Long cvSubjectId) {
+        private Ids(Long csDeptId, Long cvDeptId, Long csSubjectId, Long cvSubjectId,
+                    Long proctorId, Long proctorOtherDeptId) {
             this.csDeptId = csDeptId;
             this.cvDeptId = cvDeptId;
             this.csSubjectId = csSubjectId;
             this.cvSubjectId = cvSubjectId;
+            this.proctorId = proctorId;
+            this.proctorOtherDeptId = proctorOtherDeptId;
         }
     }
 
@@ -109,25 +115,28 @@ public final class AdminAuthorizationFixture {
         user(users, PRINCIPAL, UserRole.PRINCIPAL, null);
         user(users, HOD, UserRole.HOD, cs);
         user(users, DEPT_OFFICE, UserRole.DEPT_OFFICE, cs);
-        user(users, PROCTOR, UserRole.PROCTOR, cs);
+        User proctor = user(users, PROCTOR, UserRole.PROCTOR, cs);
         user(users, PROCTOR_WITHOUT_STUDENTS, UserRole.PROCTOR, cs);
-        user(users, PROCTOR_OTHER_DEPT, UserRole.PROCTOR, cv);
+        User proctorOtherDept = user(users, PROCTOR_OTHER_DEPT, UserRole.PROCTOR, cv);
 
         student(students, CS_ASSIGNED_A, CS_CODE);
         student(students, CS_ASSIGNED_B, CS_CODE);
         student(students, CS_UNASSIGNED, CS_CODE);
         student(students, CV_STUDENT, CV_CODE);
 
-        assignments.save(new ProctorAssignment(CS_ASSIGNED_A, PROCTOR, HOD));
-        assignments.save(new ProctorAssignment(CS_ASSIGNED_B, PROCTOR, HOD));
+        // Keyed on the proctor's id, not their username (V4). assignedBy stays a username — it is
+        // an un-FK'd display snapshot of who acted.
+        assignments.save(new ProctorAssignment(CS_ASSIGNED_A, proctor.getId(), HOD));
+        assignments.save(new ProctorAssignment(CS_ASSIGNED_B, proctor.getId(), HOD));
         // held by someone else, in the other department — the row a proctor must not be able to
         // unassign and an HOD must not be able to reach
-        assignments.save(new ProctorAssignment(CV_STUDENT, PROCTOR_OTHER_DEPT, ADMIN));
+        assignments.save(new ProctorAssignment(CV_STUDENT, proctorOtherDept.getId(), ADMIN));
 
         Subject csSubject = subject(subjects, CS_SUBJECT_CODE, "Operating Systems", cs);
         Subject cvSubject = subject(subjects, CV_SUBJECT_CODE, "Structural Analysis", cv);
 
-        return new Ids(cs.getId(), cv.getId(), csSubject.getId(), cvSubject.getId());
+        return new Ids(cs.getId(), cv.getId(), csSubject.getId(), cvSubject.getId(),
+                proctor.getId(), proctorOtherDept.getId());
     }
 
     /**
@@ -156,13 +165,14 @@ public final class AdminAuthorizationFixture {
         return repo.save(d);
     }
 
-    private static void user(UserRepository repo, String username, UserRole role, Department dept) {
+    /** Returns the saved row so callers can read its generated id — proctor assignments need it. */
+    private static User user(UserRepository repo, String username, UserRole role, Department dept) {
         User u = new User();
         u.setUsername(username);
         u.setPassword("{noop}irrelevant"); // never authenticated against; @WithMockUser is the identity
         u.setRole(role);
         u.setDepartment(dept);
-        repo.save(u);
+        return repo.save(u);
     }
 
     private static Subject subject(SubjectRepository repo, String courseCode, String name,

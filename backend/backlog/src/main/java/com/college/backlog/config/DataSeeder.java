@@ -22,16 +22,17 @@ public class DataSeeder implements CommandLineRunner {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    // No fallback defaults: an unset env var leaves the password blank, and a blank one skips the
-    // account rather than installing a guessable default (old issue #1). Set these in the env to
-    // provision initial accounts on a fresh database.
+    // No fallback default: an unset env var leaves the password blank, and a blank one skips the
+    // account rather than installing a guessable default (old issue #1). Set it in the env to
+    // provision the initial account on a fresh database.
     //
-    // Only department-less roles (ADMIN, PRINCIPAL) are seedable: HOD/DEPT_OFFICE need a
-    // department a fresh-database seeder can't assign, and login rejects a dept role without one,
-    // so such an account could never sign in. Create those via Manage Users once an admin exists.
-    @Value("${admin.password.principal:}")
-    private String principalPassword;
-
+    // ADMIN is the ONLY seeded role (2026-08-29). It is the bootstrap account and nothing else:
+    // ADMIN may create every other role from Manage Users, PRINCIPAL included (canManageRole),
+    // and PRINCIPAL needs no department, so seeding it bought a second privileged account whose
+    // env password stayed live on the host forever. HOD/DEPT_OFFICE/PROCTOR were never seedable —
+    // they need a department a fresh-database seeder can't assign, and login rejects a dept role
+    // without one. Dropping the principal seed does NOT touch an existing `principal` row; the
+    // seeder only ever creates on a fresh DB.
     @Value("${admin.password.admin:}")
     private String adminPassword;
 
@@ -39,7 +40,6 @@ public class DataSeeder implements CommandLineRunner {
     public void run(String... args) throws Exception {
         // created only when an explicit seed password is supplied; existing rows never overwritten,
         // and the seeded password stands until its holder changes it (/api/auth/change-password)
-        seedUser("principal", principalPassword, UserRole.PRINCIPAL);
         seedUser("admin", adminPassword, UserRole.ADMIN);
 
         // one-time safety net: bcrypt legacy plaintext passwords, since the plaintext login
@@ -49,7 +49,7 @@ public class DataSeeder implements CommandLineRunner {
 
     private void seedUser(String username, String password, UserRole role) {
         boolean hasPassword = password != null && !password.isBlank();
-        User user = userRepository.findById(username).orElse(null);
+        User user = userRepository.findByUsername(username).orElse(null);
 
         if (user == null) {
             if (!hasPassword) {
@@ -57,6 +57,17 @@ public class DataSeeder implements CommandLineRunner {
                 log.warn("Skipping seed of '{}' account: no admin.password.{} configured. "
                         + "Set it in the environment to provision this account.",
                         username, role.name().toLowerCase());
+                return;
+            }
+            // Bootstrap only. Usernames became RENAMABLE in V4, so "no row called `admin`" no
+            // longer means "no administrator": renaming the seeded account and leaving
+            // ADMIN_PASSWORD_ADMIN set would otherwise RESURRECT `admin` on the next boot — a
+            // second privileged account nobody created, and on a free-tier host that cold-boots
+            // routinely. The role, not the name, is what must be absent.
+            if (userRepository.countByRole(role) > 0) {
+                log.info("Skipping seed of '{}': an account with role {} already exists. Unset "
+                        + "admin.password.{} — it is no longer needed and keeps a live credential "
+                        + "on the host.", username, role.name(), role.name().toLowerCase());
                 return;
             }
             user = new User();

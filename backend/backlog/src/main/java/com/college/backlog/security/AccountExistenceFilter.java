@@ -59,9 +59,12 @@ public class AccountExistenceFilter extends OncePerRequestFilter {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (isAdminRequest(auth, request) && !LOGOUT_PATH.equals(request.getRequestURI())) {
-            // findById, not existsById: same single query, but it yields the row whose ROLE the
-            // check below needs. Existence alone was never enough — see carriesCurrentRoleOf.
-            User account = userRepository.findById(auth.getName()).orElse(null);
+            // findByUsername, not existsBy*: same single indexed query, but it yields the row whose
+            // ROLE the check below needs. Existence alone was never enough — see
+            // carriesCurrentRoleOf. Keyed on the username because that is the JWT subject; V4 moved
+            // only the DB key to a surrogate id, so a RENAMED account stops resolving here and is
+            // revoked exactly like a deleted one.
+            User account = userRepository.findByUsername(auth.getName()).orElse(null);
             if (account == null) {
                 // The token is valid but its account is gone. 401, not 403: there is nothing to
                 // grant, and the SPA's 401 interceptor signs them out — the correct outcome.

@@ -35,7 +35,7 @@ public class ProctorScopeService {
      */
     public Set<String> assignedRollNos(User actor) {
         if (!isProctor(actor)) return null;
-        return assignmentRepository.findByProctorUsername(actor.getUsername()).stream()
+        return assignmentRepository.findByProctorUserId(actor.getId()).stream()
                 .map(ProctorAssignment::getRollNo)
                 .collect(Collectors.toSet());
     }
@@ -44,7 +44,7 @@ public class ProctorScopeService {
     public void assertSupervises(User actor, String rollNo) {
         if (!isProctor(actor)) return;
         boolean supervised = assignmentRepository.findById(rollNo)
-                .map(a -> a.getProctorUsername().equals(actor.getUsername()))
+                .map(a -> a.getProctorUserId().equals(actor.getId()))
                 .orElse(false);
         if (!supervised) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,

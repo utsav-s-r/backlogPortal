@@ -98,7 +98,7 @@ public class ProctorAssignmentController {
             return new ClaimableStudentResponse(
                 s.getRollNo(), s.getName(), s.getCurrentSemester(),
                 a != null,
-                a != null && a.getProctorUsername().equals(target.getUsername()));
+                a != null && a.getProctorUserId().equals(target.getId()));
         });
     }
 
@@ -110,7 +110,7 @@ public class ProctorAssignmentController {
         User actor = callerScope.requireActor(auth);
         User target = resolveTargetProctor(actor, proctor.orElse(null));
         List<ProctorAssignment> assignments =
-            assignmentRepository.findByProctorUsername(target.getUsername());
+            assignmentRepository.findByProctorUserId(target.getId());
         if (assignments.isEmpty()) return List.of();
 
         Map<String, Student> students = studentRepository.findByRollNoInOrderByRollNo(
@@ -161,20 +161,21 @@ public class ProctorAssignmentController {
                 }
                 Optional<ProctorAssignment> existing = assignmentRepository.findById(roll);
                 if (existing.isPresent()) {
-                    if (existing.get().getProctorUsername().equals(target.getUsername())) {
+                    if (existing.get().getProctorUserId().equals(target.getId())) {
                         results.add(new ProgressionRowResult(roll, null, "SKIPPED_EXISTS",
                             "already under this proctor"));
                         skipped++;
                     } else {
                         // the one place the current holder is named — the proctor needs to know
-                        // who to ask, or the HOD who to reassign from
+                        // who to ask, or the HOD who to reassign from. Resolved from the id (V4)
+                        // only on this conflict path, so the happy path stays one query.
                         results.add(new ProgressionRowResult(roll, null, "ERROR",
-                            "Already assigned to " + existing.get().getProctorUsername() + "."));
+                            "Already assigned to " + holderName(existing.get()) + "."));
                         errors++;
                     }
                     continue;
                 }
-                assignmentRepository.save(new ProctorAssignment(roll, target.getUsername(), actor.getUsername()));
+                assignmentRepository.save(new ProctorAssignment(roll, target.getId(), actor.getUsername()));
                 results.add(new ProgressionRowResult(roll, null, "CREATED", null));
                 assigned++;
             } catch (IllegalArgumentException e) {
@@ -211,7 +212,7 @@ public class ProctorAssignmentController {
                 "This student has no proctor assignment."));
 
         if (actor.getRole() == UserRole.PROCTOR
-                && !assignment.getProctorUsername().equals(actor.getUsername())) {
+                && !assignment.getProctorUserId().equals(actor.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                 "This student is not under your supervision.");
         }
@@ -226,11 +227,22 @@ public class ProctorAssignmentController {
         // audit row carries no FK precisely so it survives that.
         auditService.record(AdminAuditAction.PROCTOR_UNASSIGN, actor,
                 AuditTargetType.PROCTOR_ASSIGNMENT, roll,
-                "proctor=" + assignment.getProctorUsername());
+                "proctor=" + holderName(assignment));
         assignmentRepository.delete(assignment);
     }
 
     // ---- helpers ----
+
+    /**
+     * The username behind an assignment's {@code proctor_user_id} (V4), for messages and audit
+     * detail that must name a person rather than an id. Falls back to the id if the row is gone —
+     * the FK cascades, so that is not reachable today, but a message is the wrong place to 500.
+     */
+    private String holderName(ProctorAssignment assignment) {
+        return userRepository.findById(assignment.getProctorUserId())
+            .map(User::getUsername)
+            .orElseGet(() -> "#" + assignment.getProctorUserId());
+    }
 
     /** Whose assignment list is read/written: PROCTOR only themselves, HOD proctors of their own
      *  department, ADMIN/PRINCIPAL any proctor. */
@@ -247,7 +259,7 @@ public class ProctorAssignmentController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "A target proctor is required.");
         }
-        User target = userRepository.findById(proctorParam.trim())
+        User target = userRepository.findByUsername(proctorParam.trim())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Proctor not found."));
         if (target.getRole() != UserRole.PROCTOR) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
