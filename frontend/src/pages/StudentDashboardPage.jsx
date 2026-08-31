@@ -17,6 +17,9 @@ import MagneticCta from "../components/ui/MagneticCta";
 import ThemeToggle from "../components/ui/ThemeToggle";
 import api, { getStudentHeaders, logoutStudent } from "../lib/api";
 import { saveBlob, readBlobErrorMessage } from "../lib/download";
+import ReadOnlyField from "../components/ui/ReadOnlyField";
+import HeaderPill from "../components/ui/HeaderPill";
+import { FIELD_CONTROL, FIELD_LABEL } from "../lib/formClasses";
 
 function statusBadgeClass(status) {
   if (status === "VERIFIED")
@@ -147,19 +150,12 @@ function StudentDashboardPage() {
         <BrandHeader className="mb-6">
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Link
-              to="/"
-              className="inline-flex items-center gap-1 rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
+            <HeaderPill as={Link} to="/">
               <ArrowLeft size={15} /> Home
-            </Link>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
+            </HeaderPill>
+            <HeaderPill onClick={handleLogout}>
               <LogOut size={15} /> Log out
-            </button>
+            </HeaderPill>
           </div>
         </BrandHeader>
 
@@ -183,18 +179,19 @@ function StudentDashboardPage() {
               <p className="mb-4 text-sm text-ink-muted">{profile?.rollNo}</p>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Email" value={profile?.email} />
-                <Field label="Branch" value={branchLabel} />
-                <Field
+                <ReadOnlyField label="Email" value={profile?.email} />
+                <ReadOnlyField label="Branch" value={branchLabel} />
+                <ReadOnlyField
                   label="Current Semester"
                   value={profile?.currentSemester ? `Semester ${profile.currentSemester}` : ""}
                 />
 
                 {/* Phone — the only editable field */}
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">
-                    Phone
-                  </span>
+                  {/* Not <Field>: this holds an input plus two buttons when editing, the
+                      multi-interactive case Field must not wrap. Shares FIELD_LABEL so it stays
+                      level with the ReadOnlyFields beside it in this grid. */}
+                  <span className={`${FIELD_LABEL} text-ink-muted`}>Phone</span>
                   {editingPhone ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <input
@@ -205,7 +202,7 @@ function StudentDashboardPage() {
                         inputMode="numeric"
                         maxLength={10}
                         placeholder="10 digit number"
-                        className="w-44 rounded-xl border border-stroke bg-surface-1 px-3.5 py-2 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        className={`${FIELD_CONTROL} w-44`}
                         data-cy="phone-input"
                       />
                       <button
@@ -233,7 +230,7 @@ function StudentDashboardPage() {
                   ) : (
                     <div className="flex items-center gap-3">
                       <span
-                        className={`inline-flex items-center gap-1.5 text-sm ${
+                        className={`inline-flex items-center gap-1.5 text-sm font-medium ${
                           profile?.phone ? "text-ink" : "text-ink-muted"
                         }`}
                         data-cy="phone-value"
@@ -344,17 +341,6 @@ function StudentDashboardPage() {
           </>
         )}
       </div>
-    </div>
-  );
-}
-
-function Field({ label, value }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">
-        {label}
-      </span>
-      <span className="text-sm text-ink">{value || "—"}</span>
     </div>
   );
 }

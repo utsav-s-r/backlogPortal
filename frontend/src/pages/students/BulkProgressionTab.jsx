@@ -5,9 +5,9 @@ import AlertBanner from "../../components/AlertBanner";
 import api, { getAdminHeaders } from "../../lib/api";
 import { reportLoadError } from "../../lib/loadError";
 import { CURRENT_SEMESTERS } from "../../lib/semesters";
+import { FIELD_CONTROL, FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
+import Field from "../../components/ui/Field";
 
-const inputClass =
-  "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60";
 
 const CONFIRM_WORD = "PROMOTE";
 
@@ -155,13 +155,10 @@ function BulkProgressionTab({ departments }) {
 
       <form onSubmit={runPreview} className={card}>
         <div className="mb-3 flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="bulk-sem" className="text-xs font-semibold uppercase tracking-[0.08em]">
-              Semester
-            </label>
+          <Field label="Semester" htmlFor="bulk-sem">
             <select
               id="bulk-sem"
-              className={`${inputClass} w-40`}
+              className={`${FIELD_CONTROL} w-40`}
               value={semester}
               onChange={(e) => {
                 setSemester(e.target.value);
@@ -176,14 +173,11 @@ function BulkProgressionTab({ departments }) {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="bulk-dept" className="text-xs font-semibold uppercase tracking-[0.08em]">
-              Department
-            </label>
+          </Field>
+          <Field label="Department" htmlFor="bulk-dept">
             <select
               id="bulk-dept"
-              className={`${inputClass} w-52`}
+              className={`${FIELD_CONTROL} w-52`}
               value={deptCode}
               onChange={(e) => {
                 setDeptCode(e.target.value);
@@ -198,16 +192,13 @@ function BulkProgressionTab({ departments }) {
                 </option>
               ))}
             </select>
-          </div>
+          </Field>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="bulk-exclude" className="text-xs font-semibold uppercase tracking-[0.08em]">
-            Hold back these USNs
-          </label>
+        <Field label="Hold back these USNs" htmlFor="bulk-exclude">
           <textarea
             id="bulk-exclude"
-            className={`${inputClass} min-h-24 font-mono`}
+            className={`${FIELD_INPUT} min-h-24 font-mono`}
             value={exclusions}
             placeholder="1MS24CS001, 1MS24CS002 — separated by spaces, commas or new lines"
             onChange={(e) => {
@@ -221,7 +212,7 @@ function BulkProgressionTab({ departments }) {
             must never silently promote someone you meant to hold back.
             {excludeRollNos.length > 0 && ` ${excludeRollNos.length} listed.`}
           </p>
-        </div>
+        </Field>
 
         <MagneticCta as="button" type="submit" disabled={busy} className="mt-3" data-cy="bulk-preview">
           {busy ? <LoaderCircle size={15} className="animate-spin" /> : <TrendingUp size={15} />}
@@ -240,7 +231,7 @@ function BulkProgressionTab({ departments }) {
           </p>
           {preview.notPromoted.length > 0 && (
             <div className="mt-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">
+              <p className={`mb-2 ${FIELD_LABEL} text-ink-muted`}>
                 Needs your attention ({preview.notPromoted.length})
               </p>
               <div className="max-h-64 overflow-y-auto rounded-xl border border-stroke">
@@ -270,13 +261,13 @@ function BulkProgressionTab({ departments }) {
 
           {preview.promoteCount > 0 && (
             <div className="mt-4 border-t border-stroke pt-3">
-              <label htmlFor="bulk-confirm" className="text-xs font-semibold uppercase tracking-[0.08em]">
+              <label htmlFor="bulk-confirm" className={FIELD_LABEL}>
                 Type {CONFIRM_WORD} to run
               </label>
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 <input
                   id="bulk-confirm"
-                  className={`${inputClass} w-48 font-mono`}
+                  className={`${FIELD_CONTROL} w-48 font-mono`}
                   value={confirmWord}
                   onChange={(e) => setConfirmWord(e.target.value.toUpperCase())}
                   data-cy="bulk-confirm-word"

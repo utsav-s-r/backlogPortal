@@ -7,6 +7,7 @@ import api, { getStudentToken } from "../lib/api";
 import { rememberExpiry } from "../lib/session";
 import { safeRedirect } from "../lib/redirect";
 import AlertBanner from "../components/AlertBanner";
+import { FIELD_INPUT, FIELD_LABEL } from "../lib/formClasses";
 
 const USN_PATTERN = /^1MS\d{2}[A-Z]{2}\d{3}$/;
 
@@ -99,7 +100,7 @@ function StudentLoginPage() {
           <div>
             <label
               htmlFor="student-usn"
-              className="mb-1.5 block text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink"
+              className={`mb-1.5 block text-left ${FIELD_LABEL} text-ink`}
             >
               USN
             </label>
@@ -109,7 +110,7 @@ function StudentLoginPage() {
               value={usn}
               onChange={(e) => setUsn(e.target.value.toUpperCase())}
               maxLength={10}
-              className="w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring"
+              className={FIELD_INPUT}
               data-cy="student-usn"
             />
           </div>
@@ -117,7 +118,7 @@ function StudentLoginPage() {
           <div>
             <label
               htmlFor="student-dob"
-              className="mb-1.5 block text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink"
+              className={`mb-1.5 block text-left ${FIELD_LABEL} text-ink`}
             >
               Date of Birth
             </label>
@@ -126,7 +127,7 @@ function StudentLoginPage() {
               type="date"
               value={dob}
               onChange={(e) => setDob(e.target.value)}
-              className="w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-focus-ring"
+              className={FIELD_INPUT}
               data-cy="student-dob"
             />
           </div>

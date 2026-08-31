@@ -5,9 +5,9 @@ import api, { getAdminHeaders } from "../../lib/api";
 import { formatAcademicYear, buildCourseCode, courseCodeSuffix } from "../../lib/academicYear";
 import CourseCodeField from "../../components/ui/CourseCodeField";
 import AlertBanner from "../../components/AlertBanner";
+import { FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
+import Field from "../../components/ui/Field";
 
-const inputClass =
-  "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring";
 
 // Add a single subject. Presentational tab: the shell supplies departments and the dept-lock
 // context, this keeps only form state.
@@ -150,19 +150,13 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="academicYearOffered"
-              className="text-xs font-semibold uppercase tracking-[0.08em]"
-            >
-              Academic Year Offered *
-            </label>
+          <Field label="Academic Year Offered *" htmlFor="academicYearOffered">
             <select
               id="academicYearOffered"
               name="academicYearOffered"
               value={formData.academicYearOffered}
               onChange={handleYearChange}
-              className={inputClass}
+              className={FIELD_INPUT}
             >
               <option value="">Select Academic Year</option>
               {availableYears.map((year) => (
@@ -171,30 +165,18 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="subjectName"
-              className="text-xs font-semibold uppercase tracking-[0.08em]"
-            >
-              Subject Name *
-            </label>
+          </Field>
+          <Field label="Subject Name *" htmlFor="subjectName">
             <input
               id="subjectName"
               name="subjectName"
               value={formData.subjectName}
               onChange={handleChange}
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="e.g., Advanced Algorithms"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="courseCode"
-              className="text-xs font-semibold uppercase tracking-[0.08em]"
-            >
-              Course Code *
-            </label>
+          </Field>
+          <Field label="Course Code *" htmlFor="courseCode">
             <CourseCodeField
               id="courseCode"
               year={formData.academicYearOffered}
@@ -202,26 +184,20 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
               onChange={(code) =>
                 setFormData((prev) => ({ ...prev, courseCode: code }))
               }
-              inputClassName={inputClass}
+              inputClassName={FIELD_INPUT}
               dataCy="course-code-suffix"
             />
             <p className="text-xs text-ink-muted">
               The first two digits are set from the academic year.
             </p>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="semester"
-              className="text-xs font-semibold uppercase tracking-[0.08em]"
-            >
-              Semester *
-            </label>
+          </Field>
+          <Field label="Semester *" htmlFor="semester">
             <select
               id="semester"
               name="semester"
               value={formData.semester}
               onChange={handleChange}
-              className={inputClass}
+              className={FIELD_INPUT}
             >
               <option value="">Select Semester</option>
               {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
@@ -230,38 +206,26 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="credits"
-              className="text-xs font-semibold uppercase tracking-[0.08em]"
-            >
-              Credits *
-            </label>
+          </Field>
+          <Field label="Credits *" htmlFor="credits">
             <input
               id="credits"
               name="credits"
               type="number"
               value={formData.credits}
               onChange={handleChange}
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="e.g., 4"
               min="0"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="deptId"
-              className="text-xs font-semibold uppercase tracking-[0.08em]"
-            >
-              Department *
-            </label>
+          </Field>
+          <Field label="Department *" htmlFor="deptId">
             <select
               id="deptId"
               name="deptId"
               value={formData.deptId}
               onChange={handleChange}
-              className={inputClass}
+              className={FIELD_INPUT}
               disabled={departments.length === 0 || deptLocked}
             >
               <option value="">Select Department</option>
@@ -276,12 +240,12 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                 Locked to your department: {adminDepartment}
               </p>
             )}
-          </div>
+          </Field>
         </div>
 
         {/* Subject type */}
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold uppercase tracking-[0.08em]">
+          <span className={FIELD_LABEL}>
             Subject Type *
           </span>
           <div className="flex gap-3">
@@ -308,7 +272,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
         {/* Eligible departments — only for ELECTIVE */}
         {subjectType === "ELECTIVE" && (
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em]">
+            <span className={FIELD_LABEL}>
               Eligible Departments *
             </span>
             <p className="text-xs text-ink-muted">

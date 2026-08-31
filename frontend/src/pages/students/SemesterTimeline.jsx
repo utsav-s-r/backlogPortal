@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatAcademicYear } from "../../lib/academicYear";
+import { FIELD_CONTROL } from "../../lib/formClasses";
 
 // Editable "which academic year did the student study each semester" table. Its one consumer is
 // the Semesters panel on the Manage-students tab (it was shared with a Progression tab until that
@@ -7,8 +8,6 @@ import { formatAcademicYear } from "../../lib/academicYear";
 // (name/currentSemester/entrySemester/terms) and owns the save callback, which PUTs the
 // per-semester override. See docs/adr/backlog-progression.md.
 
-const inputClass =
-  "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60";
 
 // One row per semester, entry through 8, all editable. A recorded year is prefilled; semesters
 // with no row arrive as academicYear === null (blank, editable, shown as a dash). Rows past
@@ -78,7 +77,7 @@ function TermRow({ semester, academicYear, future, onSave, busy }) {
             </span>
           )}
           <input
-            className={`${inputClass} w-32`}
+            className={`${FIELD_CONTROL} w-32`}
             type="text"
             placeholder="e.g. 2024-25"
             value={year}

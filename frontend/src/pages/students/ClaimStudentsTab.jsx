@@ -1,8 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import {
   Check,
-  ChevronLeft,
-  ChevronRight,
   LoaderCircle,
   Search,
   UserCheck,
@@ -13,9 +11,11 @@ import api, { getAdminHeaders } from "../../lib/api";
 import { batchRows } from "./batchResult";
 import { reportLoadError } from "../../lib/loadError";
 import { ALL_SEMESTERS } from "../../lib/semesters";
+import { ROLE } from "../../lib/roles";
+import { FIELD_INPUT } from "../../lib/formClasses";
+import Field from "../../components/ui/Field";
+import Pager from "../../components/ui/Pager";
 
-const inputClass =
-  "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60";
 
 const PAGE_SIZE = 25;
 
@@ -26,7 +26,7 @@ const PAGE_SIZE = 25;
 //     (assign / unassign / reassign after a conflict).
 // Scope rules are enforced server-side on /api/admin/proctor/**; this UI only mirrors them.
 function ClaimStudentsTab({ adminRole, adminDepartment }) {
-  const isProctor = adminRole === "PROCTOR";
+  const isProctor = adminRole === ROLE.PROCTOR;
 
   // staff callers must name a target proctor
   const [proctors, setProctors] = useState([]);
@@ -57,7 +57,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
     api
       .get("/admin/users", { headers: getAdminHeaders() })
       .then((res) => {
-        setProctors((res.data || []).filter((u) => u.role === "PROCTOR"));
+        setProctors((res.data || []).filter((u) => u.role === ROLE.PROCTOR));
         setError("");
       })
       // without this the target-proctor picker is silently empty and HOD/admin cannot assign
@@ -179,10 +179,9 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
         </p>
 
         {!isProctor && (
-          <div className="mb-4 flex max-w-sm flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Proctor</label>
+          <Field label="Proctor" className="mb-4 max-w-sm">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={targetProctor}
               onChange={(e) => {
                 setTargetProctor(e.target.value);
@@ -206,7 +205,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
                 No proctor accounts yet — create one under Manage Users.
               </p>
             )}
-          </div>
+          </Field>
         )}
 
         <button
@@ -288,21 +287,19 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
         </p>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Admission year</label>
+          <Field label="Admission year">
             <input
-              className={inputClass}
+              className={FIELD_INPUT}
               type="text"
               placeholder="e.g. 2024"
               value={fYear}
               onChange={(e) => setFYear(e.target.value)}
               data-cy="claim-year"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Semester</label>
+          </Field>
+          <Field label="Semester">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={fSemester}
               onChange={(e) => setFSemester(e.target.value)}
               data-cy="claim-sem"
@@ -315,18 +312,17 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">USN / name</label>
+          </Field>
+          <Field label="USN / name">
             <input
-              className={inputClass}
+              className={FIELD_INPUT}
               type="text"
               placeholder="search"
               value={fQuery}
               onChange={(e) => setFQuery(e.target.value)}
               data-cy="claim-query"
             />
-          </div>
+          </Field>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
@@ -441,33 +437,14 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
                     </tbody>
                   </table>
                 </div>
-                {pageInfo.totalPages > 1 && (
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm">
-                    <span className="text-ink-muted">
-                      Page {pageInfo.number + 1} of {pageInfo.totalPages} · {pageInfo.totalElements} students
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => loadClaimable(pageInfo.number - 1)}
-                        disabled={busy || pageInfo.number <= 0}
-                        data-cy="claim-prev"
-                        className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary disabled:opacity-40"
-                      >
-                        <ChevronLeft size={13} /> Prev
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => loadClaimable(pageInfo.number + 1)}
-                        disabled={busy || pageInfo.number >= pageInfo.totalPages - 1}
-                        data-cy="claim-next"
-                        className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary disabled:opacity-40"
-                      >
-                        Next <ChevronRight size={13} />
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <Pager
+                  pageInfo={pageInfo}
+                  busy={busy}
+                  onGo={loadClaimable}
+                  noun="students"
+                  dataCy="claim"
+                  className="mt-3"
+                />
               </>
             )}
           </div>

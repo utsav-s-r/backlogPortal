@@ -5,6 +5,8 @@ import BrandIdentity from "../components/layout/BrandIdentity";
 import MagneticCta from "../components/ui/MagneticCta";
 import api, { clearAdminSession, getAdminHeaders } from "../lib/api";
 import AlertBanner from "../components/AlertBanner";
+import { FIELD_INPUT } from "../lib/formClasses";
+import Field from "../components/ui/Field";
 
 // Self-service account settings for a signed-in admin-type user: password, and — since V4 made
 // usernames renamable — their own username. Nothing forces them here; accounts start on the derived
@@ -93,9 +95,6 @@ function ChangePasswordPage() {
     }
   };
 
-  const inputClass =
-    "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring";
-
   return (
     <div className="min-h-screen bg-surface-1 px-4 py-10 sm:px-6 lg:px-8">
       <div
@@ -116,59 +115,41 @@ function ChangePasswordPage() {
         <h2 className="mb-4 text-xl font-semibold text-secondary-ink">Change Password</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="current-password"
-              className="text-xs font-semibold uppercase tracking-[0.08em] text-ink"
-            >
-              Current Password
-            </label>
+          <Field label="Current Password" htmlFor="current-password" labelClassName="text-ink">
             <input
               id="current-password"
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="Enter current password"
               autoComplete="current-password"
             />
-          </div>
+          </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="new-password"
-              className="text-xs font-semibold uppercase tracking-[0.08em] text-ink"
-            >
-              New Password
-            </label>
+          <Field label="New Password" htmlFor="new-password" labelClassName="text-ink">
             <input
               id="new-password"
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="At least 8 characters"
               autoComplete="new-password"
             />
-          </div>
+          </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="confirm-password"
-              className="text-xs font-semibold uppercase tracking-[0.08em] text-ink"
-            >
-              Confirm New Password
-            </label>
+          <Field label="Confirm New Password" htmlFor="confirm-password" labelClassName="text-ink">
             <input
               id="confirm-password"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="Re-enter new password"
               autoComplete="new-password"
             />
-          </div>
+          </Field>
 
           {error && (
             <AlertBanner tone="error" role="alert">
@@ -208,41 +189,29 @@ function ChangePasswordPage() {
         </div>
 
         <form onSubmit={handleRename} className="space-y-4">
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="new-username"
-              className="text-xs font-semibold uppercase tracking-[0.08em] text-ink"
-            >
-              New Username
-            </label>
+          <Field label="New Username" htmlFor="new-username" labelClassName="text-ink">
             <input
               id="new-username"
               type="text"
               value={newUsername}
               onChange={(e) => setNewUsername(e.target.value)}
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="At least 4 characters"
               autoComplete="username"
             />
-          </div>
+          </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="rename-password"
-              className="text-xs font-semibold uppercase tracking-[0.08em] text-ink"
-            >
-              Current Password
-            </label>
+          <Field label="Current Password" htmlFor="rename-password" labelClassName="text-ink">
             <input
               id="rename-password"
               type="password"
               value={renamePassword}
               onChange={(e) => setRenamePassword(e.target.value)}
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="Confirm with your password"
               autoComplete="current-password"
             />
-          </div>
+          </Field>
 
           {renameError && (
             <AlertBanner tone="error" role="alert">

@@ -2,8 +2,6 @@ import { useState, useCallback } from "react";
 import {
   BookOpen,
   Check,
-  ChevronLeft,
-  ChevronRight,
   LoaderCircle,
   Pencil,
   Search,
@@ -13,9 +11,10 @@ import {
 import api, { getAdminHeaders } from "../../lib/api";
 import { formatAcademicYear, parseAcademicYear, courseCodeSuffix } from "../../lib/academicYear";
 import CourseCodeField from "../../components/ui/CourseCodeField";
+import { FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
+import Field from "../../components/ui/Field";
+import Pager from "../../components/ui/Pager";
 
-const inputClass =
-  "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60";
 
 const PAGE_SIZE = 25;
 
@@ -91,10 +90,9 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
         )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Department</label>
+          <Field label="Department">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={effectiveDeptId}
               onChange={(e) => setFDeptId(e.target.value)}
               disabled={deptLocked}
@@ -107,22 +105,20 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Academic year</label>
+          </Field>
+          <Field label="Academic year">
             <input
-              className={inputClass}
+              className={FIELD_INPUT}
               type="text"
               placeholder="e.g. 2024-25 (optional)"
               value={fYear}
               onChange={(e) => setFYear(e.target.value)}
               data-cy="subjects-year"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Semester</label>
+          </Field>
+          <Field label="Semester">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={fSemester}
               onChange={(e) => setFSemester(e.target.value)}
               data-cy="subjects-sem"
@@ -134,7 +130,7 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
                 </option>
               ))}
             </select>
-          </div>
+          </Field>
         </div>
 
         {error && (
@@ -176,9 +172,7 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
                   onRemoved={onRemoved}
                 />
               ))}
-              {pageInfo.totalPages > 1 && (
-                <Pager pageInfo={pageInfo} busy={busy} onGo={loadSubjects} noun="subjects" />
-              )}
+              <Pager pageInfo={pageInfo} busy={busy} onGo={loadSubjects} noun="subjects" />
             </>
           )}
         </section>
@@ -187,41 +181,6 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
   );
 }
 
-// Prev/next pager over a Spring Page envelope. `onGo(pageIndex)` re-fetches, keeping the current
-// filters (the loader reads them from state).
-function Pager({ pageInfo, busy, onGo, noun }) {
-  const { number, totalPages, totalElements } = pageInfo;
-  return (
-    <div
-      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm"
-      data-cy={`${noun}-pager`}
-    >
-      <span className="text-ink-muted">
-        Page {number + 1} of {totalPages} · {totalElements} {noun}
-      </span>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => onGo(number - 1)}
-          disabled={busy || number <= 0}
-          data-cy={`${noun}-prev`}
-          className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary disabled:opacity-40"
-        >
-          <ChevronLeft size={13} /> Prev
-        </button>
-        <button
-          type="button"
-          onClick={() => onGo(number + 1)}
-          disabled={busy || number >= totalPages - 1}
-          data-cy={`${noun}-next`}
-          className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary disabled:opacity-40"
-        >
-          Next <ChevronRight size={13} />
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // Module scope, so identity is stable across parent renders and inputs keep focus.
 function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
@@ -346,66 +305,64 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
   return (
     <div className={card}>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">Subject name</label>
+        <Field label="Subject name">
           <input
-            className={inputClass}
+            className={FIELD_INPUT}
             value={name}
             onChange={(e) => setName(e.target.value)}
             data-cy="subject-name"
           />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">Course code</label>
+        </Field>
+        <Field label="Course code">
           <CourseCodeField
             year={subject.academicYearOffered}
             value={code}
             onChange={setCode}
-            inputClassName={inputClass}
+            inputClassName={FIELD_INPUT}
             dataCy="subject-code"
           />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">Semester</label>
-          <select className={inputClass} value={semester} onChange={(e) => setSemester(e.target.value)}>
+        </Field>
+        <Field label="Semester">
+          <select className={FIELD_INPUT} value={semester} onChange={(e) => setSemester(e.target.value)}>
             {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
               <option key={s} value={s}>
                 Semester {s}
               </option>
             ))}
           </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">Credits</label>
+        </Field>
+        <Field label="Credits">
           <input
-            className={inputClass}
+            className={FIELD_INPUT}
             type="number"
             min="0"
             value={credits}
             onChange={(e) => setCredits(e.target.value)}
             data-cy="subject-credits"
           />
-        </div>
+        </Field>
+        {/* A <div>/<span>, NOT <Field>: there is no control here to label, and a <label> with no
+            labelable descendant is exactly the markup Field exists to prevent. Matches the same
+            locked-year box on RegistrationPage. */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">
+          <span className={FIELD_LABEL}>
             Academic year (locked)
-          </label>
+          </span>
           <div className="flex h-[42px] items-center rounded-xl border border-stroke bg-surface-muted px-3.5 text-sm text-ink-muted">
             {formatAcademicYear(subject.academicYearOffered)}
           </div>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">Type</label>
-          <select className={inputClass} value={type} onChange={(e) => setType(e.target.value)}>
+        <Field label="Type">
+          <select className={FIELD_INPUT} value={type} onChange={(e) => setType(e.target.value)}>
             <option value="REGULAR">Regular</option>
             <option value="ELECTIVE">Elective</option>
           </select>
-        </div>
+        </Field>
       </div>
 
       {type === "ELECTIVE" && (
         <div className="mt-3 flex flex-col gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.08em]">Eligible departments</span>
+          <span className={FIELD_LABEL}>Eligible departments</span>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {departments.map((d) => (
               <label key={d.id} className="flex cursor-pointer items-center gap-2 text-sm">

@@ -10,20 +10,26 @@ import {
   X,
 } from "lucide-react";
 import AlertBanner from "../components/AlertBanner";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
 import MagneticCta from "../components/ui/MagneticCta";
 import api, { getAdminHeaders } from "../lib/api";
 import { reportLoadError } from "../lib/loadError";
 import { findOwnDepartment } from "../lib/session";
+import { DEPT_PINNED, ROLE, USER_MANAGEMENT_ROLES } from "../lib/roles";
+import { useRoleGuard } from "../hooks/useRoleGuard";
+import { FIELD_INPUT } from "../lib/formClasses";
+import Field from "../components/ui/Field";
+import HeaderPill from "../components/ui/HeaderPill";
 
-// Roles each actor may create. The server enforces the same rules; this only shapes the UI.
+// Roles each actor may create. The server enforces the same rules; this only shapes the UI. Kept
+// as an explicit ladder rather than assembled from lib/roles' subsets — it is page policy keyed by
+// actor, not the role vocabulary, and each row must stay readable on its own line.
 const CREATABLE_ROLES = {
   ADMIN: ["ADMIN", "PRINCIPAL", "HOD", "DEPT_OFFICE", "PROCTOR"],
   PRINCIPAL: ["HOD", "DEPT_OFFICE", "PROCTOR"],
   HOD: ["DEPT_OFFICE", "PROCTOR"],
 };
-const DEPT_ROLES = new Set(["HOD", "DEPT_OFFICE", "PROCTOR"]);
 const ROLE_LABELS = {
   ADMIN: "Administrator",
   PRINCIPAL: "Principal / Registrar / COE",
@@ -33,16 +39,15 @@ const ROLE_LABELS = {
 };
 
 function ManageUsersPage() {
-  const navigate = useNavigate();
   const adminRole = sessionStorage.getItem("adminRole") || "";
   const adminDepartment = sessionStorage.getItem("adminDepartment") || "";
   const creatableRoles = CREATABLE_ROLES[adminRole] || [];
   // HOD manages only their own department's accounts. The server enforces it; pinning the
   // dropdown just keeps the UI honest.
-  const deptLocked = adminRole === "HOD";
+  const deptLocked = adminRole === ROLE.HOD;
   // Renaming somebody else is ADMIN only, narrower than the create/reset/delete ladder above.
   // Mirrors PATCH /api/admin/users/{username}'s @PreAuthorize, which is the actual control.
-  const canRename = adminRole === "ADMIN";
+  const canRename = adminRole === ROLE.ADMIN;
 
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -63,14 +68,9 @@ function ManageUsersPage() {
   const [notice, setNotice] = useState(null); // { username, label }
   const [busyUser, setBusyUser] = useState(""); // username currently being reset/deleted
 
-  // Only ADMIN / PRINCIPAL / HOD may be here — the redirect below and the fetch guard share this.
-  const canManageUsers = creatableRoles.length > 0;
-
-  useEffect(() => {
-    if (!canManageUsers) {
-      navigate("/admin");
-    }
-  }, [canManageUsers, navigate]);
+  // Only ADMIN / PRINCIPAL / HOD may be here. The guard redirects; `creatableRoles` still drives
+  // WHICH roles the form may create, which is a narrower question than "may I be on this page".
+  const canManageUsers = useRoleGuard(USER_MANAGEMENT_ROLES);
 
   const loadUsers = useCallback(() => {
     setLoading(true);
@@ -128,14 +128,14 @@ function ManageUsersPage() {
       setError("Username is required.");
       return;
     }
-    if (DEPT_ROLES.has(newRole) && !newDeptId) {
+    if (DEPT_PINNED.includes(newRole) && !newDeptId) {
       setError("Please select a department for this role.");
       return;
     }
     setCreating(true);
     try {
       const payload = { username: newUsername.trim(), role: newRole };
-      if (DEPT_ROLES.has(newRole)) payload.departmentId = Number(newDeptId);
+      if (DEPT_PINNED.includes(newRole)) payload.departmentId = Number(newDeptId);
       const res = await api.post("/admin/users", payload, {
         headers: getAdminHeaders(),
       });
@@ -216,27 +216,19 @@ function ManageUsersPage() {
     }
   };
 
-  const inputClass =
-    "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring";
 
   return (
     <div className="min-h-screen bg-surface-1 px-4 py-8 text-ink sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-5xl pb-8">
         <BrandHeader className="mb-6">
           <div className="flex gap-2">
-            <Link
-              to="/admin/change-password"
-              className="inline-flex items-center gap-1 rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
+            <HeaderPill as={Link} to="/admin/change-password">
               <KeyRound size={15} className="mr-0.5" /> My Password
-            </Link>
-            <Link
-              to="/admin"
-              aria-label="Back to admin dashboard"
-              className="inline-flex items-center rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              <ArrowLeft size={15} className="mr-1" /> Dashboard
-            </Link>
+            </HeaderPill>
+            <HeaderPill as={Link} to="/admin"
+              aria-label="Back to admin dashboard">
+              <ArrowLeft size={15} /> Dashboard
+            </HeaderPill>
           </div>
         </BrandHeader>
 
@@ -315,36 +307,24 @@ function ManageUsersPage() {
               onSubmit={handleCreate}
               className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end"
             >
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="new-username"
-                  className="text-xs font-semibold uppercase tracking-[0.08em]"
-                >
-                  Username *
-                </label>
+              <Field label="Username *" htmlFor="new-username">
                 <input
                   id="new-username"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  className={inputClass}
+                  className={FIELD_INPUT}
                   placeholder="e.g., cse_office"
                 />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="new-role"
-                  className="text-xs font-semibold uppercase tracking-[0.08em]"
-                >
-                  Role *
-                </label>
+              </Field>
+              <Field label="Role *" htmlFor="new-role">
                 <select
                   id="new-role"
                   value={newRole}
                   onChange={(e) => {
                     setNewRole(e.target.value);
-                    if (!DEPT_ROLES.has(e.target.value) && !deptLocked) setNewDeptId("");
+                    if (!DEPT_PINNED.includes(e.target.value) && !deptLocked) setNewDeptId("");
                   }}
-                  className={inputClass}
+                  className={FIELD_INPUT}
                 >
                   {creatableRoles.map((r) => (
                     <option key={r} value={r}>
@@ -352,23 +332,20 @@ function ManageUsersPage() {
                     </option>
                   ))}
                 </select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="new-dept"
-                  className="text-xs font-semibold uppercase tracking-[0.08em]"
-                >
-                  Department {DEPT_ROLES.has(newRole) ? "*" : ""}
-                </label>
+              </Field>
+              <Field
+                label={`Department ${DEPT_PINNED.includes(newRole) ? "*" : ""}`}
+                htmlFor="new-dept"
+              >
                 <select
                   id="new-dept"
                   value={newDeptId}
                   onChange={(e) => setNewDeptId(e.target.value)}
-                  className={inputClass}
-                  disabled={!DEPT_ROLES.has(newRole) || deptLocked}
+                  className={FIELD_INPUT}
+                  disabled={!DEPT_PINNED.includes(newRole) || deptLocked}
                 >
                   <option value="">
-                    {DEPT_ROLES.has(newRole) ? "Select department" : "Not applicable"}
+                    {DEPT_PINNED.includes(newRole) ? "Select department" : "Not applicable"}
                   </option>
                   {(deptLocked
                     ? departments.filter((d) => d.id === findOwnDepartment(departments, adminDepartment)?.id)
@@ -379,7 +356,7 @@ function ManageUsersPage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </Field>
               <MagneticCta
                 type="submit"
                 disabled={creating}

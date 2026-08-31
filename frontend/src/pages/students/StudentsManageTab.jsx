@@ -3,8 +3,6 @@ import {
   AlertTriangle,
   CalendarClock,
   Check,
-  ChevronLeft,
-  ChevronRight,
   KeyRound,
   LoaderCircle,
   Pencil,
@@ -25,9 +23,10 @@ import {
   withLegacyValue,
 } from "../../lib/semesters";
 import { SemesterTimeline } from "./SemesterTimeline";
-
-const inputClass =
-  "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60";
+import { ROLE } from "../../lib/roles";
+import { FIELD_INPUT } from "../../lib/formClasses";
+import Field from "../../components/ui/Field";
+import Pager from "../../components/ui/Pager";
 
 const PAGE_SIZE = 25;
 
@@ -35,7 +34,7 @@ const PAGE_SIZE = 25;
 // departments and the dept-lock context. For a PROCTOR the server already limits the list to
 // assigned students, and "delete" means unassign from supervision, never an account delete.
 function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked, pinnedDeptId }) {
-  const proctorMode = adminRole === "PROCTOR";
+  const proctorMode = adminRole === ROLE.PROCTOR;
   const [fDeptId, setFDeptId] = useState("");
   const [fYear, setFYear] = useState("");
   const [fSemester, setFSemester] = useState("");
@@ -95,10 +94,9 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
           </p>
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Department</label>
+          <Field label="Department">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={effectiveDeptId}
               onChange={(e) => setFDeptId(e.target.value)}
               disabled={deptLocked}
@@ -111,22 +109,20 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Admission year</label>
+          </Field>
+          <Field label="Admission year">
             <input
-              className={inputClass}
+              className={FIELD_INPUT}
               type="text"
               placeholder="e.g. 2024"
               value={fYear}
               onChange={(e) => setFYear(e.target.value)}
               data-cy="students-year"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Semester</label>
+          </Field>
+          <Field label="Semester">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={fSemester}
               onChange={(e) => setFSemester(e.target.value)}
               data-cy="students-sem"
@@ -141,18 +137,17 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">USN / name</label>
+          </Field>
+          <Field label="USN / name">
             <input
-              className={inputClass}
+              className={FIELD_INPUT}
               type="text"
               placeholder="search"
               value={fQuery}
               onChange={(e) => setFQuery(e.target.value)}
               data-cy="students-query"
             />
-          </div>
+          </Field>
         </div>
 
         {error && (
@@ -194,50 +189,12 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
                   onRemoved={onRemoved}
                 />
               ))}
-              {pageInfo.totalPages > 1 && (
-                <Pager pageInfo={pageInfo} busy={busy} onGo={load} noun="students" />
-              )}
+              <Pager pageInfo={pageInfo} busy={busy} onGo={load} noun="students" />
             </>
           )}
         </section>
       )}
     </>
-  );
-}
-
-// Prev/next pager over a Spring Page envelope. `onGo(pageIndex)` re-fetches, keeping the current
-// filters (the loader reads them from state).
-function Pager({ pageInfo, busy, onGo, noun }) {
-  const { number, totalPages, totalElements } = pageInfo;
-  return (
-    <div
-      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm"
-      data-cy={`${noun}-pager`}
-    >
-      <span className="text-ink-muted">
-        Page {number + 1} of {totalPages} · {totalElements} {noun}
-      </span>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => onGo(number - 1)}
-          disabled={busy || number <= 0}
-          data-cy={`${noun}-prev`}
-          className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary disabled:opacity-40"
-        >
-          <ChevronLeft size={13} /> Prev
-        </button>
-        <button
-          type="button"
-          onClick={() => onGo(number + 1)}
-          disabled={busy || number >= totalPages - 1}
-          data-cy={`${noun}-next`}
-          className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary disabled:opacity-40"
-        >
-          Next <ChevronRight size={13} />
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -451,7 +408,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="date"
-            className={`${inputClass} max-w-xs`}
+            className={`${FIELD_INPUT} max-w-xs`}
             value={dob}
             onChange={(e) => setDob(e.target.value)}
             data-cy={`student-dob-input-${student.rollNo}`}
@@ -492,32 +449,28 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
         </span>
       </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">Name</label>
-          <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} data-cy="student-edit-name" />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">
-            Email <span className="font-normal normal-case text-ink-muted">(auto, from USN)</span>
-          </label>
-          <input className={inputClass} value={email} readOnly tabIndex={-1} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">Phone</label>
+        <Field label="Name">
+          <input className={FIELD_INPUT} value={name} onChange={(e) => setName(e.target.value)} data-cy="student-edit-name" />
+        </Field>
+        <Field
+          label={<>Email <span className="font-normal normal-case text-ink-muted">(auto, from USN)</span></>}
+        >
+          <input className={FIELD_INPUT} value={email} readOnly tabIndex={-1} />
+        </Field>
+        <Field label="Phone">
           <input
-            className={inputClass}
+            className={FIELD_INPUT}
             type="tel"
             inputMode="numeric"
             maxLength={10}
             value={phone}
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
           />
-        </div>
+        </Field>
         <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Current sem</label>
+          <Field label="Current sem">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={currentSemester}
               onChange={(e) => {
                 const v = e.target.value;
@@ -533,11 +486,10 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Entry sem</label>
+          </Field>
+          <Field label="Entry sem">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={entrySemester}
               onChange={(e) => setEntrySemester(e.target.value)}
               data-cy="student-edit-entry-sem"
@@ -548,7 +500,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
                 </option>
               ))}
             </select>
-          </div>
+          </Field>
         </div>
       </div>
 

@@ -10,11 +10,11 @@ import MagneticCta from "../../components/ui/MagneticCta";
 import api, { getAdminHeaders } from "../../lib/api";
 import { formatAcademicYear, parseAcademicYear } from "../../lib/academicYear";
 import CourseCodeField from "../../components/ui/CourseCodeField";
+import { FIELD_CONTROL, FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
+import Field from "../../components/ui/Field";
 
 const ALL_SEMS = [1, 2, 3, 4, 5, 6, 7, 8];
 
-const inputClass =
-  "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60";
 
 const STATUS_STYLES = {
   CREATED: "text-primary-ink",
@@ -165,10 +165,9 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
         )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Department</label>
+          <Field label="Department">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={effectiveDeptId}
               onChange={(e) => setDeptId(e.target.value)}
               disabled={deptLocked}
@@ -181,36 +180,34 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
                 </option>
               ))}
             </select>
-          </div>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold uppercase tracking-[0.08em]">From year</label>
+            <Field label="From year">
               <input
-                className={inputClass}
+                className={FIELD_INPUT}
                 type="text"
                 placeholder="e.g. 2024-25"
                 value={sourceYear}
                 onChange={(e) => setSourceYear(e.target.value)}
                 data-cy="clone-source-year"
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold uppercase tracking-[0.08em]">To year</label>
+            </Field>
+            <Field label="To year">
               <input
-                className={inputClass}
+                className={FIELD_INPUT}
                 type="text"
                 placeholder="e.g. 2025-26"
                 value={targetYear}
                 onChange={(e) => setTargetYear(e.target.value)}
                 data-cy="clone-target-year"
               />
-            </div>
+            </Field>
           </div>
         </div>
 
         <div className="mt-4">
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em]">Semesters</span>
+            <span className={FIELD_LABEL}>Semesters</span>
             <button type="button" onClick={() => setSemesters([...ALL_SEMS])} className="text-xs font-semibold text-primary-ink hover:underline">All</button>
             <button type="button" onClick={() => setSemesters([1, 3, 5, 7])} className="text-xs font-semibold text-primary-ink hover:underline">Odd</button>
             <button type="button" onClick={() => setSemesters([2, 4, 6, 8])} className="text-xs font-semibold text-primary-ink hover:underline">Even</button>
@@ -295,7 +292,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
                       <td className="px-3 py-2">{r.semester}</td>
                       <td className="px-3 py-2">
                         <input
-                          className={`${inputClass} min-w-44`}
+                          className={`${FIELD_INPUT} min-w-44`}
                           value={r.subjectName || ""}
                           onChange={(e) => updateRow(r._key, "subjectName", e.target.value)}
                           disabled={r.removed}
@@ -306,14 +303,14 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
                           year={previewYears?.target}
                           value={r.courseCode || ""}
                           onChange={(code) => updateRow(r._key, "courseCode", code)}
-                          inputClassName={`${inputClass} w-24`}
+                          inputClassName={`${FIELD_CONTROL} w-24`}
                           disabled={r.removed}
                           dataCy={`clone-row-code-${r.semester}`}
                         />
                       </td>
                       <td className="px-3 py-2">
                         <input
-                          className={`${inputClass} w-20`}
+                          className={`${FIELD_CONTROL} w-20`}
                           type="number"
                           min="0"
                           value={r.credits}

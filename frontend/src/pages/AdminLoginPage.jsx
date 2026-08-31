@@ -16,11 +16,12 @@ import MagneticCta from "../components/ui/MagneticCta";
 import api, { getAdminToken, logoutAdmin } from "../lib/api";
 import { rememberExpiry } from "../lib/session";
 import { safeRedirect } from "../lib/redirect";
-
-const DEPT_ROLES = new Set(["HOD", "DEPT_OFFICE", "PROCTOR"]);
+import { DEPT_PINNED, STAFF_ROLES } from "../lib/roles";
+import { FIELD_INPUT, FIELD_LABEL } from "../lib/formClasses";
 
 // The five designation cards. Titles are load-bearing: several Cypress specs select a card by its
-// exact text, and `role` is what the login request sends.
+// exact text, and `role` is what the login request sends. Local `ROLES`, distinct from lib/roles —
+// this is UI copy keyed by role, not the role vocabulary.
 const ROLES = [
   { role: "ADMIN", title: "Administrator", blurb: "Full system access", Icon: ShieldCheck },
   {
@@ -105,7 +106,7 @@ function AdminLoginPage() {
       setError("Username and password are required.");
       return;
     }
-    if (DEPT_ROLES.has(selectedRole) && !departmentId) {
+    if (DEPT_PINNED.includes(selectedRole) && !departmentId) {
       setError("Please select your department.");
       return;
     }
@@ -115,14 +116,13 @@ function AdminLoginPage() {
 
     try {
       const payload = { username, password };
-      if (DEPT_ROLES.has(selectedRole) && departmentId) {
+      if (DEPT_PINNED.includes(selectedRole) && departmentId) {
         payload.departmentId = departmentId;
       }
 
       const res = await api.post("/auth/login", payload);
 
-      const validRoles = ["ADMIN", "PRINCIPAL", "HOD", "DEPT_OFFICE", "PROCTOR"];
-      if (validRoles.includes(res.data.role)) {
+      if (STAFF_ROLES.includes(res.data.role)) {
         // the server set the JWT in an httpOnly cookie; store only a presence marker, UI state,
         // and the sign-out deadline (expiresIn)
         sessionStorage.setItem("adminRole", res.data.role);
@@ -222,7 +222,7 @@ function AdminLoginPage() {
           <div className="space-y-4">
             <label
               htmlFor="admin-username"
-              className="block text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink"
+              className={`block text-left ${FIELD_LABEL} text-ink`}
             >
               Username
             </label>
@@ -231,13 +231,13 @@ function AdminLoginPage() {
               placeholder="Username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring"
+              className={FIELD_INPUT}
               data-cy="admin-username"
             />
 
             <label
               htmlFor="admin-password"
-              className="block text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink"
+              className={`block text-left ${FIELD_LABEL} text-ink`}
             >
               Password
             </label>
@@ -247,15 +247,15 @@ function AdminLoginPage() {
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring"
+              className={FIELD_INPUT}
               data-cy="admin-password"
             />
 
-            {DEPT_ROLES.has(selectedRole) && (
+            {DEPT_PINNED.includes(selectedRole) && (
               <>
                 <label
                   htmlFor="admin-department"
-                  className="block text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink"
+                  className={`block text-left ${FIELD_LABEL} text-ink`}
                 >
                   Department
                 </label>
@@ -263,7 +263,7 @@ function AdminLoginPage() {
                   id="admin-department"
                   value={departmentId}
                   onChange={(e) => setDepartmentId(e.target.value)}
-                  className="w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  className={FIELD_INPUT}
                   data-cy="admin-department"
                 >
                   <option value="">Select department</option>

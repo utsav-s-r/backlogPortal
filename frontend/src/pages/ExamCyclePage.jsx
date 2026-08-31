@@ -1,21 +1,23 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, CalendarRange, CheckCircle2, CircleSlash, LoaderCircle, PlusCircle } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
 import MagneticCta from "../components/ui/MagneticCta";
 import api, { getAdminHeaders } from "../lib/api";
 import { reportLoadError } from "../lib/loadError";
 import AlertBanner from "../components/AlertBanner";
+import { ADMIN_ONLY } from "../lib/roles";
+import { useRoleGuard } from "../hooks/useRoleGuard";
+import { FIELD_CONTROL } from "../lib/formClasses";
+import Field from "../components/ui/Field";
+import HeaderPill from "../components/ui/HeaderPill";
 
 function ExamCyclePage() {
-  const navigate = useNavigate();
-  const adminRole = sessionStorage.getItem("adminRole");
-  const adminToken = sessionStorage.getItem("adminToken");
   // ADMIN only: this page is entirely create/activate/deactivate, and those are the college-wide
   // registration switch — restricted server-side in ExamCycleController. Any other role would see
   // buttons that 403. (Reading the cycle LIST stays open to every role; that happens on the
   // dashboard filter, not here.)
-  const isAdmin = adminRole === "ADMIN";
+  const allowed = useRoleGuard(ADMIN_ONLY);
 
   const [cycles, setCycles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,10 +44,7 @@ function ExamCyclePage() {
   };
 
   useEffect(() => {
-    if (!isAdmin || !adminToken) {
-      navigate("/admin/login");
-      return;
-    }
+    if (!allowed) return;
     // NOTE: react-hooks/set-state-in-effect flags this (loadCycles setStates internally).
     // Intended and correct — fetch-on-mount into an external system, state lands in the async
     // .then/.finally. A knowing lint error, deliberately not disabled.
@@ -103,7 +102,7 @@ function ExamCyclePage() {
     }
   };
 
-  if (!isAdmin || !adminToken) return null;
+  if (!allowed) return null;
 
   return (
     <div className="min-h-screen bg-surface-1 px-4 py-8 text-ink sm:px-6 lg:px-8">
@@ -116,12 +115,9 @@ function ExamCyclePage() {
             </p>
           }
         >
-          <Link
-            to="/admin"
-            className="inline-flex items-center gap-1 rounded-full border border-white/35 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10"
-          >
+          <HeaderPill as={Link} to="/admin">
             <ArrowLeft size={14} /> Dashboard
-          </Link>
+          </HeaderPill>
         </BrandHeader>
 
         {error && (
@@ -135,32 +131,26 @@ function ExamCyclePage() {
             <PlusCircle size={18} /> New Exam Cycle
           </h3>
           <form onSubmit={handleCreate} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="cycle-name" className="text-xs font-semibold uppercase tracking-[0.08em]">
-                Cycle Name *
-              </label>
+            <Field label="Cycle Name *" htmlFor="cycle-name">
               <input
                 id="cycle-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. June 2026 Backlog Exams"
-                className="rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus-ring"
+                className={FIELD_CONTROL}
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="cycle-my" className="text-xs font-semibold uppercase tracking-[0.08em]">
-                Exam Month / Year
-              </label>
+            </Field>
+            <Field label="Exam Month / Year" htmlFor="cycle-my">
               <input
                 id="cycle-my"
                 type="text"
                 value={examMonthYear}
                 onChange={(e) => setExamMonthYear(e.target.value)}
                 placeholder="e.g. June 2026"
-                className="rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus-ring"
+                className={FIELD_CONTROL}
               />
-            </div>
+            </Field>
             <div className="sm:col-span-2">
               <MagneticCta type="submit" disabled={creating} className="gap-2 rounded-xl">
                 {creating ? <LoaderCircle size={16} className="animate-spin" /> : <PlusCircle size={16} />}

@@ -15,6 +15,10 @@ import MagneticCta from "../components/ui/MagneticCta";
 import api, { getStudentHeaders } from "../lib/api";
 import { formatAcademicYear } from "../lib/academicYear";
 import { saveBlob, readBlobErrorMessage } from "../lib/download";
+import { FIELD_CONTROL, FIELD_LABEL } from "../lib/formClasses";
+import Field from "../components/ui/Field";
+import ReadOnlyField from "../components/ui/ReadOnlyField";
+import HeaderPill from "../components/ui/HeaderPill";
 
 function RegistrationPage() {
   const navigate = useNavigate();
@@ -277,13 +281,10 @@ function RegistrationPage() {
     <div className="min-h-screen bg-surface-1 text-ink">
       <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <BrandHeader className="mb-6">
-          <Link
-            to="/student"
-            aria-label="Back to dashboard"
-            className="inline-flex items-center rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-          >
-            <ArrowLeft size={15} className="mr-1" /> Dashboard
-          </Link>
+          <HeaderPill as={Link} to="/student"
+            aria-label="Back to dashboard">
+            <ArrowLeft size={15} /> Dashboard
+          </HeaderPill>
         </BrandHeader>
 
         <div
@@ -293,15 +294,15 @@ function RegistrationPage() {
           <section className="mb-6">
             <h2 className="mb-3 text-xl font-semibold text-ink">Registering as</h2>
             <div className="grid grid-cols-1 gap-3 rounded-2xl border border-stroke bg-surface-muted p-4 sm:grid-cols-2">
-              <LockedField label="Name" value={profile.name} />
-              <LockedField label="USN" value={profile.rollNo} />
-              <LockedField label="Email" value={profile.email} />
-              <LockedField label="Branch" value={profile.branch} />
-              <LockedField
+              <ReadOnlyField label="Name" value={profile.name} />
+              <ReadOnlyField label="USN" value={profile.rollNo} />
+              <ReadOnlyField label="Email" value={profile.email} />
+              <ReadOnlyField label="Branch" value={profile.branch} />
+              <ReadOnlyField
                 label="Current Semester"
                 value={profile.currentSemester ? `Semester ${profile.currentSemester}` : ""}
               />
-              <LockedField label="Phone" value={profile.phone} />
+              <ReadOnlyField label="Phone" value={profile.phone} />
             </div>
             {profileError ? (
               <p className="mt-2 text-xs text-red-600">{profileError}</p>
@@ -368,16 +369,10 @@ function RegistrationPage() {
 
             <h2 className="mb-4 text-xl font-semibold text-ink">Search Backlog Subjects</h2>
             <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="searchSemester"
-                  className="text-xs font-semibold uppercase tracking-[0.08em] text-ink"
-                >
-                  Semester
-                </label>
+              <Field label="Semester" htmlFor="searchSemester" labelClassName="text-ink">
                 <select
                   id="searchSemester"
-                  className="rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60"
+                  className={FIELD_CONTROL}
                   value={searchSemester}
                   onChange={(e) => setSearchSemester(e.target.value)}
                   data-cy="reg-semester"
@@ -395,9 +390,9 @@ function RegistrationPage() {
                     Your current semester isn't set up yet. Please contact the department office.
                   </p>
                 ) : null}
-              </div>
+              </Field>
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-ink">
+                <span className={`${FIELD_LABEL} text-ink`}>
                   Academic Year
                 </span>
                 <div className="flex h-[42px] items-center rounded-xl border border-stroke bg-surface-muted px-3.5 text-sm text-ink">
@@ -510,29 +505,15 @@ function RegistrationPage() {
   );
 }
 
-function LockedField({ label, value }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">
-        {label}
-      </span>
-      <span className="text-sm font-medium text-ink">{value || "—"}</span>
-    </div>
-  );
-}
-
 function CenteredCard({ icon, eyebrow, title, children }) {
   return (
     <div className="min-h-screen bg-surface-1 px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto mb-6 w-full max-w-2xl">
         <BrandHeader>
-          <Link
-            to="/student"
-            aria-label="Back to dashboard"
-            className="inline-flex items-center rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-          >
-            <ArrowLeft size={15} className="mr-1" /> Dashboard
-          </Link>
+          <HeaderPill as={Link} to="/student"
+            aria-label="Back to dashboard">
+            <ArrowLeft size={15} /> Dashboard
+          </HeaderPill>
         </BrandHeader>
       </div>
       <div

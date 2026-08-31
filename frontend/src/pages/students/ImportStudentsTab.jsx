@@ -5,9 +5,9 @@ import api, { getAdminHeaders } from "../../lib/api";
 import BatchResultTable from "./BatchResultTable";
 import { saveBlob } from "../../lib/download";
 import { CURRENT_SEMESTERS, ENTRY_SEMESTERS } from "../../lib/semesters";
+import { FIELD_CONTROL, FIELD_INPUT } from "../../lib/formClasses";
+import Field from "../../components/ui/Field";
 
-const inputClass =
-  "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60";
 
 const HEADER = "USN,name,phone,dateOfBirth,currentSemester,entrySemester";
 const TEMPLATE =
@@ -95,10 +95,9 @@ function ImportStudentsTab() {
       </p>
 
       <div className="mb-3 flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">Default current sem</label>
+        <Field label="Default current sem">
           <select
-            className={`${inputClass} w-32`}
+            className={`${FIELD_CONTROL} w-32`}
             value={defaultCurrent}
             onChange={(e) => setDefaultCurrent(e.target.value)}
             data-cy="students-import-default-current"
@@ -109,11 +108,10 @@ function ImportStudentsTab() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">Default entry sem</label>
+        </Field>
+        <Field label="Default entry sem">
           <select
-            className={`${inputClass} w-32`}
+            className={`${FIELD_CONTROL} w-32`}
             value={defaultEntry}
             onChange={(e) => setDefaultEntry(e.target.value)}
             data-cy="students-import-default-entry"
@@ -124,7 +122,7 @@ function ImportStudentsTab() {
               </option>
             ))}
           </select>
-        </div>
+        </Field>
         <button
           type="button"
           onClick={downloadTemplate}
@@ -136,7 +134,7 @@ function ImportStudentsTab() {
       </div>
 
       <textarea
-        className={`${inputClass} min-h-32 font-mono`}
+        className={`${FIELD_INPUT} min-h-32 font-mono`}
         placeholder={"1MS24CS001,Asha Rao,9999999999,2006-04-12,1,1"}
         value={csv}
         onChange={(e) => setCsv(e.target.value)}
