@@ -3,7 +3,7 @@ import { ArrowLeft, CalendarRange, CheckCircle2, CircleSlash, LoaderCircle, Plus
 import { Link } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
 import MagneticCta from "../components/ui/MagneticCta";
-import api, { getAdminHeaders } from "../lib/api";
+import api from "../lib/api";
 import { reportLoadError } from "../lib/loadError";
 import AlertBanner from "../components/AlertBanner";
 import { ADMIN_ONLY } from "../lib/roles";
@@ -31,7 +31,7 @@ function ExamCyclePage() {
   const loadCycles = () => {
     setLoading(true);
     api
-      .get("/admin/exam-cycles", { headers: getAdminHeaders() })
+      .get("/admin/exam-cycles")
       .then((res) => {
         setCycles(res.data);
         setLoading(false);
@@ -64,7 +64,6 @@ function ExamCyclePage() {
       await api.post(
         "/admin/exam-cycles",
         { name: name.trim(), examMonthYear: examMonthYear.trim() },
-        { headers: getAdminHeaders() },
       );
       setName("");
       setExamMonthYear("");
@@ -80,7 +79,7 @@ function ExamCyclePage() {
     setActivatingId(id);
     setError("");
     try {
-      await api.put(`/admin/exam-cycles/${id}/activate`, {}, { headers: getAdminHeaders() });
+      await api.put(`/admin/exam-cycles/${id}/activate`, {});
       loadCycles();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to activate exam cycle.");
@@ -93,7 +92,7 @@ function ExamCyclePage() {
     setEndingId(id);
     setError("");
     try {
-      await api.put(`/admin/exam-cycles/${id}/deactivate`, {}, { headers: getAdminHeaders() });
+      await api.put(`/admin/exam-cycles/${id}/deactivate`, {});
       loadCycles();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to end exam cycle.");

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import api, { getAdminHeaders } from "../../lib/api";
+import api from "../../lib/api";
 
 /**
  * The audit trail behind the registrations table's History button.
@@ -38,9 +38,7 @@ export function useRegistrationHistory() {
 
     setLoading(true);
     try {
-      const res = await api.get(`/admin/registrations/${nextId}/events`, {
-        headers: getAdminHeaders(),
-      });
+      const res = await api.get(`/admin/registrations/${nextId}/events`);
       setCache((prev) => ({ ...prev, [nextId]: Array.isArray(res.data) ? res.data : [] }));
     } catch (err) {
       // Surface it: a failed fetch and a genuinely empty trail render identically otherwise, so a

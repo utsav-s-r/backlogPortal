@@ -15,7 +15,7 @@ import { Link, useNavigate } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
 import MagneticCta from "../components/ui/MagneticCta";
 import ThemeToggle from "../components/ui/ThemeToggle";
-import api, { getStudentHeaders, logoutStudent } from "../lib/api";
+import api, { logoutStudent } from "../lib/api";
 import { saveBlob, readBlobErrorMessage } from "../lib/download";
 import ReadOnlyField from "../components/ui/ReadOnlyField";
 import HeaderPill from "../components/ui/HeaderPill";
@@ -49,8 +49,8 @@ function StudentDashboardPage() {
     setError("");
     try {
       const [meRes, regRes] = await Promise.all([
-        api.get("/student/me", { headers: getStudentHeaders() }),
-        api.get("/student/registrations", { headers: getStudentHeaders() }),
+        api.get("/student/me"),
+        api.get("/student/registrations"),
       ]);
       setProfile(meRes.data);
       setRegistrations(Array.isArray(regRes.data) ? regRes.data : []);
@@ -97,11 +97,7 @@ function StudentDashboardPage() {
     setSavingPhone(true);
     setPhoneError("");
     try {
-      const res = await api.put(
-        "/student/me/phone",
-        { phone: phoneInput },
-        { headers: getStudentHeaders() },
-      );
+      const res = await api.put("/student/me/phone", { phone: phoneInput });
       setProfile(res.data);
       setEditingPhone(false);
     } catch (err) {
@@ -116,7 +112,6 @@ function StudentDashboardPage() {
     setDownloadError(null); // a retry shouldn't sit under the previous attempt's message
     try {
       const res = await api.get(`/student/registrations/${regId}/pdf`, {
-        headers: getStudentHeaders(),
         responseType: "blob",
       });
       saveBlob(res.data, `backlog-registration-${profile?.rollNo || regId}.pdf`, "application/pdf");

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { History, LoaderCircle, TrendingUp, TriangleAlert } from "lucide-react";
 import MagneticCta from "../../components/ui/MagneticCta";
 import AlertBanner from "../../components/AlertBanner";
-import api, { getAdminHeaders } from "../../lib/api";
+import api from "../../lib/api";
 import { reportLoadError } from "../../lib/loadError";
 import { CURRENT_SEMESTERS } from "../../lib/semesters";
 import { FIELD_CONTROL, FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
@@ -64,7 +64,7 @@ function BulkProgressionTab({ departments }) {
 
   const loadHistory = useCallback(() => {
     api
-      .get("/admin/progression/bulk", { headers: getAdminHeaders(), params: { page: 0, size: 10 } })
+      .get("/admin/progression/bulk", { params: { page: 0, size: 10 } })
       .then((res) => {
         // Spring Page envelope, not a bare array
         setHistory(res.data?.content ?? []);
@@ -89,7 +89,7 @@ function BulkProgressionTab({ departments }) {
     setDetail(null);
     setDetailBusy(true);
     try {
-      const res = await api.get(`/admin/progression/bulk/${batchId}`, { headers: getAdminHeaders() });
+      const res = await api.get(`/admin/progression/bulk/${batchId}`);
       setDetail(res.data);
     } catch (err) {
       setHistoryError(err.response?.data?.message || "Could not load that run.");
@@ -105,9 +105,7 @@ function BulkProgressionTab({ departments }) {
     setBusy(true);
     try {
       // paths are relative to api.js's /api baseURL — a leading /api here doubles it
-      const res = await api.post("/admin/progression/bulk/preview", body, {
-        headers: getAdminHeaders(),
-      });
+      const res = await api.post("/admin/progression/bulk/preview", body);
       setPreview(res.data);
       setConfirmWord("");
     } catch (err) {
@@ -124,7 +122,6 @@ function BulkProgressionTab({ departments }) {
       const res = await api.post(
         "/admin/progression/bulk",
         { ...body, expectedCount: preview.promoteCount },
-        { headers: getAdminHeaders() },
       );
       setResult(res.data);
       setPreview(null);

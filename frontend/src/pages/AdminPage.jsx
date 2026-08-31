@@ -19,7 +19,7 @@ import AlertBanner from "../components/AlertBanner";
 import { Link, useNavigate } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
 import ThemeToggle from "../components/ui/ThemeToggle";
-import api, { getAdminHeaders, logoutAdmin } from "../lib/api";
+import api, { logoutAdmin } from "../lib/api";
 import { saveBlob, readBlobErrorMessage } from "../lib/download";
 import {
   ROLE,
@@ -155,7 +155,6 @@ function AdminPage() {
 
     return api
       .get(`/admin/registrations?${params.toString()}`, {
-        headers: getAdminHeaders(),
         signal: controller.signal,
       })
       .then((res) => {
@@ -194,7 +193,6 @@ function AdminPage() {
     appendFilterParams(params); // no status: cards span all statuses of the filtered set
     return api
       .get(`/admin/registrations/summary-counts?${params.toString()}`, {
-        headers: getAdminHeaders(),
         signal: controller.signal,
       })
       .then((res) => {
@@ -266,11 +264,7 @@ function AdminPage() {
     clearRowError(regId);
     setVerifyingRegId(regId);
     try {
-      await api.put(
-        `/register/verify/${regId}`,
-        { action: "VERIFIED" },
-        { headers: getAdminHeaders() },
-      );
+      await api.put(`/register/verify/${regId}`, { action: "VERIFIED" });
       // refetch: under server-side status filtering the row may leave the current page
       await resyncAfterAction(regId);
     } catch (err) {
@@ -284,11 +278,7 @@ function AdminPage() {
     clearRowError(regId);
     setRejectingRegId(regId);
     try {
-      await api.put(
-        `/register/verify/${regId}`,
-        { action: "REJECTED" },
-        { headers: getAdminHeaders() },
-      );
+      await api.put(`/register/verify/${regId}`, { action: "REJECTED" });
       await resyncAfterAction(regId);
     } catch (err) {
       await handleActionError(regId, err, "Failed to reject. Please refresh and try again.");
@@ -344,7 +334,6 @@ function AdminPage() {
 
     api
       .post("/admin/export-pdf", body, {
-        headers: getAdminHeaders(),
         responseType: "blob", // required for file downloads
       })
       .then((res) => {

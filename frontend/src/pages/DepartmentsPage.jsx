@@ -3,7 +3,7 @@ import { ArrowLeft, Building2, LoaderCircle, PlusCircle, Save, Trash2 } from "lu
 import { Link } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
 import MagneticCta from "../components/ui/MagneticCta";
-import api, { getAdminHeaders } from "../lib/api";
+import api from "../lib/api";
 import { reportLoadError } from "../lib/loadError";
 import AlertBanner from "../components/AlertBanner";
 import { UNRESTRICTED } from "../lib/roles";
@@ -42,7 +42,7 @@ function DepartmentsPage() {
   const loadDepartments = () => {
     setLoading(true);
     api
-      .get("/admin/departments", { headers: getAdminHeaders() })
+      .get("/admin/departments")
       .then((res) => {
         setDepartments(res.data);
         setNameEdits(
@@ -93,7 +93,6 @@ function DepartmentsPage() {
           code: code.trim().toUpperCase(),
           contactEmail: contactEmail.trim() || null,
         },
-        { headers: getAdminHeaders() },
       );
       setSuccess(`Department "${deptName.trim()}" added.`);
       setDeptName("");
@@ -139,7 +138,6 @@ function DepartmentsPage() {
           // another admin saved this department meanwhile
           version: dept.version,
         },
-        { headers: getAdminHeaders() },
       );
       setSuccess(`Department "${dept.deptName}" saved.`);
       loadDepartments();
@@ -165,7 +163,7 @@ function DepartmentsPage() {
     setSuccess("");
     setDeletingId(dept.id);
     try {
-      await api.delete(`/admin/departments/${dept.id}`, { headers: getAdminHeaders() });
+      await api.delete(`/admin/departments/${dept.id}`);
       setSuccess(`Department "${dept.deptName}" deleted.`);
       confirmDelete.disarm();
       loadDepartments();

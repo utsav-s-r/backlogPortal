@@ -3,7 +3,7 @@ import { ArrowLeft, KeyRound, LoaderCircle, Lock, UserPen } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import BrandIdentity from "../components/layout/BrandIdentity";
 import MagneticCta from "../components/ui/MagneticCta";
-import api, { clearAdminSession, getAdminHeaders } from "../lib/api";
+import api, { clearAdminSession } from "../lib/api";
 import AlertBanner from "../components/AlertBanner";
 import { FIELD_INPUT } from "../lib/formClasses";
 import Field from "../components/ui/Field";
@@ -47,11 +47,7 @@ function ChangePasswordPage() {
 
     setLoading(true);
     try {
-      await api.post(
-        "/auth/change-password",
-        { currentPassword, newPassword },
-        { headers: getAdminHeaders() },
-      );
+      await api.post("/auth/change-password", { currentPassword, newPassword });
       navigate("/admin");
     } catch (apiError) {
       setError(apiError.response?.data?.message || "Could not change password.");
@@ -82,7 +78,6 @@ function ChangePasswordPage() {
       await api.post(
         "/auth/change-username",
         { currentPassword: renamePassword, newUsername: newUsername.trim() },
-        { headers: getAdminHeaders() },
       );
       // The cookie is already gone server-side; drop the cached identity too, or the login page
       // would still show a stale adminRole/adminUsername.

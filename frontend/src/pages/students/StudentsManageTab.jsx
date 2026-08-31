@@ -12,7 +12,7 @@ import {
   X,
 } from "lucide-react";
 import AlertBanner from "../../components/AlertBanner";
-import api, { getAdminHeaders } from "../../lib/api";
+import api from "../../lib/api";
 import { reportLoadError } from "../../lib/loadError";
 import { parseAcademicYear } from "../../lib/academicYear";
 import {
@@ -60,7 +60,7 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
       if (fYear && /^\d{4}$/.test(fYear.trim())) params.admissionYear = Number(fYear.trim());
       if (fSemester) params.semester = Number(fSemester);
       if (fQuery.trim()) params.query = fQuery.trim();
-      const res = await api.get("/admin/students", { headers: getAdminHeaders(), params });
+      const res = await api.get("/admin/students", { params });
       const data = res.data || {};
       setStudents(Array.isArray(data.content) ? data.content : []);
       setPageInfo({
@@ -245,7 +245,6 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
           currentSemester: Number(currentSemester),
           entrySemester: Number(entrySemester),
         },
-        { headers: getAdminHeaders() },
       );
       onUpdated(res.data);
       setMode("view");
@@ -264,11 +263,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
     setBusy(true);
     setError("");
     try {
-      await api.post(
-        `/admin/students/${student.rollNo}/reset-dob`,
-        { dateOfBirth: dob },
-        { headers: getAdminHeaders() },
-      );
+      await api.post(`/admin/students/${student.rollNo}/reset-dob`, { dateOfBirth: dob });
       setDob("");
       setMode("view");
       setNotice("Date of birth updated.");
@@ -290,11 +285,9 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
     setError("");
     try {
       if (proctorMode) {
-        await api.delete(`/admin/proctor/assignments/${student.rollNo}`, {
-          headers: getAdminHeaders(),
-        });
+        await api.delete(`/admin/proctor/assignments/${student.rollNo}`);
       } else {
-        await api.delete(`/admin/students/${student.rollNo}`, { headers: getAdminHeaders() });
+        await api.delete(`/admin/students/${student.rollNo}`);
       }
       onRemoved(student.rollNo);
     } catch (err) {
@@ -575,7 +568,7 @@ function StudentSemesters({ rollNo }) {
     setBusy(true);
     setError("");
     api
-      .get(`/admin/progression/${rollNo}`, { headers: getAdminHeaders() })
+      .get(`/admin/progression/${rollNo}`)
       .then((res) => {
         if (ignore) return;
         setData(res.data);
@@ -602,7 +595,6 @@ function StudentSemesters({ rollNo }) {
       const res = await api.put(
         `/admin/progression/${rollNo}/semester/${semester}`,
         { academicYear: parsed },
-        { headers: getAdminHeaders() },
       );
       setData(res.data);
     } catch (err) {

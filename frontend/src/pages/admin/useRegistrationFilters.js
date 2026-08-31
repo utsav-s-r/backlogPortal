@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import api, { getAdminHeaders } from "../../lib/api";
+import api from "../../lib/api";
 import { reportLoadError } from "../../lib/loadError";
 
 /**
@@ -86,7 +86,6 @@ export function useRegistrationFilters({ isAdmin, canFilterByDepartment, onAppli
 
     api
       .get(`/admin/subjects-for-filter?${subjectParams.toString()}`, {
-        headers: getAdminHeaders(),
         signal: controller.signal,
       })
       .then((res) => {
@@ -122,7 +121,7 @@ export function useRegistrationFilters({ isAdmin, canFilterByDepartment, onAppli
     let ignore = false;
     const controller = new AbortController();
     api
-      .get("/admin/departments", { headers: getAdminHeaders(), signal: controller.signal })
+      .get("/admin/departments", { signal: controller.signal })
       .then((res) => {
         if (ignore) return;
         setDepartments(Array.isArray(res.data) ? res.data : []);
@@ -146,7 +145,7 @@ export function useRegistrationFilters({ isAdmin, canFilterByDepartment, onAppli
     let ignore = false;
     const controller = new AbortController();
     api
-      .get("/admin/exam-cycles", { headers: getAdminHeaders(), signal: controller.signal })
+      .get("/admin/exam-cycles", { signal: controller.signal })
       .then((res) => {
         if (ignore) return;
         setExamCycles(res.data);

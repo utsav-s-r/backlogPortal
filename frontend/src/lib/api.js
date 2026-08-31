@@ -23,16 +23,6 @@ export function getStudentToken() {
   return sessionStorage.getItem("studentToken"); // presence marker, not the JWT
 }
 
-// Cookie-based auth needs no Authorization header. Kept as no-ops so the many
-// `{ headers: getAdminHeaders() }` call sites don't all need editing.
-export function getAdminHeaders() {
-  return {};
-}
-
-export function getStudentHeaders() {
-  return {};
-}
-
 export function clearStudentSession() {
   ["studentToken", "studentRollNo", "studentName", "studentExpiresAt"].forEach((k) =>
     sessionStorage.removeItem(k),

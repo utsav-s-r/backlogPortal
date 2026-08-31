@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { LoaderCircle, PlusCircle } from "lucide-react";
 import MagneticCta from "../../components/ui/MagneticCta";
-import api, { getAdminHeaders } from "../../lib/api";
+import api from "../../lib/api";
 import { formatAcademicYear, buildCourseCode, courseCodeSuffix } from "../../lib/academicYear";
 import CourseCodeField from "../../components/ui/CourseCodeField";
 import AlertBanner from "../../components/AlertBanner";
@@ -94,9 +94,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
         eligibleDeptIds: subjectType === "ELECTIVE" ? eligibleDeptIds : [],
       };
 
-      await api.post("/admin/subjects", payload, {
-        headers: getAdminHeaders(),
-      });
+      await api.post("/admin/subjects", payload);
 
       setSuccess(
         `Subject "${formData.subjectName}" has been added successfully!`,

@@ -13,7 +13,7 @@ import AlertBanner from "../components/AlertBanner";
 import { Link } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
 import MagneticCta from "../components/ui/MagneticCta";
-import api, { getAdminHeaders } from "../lib/api";
+import api from "../lib/api";
 import { reportLoadError } from "../lib/loadError";
 import { findOwnDepartment } from "../lib/session";
 import { DEPT_PINNED, ROLE, USER_MANAGEMENT_ROLES } from "../lib/roles";
@@ -75,7 +75,7 @@ function ManageUsersPage() {
   const loadUsers = useCallback(() => {
     setLoading(true);
     api
-      .get("/admin/users", { headers: getAdminHeaders() })
+      .get("/admin/users")
       .then((res) => {
         setUsers(res.data);
         setLoading(false);
@@ -136,9 +136,7 @@ function ManageUsersPage() {
     try {
       const payload = { username: newUsername.trim(), role: newRole };
       if (DEPT_PINNED.includes(newRole)) payload.departmentId = Number(newDeptId);
-      const res = await api.post("/admin/users", payload, {
-        headers: getAdminHeaders(),
-      });
+      const res = await api.post("/admin/users", payload);
       setNotice({ username: res.data.username, label: "Account created" });
       setNewUsername("");
       if (!deptLocked) setNewDeptId("");
@@ -155,11 +153,7 @@ function ManageUsersPage() {
     setError("");
     setBusyUser(username);
     try {
-      const res = await api.post(
-        `/admin/users/${encodeURIComponent(username)}/reset`,
-        {},
-        { headers: getAdminHeaders() },
-      );
+      const res = await api.post(`/admin/users/${encodeURIComponent(username)}/reset`, {});
       setNotice({ username: res.data.username, label: "Password reset" });
       loadUsers();
     } catch (apiError) {
@@ -183,7 +177,6 @@ function ManageUsersPage() {
       const res = await api.patch(
         `/admin/users/${encodeURIComponent(username)}`,
         { newUsername: trimmed },
-        { headers: getAdminHeaders() },
       );
       setNotice({
         username: res.data.username,
@@ -205,9 +198,7 @@ function ManageUsersPage() {
     setError("");
     setBusyUser(username);
     try {
-      await api.delete(`/admin/users/${encodeURIComponent(username)}`, {
-        headers: getAdminHeaders(),
-      });
+      await api.delete(`/admin/users/${encodeURIComponent(username)}`);
       loadUsers();
     } catch (apiError) {
       setError(apiError.response?.data?.message || "Could not delete user.");

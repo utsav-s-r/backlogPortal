@@ -12,7 +12,7 @@ import AlertBanner from "../components/AlertBanner";
 import { Link, useNavigate } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
 import MagneticCta from "../components/ui/MagneticCta";
-import api, { getStudentHeaders } from "../lib/api";
+import api from "../lib/api";
 import { formatAcademicYear } from "../lib/academicYear";
 import { saveBlob, readBlobErrorMessage } from "../lib/download";
 import { FIELD_CONTROL, FIELD_LABEL } from "../lib/formClasses";
@@ -43,7 +43,7 @@ function RegistrationPage() {
   // identity comes from the authenticated account, never a form
   useEffect(() => {
     api
-      .get("/student/me", { headers: getStudentHeaders() })
+      .get("/student/me")
       .then((res) => setProfile(res.data))
       .catch((err) => {
         // 401 signs out via the global interceptor; 403 and everything else show in place
@@ -94,7 +94,6 @@ function RegistrationPage() {
 
     api
       .get("/student/subjects", {
-        headers: getStudentHeaders(),
         params: { semester: searchSemester },
         signal: controller.signal,
       })
@@ -148,7 +147,6 @@ function RegistrationPage() {
         {
           subjectIds: selectedSubjects.map((s) => s.id),
         },
-        { headers: getStudentHeaders() },
       );
       setRegId(res.data.regId);
       setSubmitted(true);
@@ -167,7 +165,6 @@ function RegistrationPage() {
     setDownloadError("");
     try {
       const res = await api.get(`/student/registrations/${regId}/pdf`, {
-        headers: getStudentHeaders(),
         responseType: "blob",
       });
       saveBlob(res.data, `backlog-registration-${profile?.rollNo || regId}.pdf`, "application/pdf");

@@ -7,7 +7,7 @@ import {
   Trash2,
 } from "lucide-react";
 import MagneticCta from "../../components/ui/MagneticCta";
-import api, { getAdminHeaders } from "../../lib/api";
+import api from "../../lib/api";
 import { formatAcademicYear, parseAcademicYear } from "../../lib/academicYear";
 import CourseCodeField from "../../components/ui/CourseCodeField";
 import { FIELD_CONTROL, FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
@@ -70,7 +70,6 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
       const res = await api.post(
         "/admin/subjects/clone/preview",
         { deptId: Number(effectiveDeptId), sourceYear: src, targetYear: tgt, semesters },
-        { headers: getAdminHeaders() },
       );
       const previewed = (res.data?.rows || []).map((r) => ({
         ...r,
@@ -124,9 +123,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
           eligibleDeptIds: r.eligibleDeptIds || [],
         })),
       };
-      const res = await api.post("/admin/subjects/clone/apply", payload, {
-        headers: getAdminHeaders(),
-      });
+      const res = await api.post("/admin/subjects/clone/apply", payload);
       setResult(res.data);
       // reconcile statuses in place, avoiding a refetch and keeping the result banner:
       // just-created rows now "exist" and drop out of the applicable set

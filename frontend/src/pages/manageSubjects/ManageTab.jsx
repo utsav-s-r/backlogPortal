@@ -8,7 +8,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import api, { getAdminHeaders } from "../../lib/api";
+import api from "../../lib/api";
 import { formatAcademicYear, parseAcademicYear, courseCodeSuffix } from "../../lib/academicYear";
 import CourseCodeField from "../../components/ui/CourseCodeField";
 import { FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
@@ -45,7 +45,7 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
       const y = parseAcademicYear(fYear);
       if (fYear && !Number.isNaN(y)) params.academicYearOffered = y;
       if (fSemester) params.semester = Number(fSemester);
-      const res = await api.get("/admin/subjects", { headers: getAdminHeaders(), params });
+      const res = await api.get("/admin/subjects", { params });
       const data = res.data || {};
       setSubjects(Array.isArray(data.content) ? data.content : []);
       setPageInfo({
@@ -230,7 +230,6 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
           subjectType: type,
           eligibleDeptIds: type === "ELECTIVE" ? eligible : [],
         },
-        { headers: getAdminHeaders() },
       );
       onUpdated(res.data);
       setEditing(false);
@@ -246,7 +245,7 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
     setBusy(true);
     setError("");
     try {
-      await api.delete(`/admin/subjects/${subject.id}`, { headers: getAdminHeaders() });
+      await api.delete(`/admin/subjects/${subject.id}`);
       onRemoved(subject.id);
     } catch (err) {
       setError(err.response?.data?.message || "Could not delete.");

@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { BadgeCheck, LoaderCircle, UserPlus } from "lucide-react";
 import MagneticCta from "../../components/ui/MagneticCta";
-import api, { getAdminHeaders } from "../../lib/api";
+import api from "../../lib/api";
 import { findOwnDepartment } from "../../lib/session";
 import AlertBanner from "../../components/AlertBanner";
 import { CURRENT_SEMESTERS, clampEntrySemester, entrySemestersUpTo } from "../../lib/semesters";
@@ -80,7 +80,6 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
           currentSemester: current,
           entrySemester: entry,
         },
-        { headers: getAdminHeaders() },
       );
       setCreatedRollNo(rollNo);
       setForm(blank);

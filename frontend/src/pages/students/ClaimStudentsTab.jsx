@@ -7,7 +7,7 @@ import {
   UserMinus,
   Users,
 } from "lucide-react";
-import api, { getAdminHeaders } from "../../lib/api";
+import api from "../../lib/api";
 import { batchRows } from "./batchResult";
 import { reportLoadError } from "../../lib/loadError";
 import { ALL_SEMESTERS } from "../../lib/semesters";
@@ -55,7 +55,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
   useEffect(() => {
     if (isProctor) return;
     api
-      .get("/admin/users", { headers: getAdminHeaders() })
+      .get("/admin/users")
       .then((res) => {
         setProctors((res.data || []).filter((u) => u.role === ROLE.PROCTOR));
         setError("");
@@ -76,7 +76,6 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
       const params = {};
       if (proctorParam) params.proctor = proctorParam;
       const res = await api.get("/admin/proctor/students", {
-        headers: getAdminHeaders(),
         params,
       });
       setAssigned(Array.isArray(res.data) ? res.data : []);
@@ -102,7 +101,6 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
         if (fSemester) params.semester = Number(fSemester);
         if (fQuery.trim()) params.query = fQuery.trim();
         const res = await api.get("/admin/proctor/claimable", {
-          headers: getAdminHeaders(),
           params,
         });
         const data = res.data || {};
@@ -137,9 +135,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
     try {
       const payload = { rollNos: [...selected] };
       if (proctorParam) payload.proctor = proctorParam;
-      const res = await api.post("/admin/proctor/assignments", payload, {
-        headers: getAdminHeaders(),
-      });
+      const res = await api.post("/admin/proctor/assignments", payload);
       setResults(res.data);
       // refresh both panels: claimed rows flip to "yours" and the list updates
       await Promise.all([loadClaimable(pageInfo.number), loadAssigned()]);
@@ -156,7 +152,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
     setRemovingRoll(rollNo);
     setError("");
     try {
-      await api.delete(`/admin/proctor/assignments/${rollNo}`, { headers: getAdminHeaders() });
+      await api.delete(`/admin/proctor/assignments/${rollNo}`);
       setAssigned((prev) => (prev || []).filter((s) => s.rollNo !== rollNo));
     } catch (err) {
       setError(err.response?.data?.message || "Could not remove the assignment.");

@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { Download, LoaderCircle, Search, UploadCloud } from "lucide-react";
 import MagneticCta from "../../components/ui/MagneticCta";
-import api, { getAdminHeaders } from "../../lib/api";
+import api from "../../lib/api";
 import BatchResultTable from "./BatchResultTable";
 import { saveBlob } from "../../lib/download";
 import { CURRENT_SEMESTERS, ENTRY_SEMESTERS } from "../../lib/semesters";
@@ -66,7 +66,6 @@ function ImportStudentsTab() {
             defaultEntrySemester: defaultEntry ? Number(defaultEntry) : null,
             dryRun,
           },
-          { headers: getAdminHeaders() },
         );
         setResult(res.data);
       } catch (err) {
