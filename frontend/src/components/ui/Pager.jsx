@@ -1,19 +1,19 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// Prev/next pager over a Spring `Page` envelope ({number, totalPages, totalElements}; `number` is
-// 0-based). `onGo(pageIndex)` re-fetches — the loader reads the current filters from state, so this
-// never carries them.
+// Prev/next pager over a Spring `Page` ({number 0-based, totalPages, totalElements}).
+// `onGo(pageIndex)` re-fetches; the loader reads filters from state, so this never carries them.
+// `className` margin stays with the caller (ClaimStudentsTab `mt-3`, card lists none).
 //
-// `dataCy` is separate from `noun` because the two disagree in ClaimStudentsTab: it paginates
-// students but its spec selects `claim-prev`/`claim-next`. Deriving the hook from the display noun
-// would rename those and collide with StudentsManageTab's own `students-prev` — harmless today
-// only because the two live on different tabs.
+// `dataCy` ≠ `noun`: ClaimStudentsTab paginates "students" but hooks `claim-*`. Deriving from the
+// noun would collide with StudentsManageTab's `students-prev` — harmless only, today, because they
+// sit on different tabs.
 //
-// NOT used by AdminPage, deliberately: its pager is a different presentation (no bordered box, the
-// page-info line sits outside it, rotated arrows rather than chevrons). Folding it in here is a
-// visual change, not a consolidation.
-// Margin stays with the caller via `className` — it is context, not identity, the same split
-// AlertBanner and BrandHeader use (ClaimStudentsTab needs `mt-3`, the two card lists do not).
+// ⚠️ UNTESTED — every paginated stub returns totalPages 0|1 and the gate below is <= 1, so this
+// never renders in a spec and none of its 9 derived hooks (3 × 3 call sites) is referenced.
+// Needs a totalPages >= 2 stub; until then changes here are unguarded — check all 3 call sites.
+//
+// NOT AdminPage's pager: different presentation (no bordered box, page-info outside, rotated
+// arrows). Folding it in is a visual change, not a consolidation.
 function Pager({ pageInfo, busy, onGo, noun, dataCy = noun, className = "" }) {
   const { number, totalPages, totalElements } = pageInfo;
 

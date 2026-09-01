@@ -304,7 +304,9 @@ function BulkProgressionTab({ departments }) {
             {historyError}
           </AlertBanner>
         )}
-        {history && history.length === 0 && !historyError && (
+        {/* null until loaded, so a load failure never reaches here — no !historyError guard
+            needed; the success path clears the error on the same tick. */}
+        {history && history.length === 0 && (
           <p className="text-xs text-ink-muted" data-cy="bulk-history-empty">
             No promotions have been run yet.
           </p>

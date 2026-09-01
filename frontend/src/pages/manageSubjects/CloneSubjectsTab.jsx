@@ -12,17 +12,8 @@ import { formatAcademicYear, parseAcademicYear } from "../../lib/academicYear";
 import CourseCodeField from "../../components/ui/CourseCodeField";
 import { FIELD_CONTROL, FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
-
-const ALL_SEMS = [1, 2, 3, 4, 5, 6, 7, 8];
-
-
-const STATUS_STYLES = {
-  CREATED: "text-primary-ink",
-  WOULD_CREATE: "text-primary-ink",
-  SKIPPED_EXISTS: "text-ink-muted",
-  WOULD_SKIP: "text-ink-muted",
-  ERROR: "text-red-600",
-};
+import { ALL_SEMESTERS } from "../../lib/semesters";
+import { batchStatusClass } from "../../lib/batchStatus";
 
 // Clone a department's subjects into the next academic year. Presentational tab: the shell
 // supplies departments and the dept-lock context.
@@ -33,7 +24,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
   const [deptId, setDeptId] = useState("");
   const [sourceYear, setSourceYear] = useState("");
   const [targetYear, setTargetYear] = useState("");
-  const [semesters, setSemesters] = useState([...ALL_SEMS]);
+  const [semesters, setSemesters] = useState([...ALL_SEMESTERS]);
 
   const [rows, setRows] = useState(null); // null = no preview yet
   const [previewYears, setPreviewYears] = useState(null);
@@ -204,14 +195,17 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
 
         <div className="mt-4">
           <div className="mb-2 flex flex-wrap items-center gap-2">
+            {/* Odd/Even stay inline literals: they match ENTRY_SEMESTERS/CURRENT_SEMESTERS by
+                value only. Those name where a STUDENT joined and sits; these are SUBJECT semesters
+                being cloned. Swapping them in asserts a rule that does not apply here. */}
             <span className={FIELD_LABEL}>Semesters</span>
-            <button type="button" onClick={() => setSemesters([...ALL_SEMS])} className="text-xs font-semibold text-primary-ink hover:underline">All</button>
+            <button type="button" onClick={() => setSemesters([...ALL_SEMESTERS])} className="text-xs font-semibold text-primary-ink hover:underline">All</button>
             <button type="button" onClick={() => setSemesters([1, 3, 5, 7])} className="text-xs font-semibold text-primary-ink hover:underline">Odd</button>
             <button type="button" onClick={() => setSemesters([2, 4, 6, 8])} className="text-xs font-semibold text-primary-ink hover:underline">Even</button>
             <button type="button" onClick={() => setSemesters([])} className="text-xs font-semibold text-ink-muted hover:underline">None</button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {ALL_SEMS.map((s) => {
+            {ALL_SEMESTERS.map((s) => {
               const on = semesters.includes(s);
               return (
                 <button
@@ -315,7 +309,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
                           disabled={r.removed}
                         />
                       </td>
-                      <td className={`px-3 py-2 font-semibold ${STATUS_STYLES[r.status] || ""}`}>
+                      <td className={`px-3 py-2 font-semibold ${batchStatusClass(r.status)}`}>
                         {r.status === "WOULD_SKIP" ? "Exists" : r.status === "ERROR" ? "Error" : "New"}
                       </td>
                       {/* The server's per-row reason. Without this an ERROR row read just "Error",

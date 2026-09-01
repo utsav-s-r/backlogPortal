@@ -3,15 +3,7 @@
 // rows guard was written twice and had already drifted to a weaker operator.
 
 import { batchRows } from "./batchResult";
-
-// Union of the two endpoints' statuses; the WOULD_* pair is the dry-run preview.
-const STATUS_STYLES = {
-  CREATED: "text-primary-ink",
-  WOULD_CREATE: "text-primary-ink",
-  SKIPPED_EXISTS: "text-ink-muted",
-  WOULD_SKIP: "text-ink-muted",
-  ERROR: "text-red-600",
-};
+import { batchStatusClass } from "../../lib/batchStatus";
 
 /**
  * @param verb  past-tense word for a real run ("Imported"); a dry run says Preview
@@ -42,7 +34,7 @@ function BatchResultTable({ result, verb, dataCy }) {
               <tr key={`${r.rollNo}-${r.semester ?? ""}-${i}`} className="border-t border-stroke">
                 <td className="px-3 py-2 font-mono text-xs">{r.rollNo}</td>
                 <td className="px-3 py-2">{r.semester ?? "—"}</td>
-                <td className={`px-3 py-2 font-semibold ${STATUS_STYLES[r.status] || ""}`}>{r.status}</td>
+                <td className={`px-3 py-2 font-semibold ${batchStatusClass(r.status)}`}>{r.status}</td>
                 <td className="px-3 py-2 text-ink-muted">{r.message || ""}</td>
               </tr>
             ))}

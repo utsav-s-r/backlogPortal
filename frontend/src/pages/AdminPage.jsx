@@ -63,7 +63,6 @@ function AdminPage() {
     ROLE.DEPT_OFFICE,
     ROLE.PROCTOR,
   ].includes(adminRole);
-  const adminToken = sessionStorage.getItem("adminToken");
   // Dept-pinned roles can't widen scope — the server ignores the param for anyone pinned, so the
   // control would be a no-op. Direct comparison, not UNRESTRICTED.includes — same compiler rule as
   // isAdmin above; it reaches useRegistrationFilters, which gates the departments fetch on it.
@@ -140,7 +139,7 @@ function AdminPage() {
   }, [appliedFilters]);
 
   const fetchRegistrations = useCallback(() => {
-    if (!isAdmin || !adminToken) return Promise.resolve();
+    if (!isAdmin) return Promise.resolve();
     // tag the request; only the latest may apply its result
     const seq = ++registrationsReqRef.current;
     registrationsAbortRef.current?.abort();
@@ -182,10 +181,10 @@ function AdminPage() {
         );
         setLoading(false); // otherwise the spinner outlives the failure
       });
-  }, [isAdmin, adminToken, appendFilterParams, filter, page]);
+  }, [isAdmin, appendFilterParams, filter, page]);
 
   const fetchCounts = useCallback(() => {
-    if (!isAdmin || !adminToken) return Promise.resolve();
+    if (!isAdmin) return Promise.resolve();
     countsAbortRef.current?.abort();
     const controller = new AbortController();
     countsAbortRef.current = controller;
@@ -207,7 +206,7 @@ function AdminPage() {
           err.response?.data?.message || "Could not load the totals. Please refresh.",
         );
       });
-  }, [isAdmin, adminToken, appendFilterParams]);
+  }, [isAdmin, appendFilterParams]);
 
   useEffect(() => {
     fetchRegistrations();
@@ -386,7 +385,10 @@ function AdminPage() {
   // The one page that renders a terminal denial rather than calling useRoleGuard: /admin IS that
   // hook's redirect target, so redirecting here would loop. Reachable only for an absent or
   // unrecognised adminRole, where "Go to Admin Login" is the right destination.
-  if (!isAdmin || !adminToken) {
+  // ROLE only — never re-add an `adminToken` check here or on the fetches. ProtectedAdminRoute
+  // wraps /admin and redirects when the marker is absent, so this body cannot run without one; and
+  // clearAdminSession drops adminRole too, covering the 401-to-navigation window.
+  if (!isAdmin) {
     return (
       <div className="min-h-screen bg-surface-1 px-4 py-10 sm:px-6 lg:px-8">
         <div className="mx-auto w-full max-w-2xl rounded-3xl border border-stroke bg-surface-1 p-8 text-center shadow-soft">
