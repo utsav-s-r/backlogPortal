@@ -27,6 +27,7 @@ import { ROLE } from "../../lib/roles";
 import { FIELD_INPUT } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
 import Pager from "../../components/ui/Pager";
+import DepartmentOptions from "../../components/ui/DepartmentOptions";
 
 const PAGE_SIZE = 25;
 
@@ -102,11 +103,7 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
               data-cy="students-dept"
             >
               <option value="">All departments</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.deptName}
-                </option>
-              ))}
+              <DepartmentOptions departments={departments} />
             </select>
           </Field>
           <Field label="Admission year">

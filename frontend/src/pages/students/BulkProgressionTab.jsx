@@ -183,6 +183,9 @@ function BulkProgressionTab({ departments }) {
               data-cy="bulk-dept"
             >
               <option value="">All departments</option>
+              {/* NOT components/ui/DepartmentOptions, which keys by d.id: this filters on the branch
+                  CODE (StudentRepository's `lower(s.branch)`, V5's functional index). Swapping it in
+                  would send an id where a code is expected and the preview would look empty. */}
               {departments.map((d) => (
                 <option key={d.id} value={d.code}>
                   {d.deptName}

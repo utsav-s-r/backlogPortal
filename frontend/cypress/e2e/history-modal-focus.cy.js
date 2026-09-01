@@ -108,6 +108,22 @@ describe("History modal focus handling", () => {
     });
   });
 
+  // Makes the header note's "exactly one focusable descendant" an assertion, not a comment. The
+  // content scroll container is a bare <div>, matching nothing in FOCUSABLE_SELECTOR, so the count
+  // is unchanged — this proves it, and fails the moment a second control appears without the
+  // wrap-destination assertion to match.
+  it("still has exactly one focusable descendant", () => {
+    openHistory();
+    cy.get('[data-cy="history-dialog"]').then(($d) => {
+      const focusable = [
+        ...$d[0].querySelectorAll(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ].filter((el) => el.getClientRects().length > 0);
+      expect(focusable.map((el) => el.dataset.cy)).to.deep.equal(["history-close"]);
+    });
+  });
+
   it("Escape closes the dialog and returns focus to the trigger", () => {
     openHistory();
     cy.get("body").type("{esc}");

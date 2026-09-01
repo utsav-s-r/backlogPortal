@@ -80,14 +80,17 @@ function RegistrationHistoryDialog({ events, loading, error, onClose }) {
     >
       <div
         ref={dialogRef}
-        className="w-full max-w-lg rounded-2xl border border-stroke bg-surface-1 p-6 shadow-soft"
+        /* Capped, not a plain box: the event list is unbounded, and an overflowing item in an
+           `items-center` FIXED overlay is clipped at BOTH ends with no scrollbar. `svh` (not
+           vh/dvh) is the smallest viewport, so it fits whatever the mobile URL bar is doing. */
+        className="flex max-h-[90svh] w-full max-w-lg flex-col rounded-2xl border border-stroke bg-surface-1 p-6 shadow-soft"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="history-dialog-title"
         data-cy="history-dialog"
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex shrink-0 items-center justify-between">
           <h3
             id="history-dialog-title"
             className="inline-flex items-center gap-2 text-lg font-semibold text-secondary-ink"
@@ -106,45 +109,50 @@ function RegistrationHistoryDialog({ events, loading, error, onClose }) {
           </button>
         </div>
 
-        {loading ? (
-          <p className="inline-flex items-center gap-2 text-sm text-ink">
-            <LoaderCircle size={16} className="animate-spin" /> Loading history...
-          </p>
-        ) : error ? (
-          <p className="text-sm font-medium text-red-600" role="alert" data-cy="admin-history-error">
-            {error}
-          </p>
-        ) : events.length === 0 ? (
-          <p className="text-sm text-ink-muted">No history recorded for this registration.</p>
-        ) : (
-          <ol className="space-y-3">
-            {events.map((ev, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-3 rounded-xl border border-stroke bg-surface-muted px-3 py-2.5"
-              >
-                <span
-                  className={`mt-0.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${outcomeBadgeClass(
-                    ev.action,
-                    "bg-surface-1",
-                  )}`}
+        {/* min-h-0 is load-bearing: a flex item defaults to min-height:auto and won't shrink below
+            its content, so overflow-y-auto would never engage. A bare div matches nothing in
+            FOCUSABLE_SELECTOR, so the one-focusable-descendant invariant above holds. */}
+        <div className="min-h-0 overflow-y-auto">
+          {loading ? (
+            <p className="inline-flex items-center gap-2 text-sm text-ink">
+              <LoaderCircle size={16} className="animate-spin" /> Loading history...
+            </p>
+          ) : error ? (
+            <p className="text-sm font-medium text-red-600" role="alert" data-cy="admin-history-error">
+              {error}
+            </p>
+          ) : events.length === 0 ? (
+            <p className="text-sm text-ink-muted">No history recorded for this registration.</p>
+          ) : (
+            <ol className="space-y-3">
+              {events.map((ev, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-3 rounded-xl border border-stroke bg-surface-muted px-3 py-2.5"
                 >
-                  {ev.action}
-                </span>
-                <div className="text-sm">
-                  <p className="text-ink">
-                    {ev.actor || "unknown"}
-                    <span className="text-ink-muted"> ({ev.actorRole})</span>
-                  </p>
-                  <p className="text-xs text-ink-muted">
-                    {ev.timestamp ? new Date(ev.timestamp).toLocaleString() : ""}
-                  </p>
-                  {ev.note && <p className="mt-1 text-xs text-ink">{ev.note}</p>}
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
+                  <span
+                    className={`mt-0.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${outcomeBadgeClass(
+                      ev.action,
+                      "bg-surface-1",
+                    )}`}
+                  >
+                    {ev.action}
+                  </span>
+                  <div className="text-sm">
+                    <p className="text-ink">
+                      {ev.actor || "unknown"}
+                      <span className="text-ink-muted"> ({ev.actorRole})</span>
+                    </p>
+                    <p className="text-xs text-ink-muted">
+                      {ev.timestamp ? new Date(ev.timestamp).toLocaleString() : ""}
+                    </p>
+                    {ev.note && <p className="mt-1 text-xs text-ink">{ev.note}</p>}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
       </div>
     </div>
   );

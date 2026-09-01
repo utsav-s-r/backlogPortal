@@ -7,6 +7,7 @@ import { FIELD_CONTROL } from "../../lib/formClasses";
 // CURRENT_SEMESTERS. A filter READS existing data, and a sem-2 student's backlogs are in
 // sem 1, so narrowing this to even would hide half of every student's registrations.
 import { ALL_SEMESTERS } from "../../lib/semesters";
+import DepartmentOptions from "../../components/ui/DepartmentOptions";
 
 // The dashboard's filter panel. Purely presentational — every value and setter comes from
 // useRegistrationFilters, which owns the draft/applied split.
@@ -105,11 +106,7 @@ function FilterPanel({
               className={FIELD_CONTROL}
             >
               <option value="">All Departments</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.deptName}
-                </option>
-              ))}
+              <DepartmentOptions departments={departments} />
             </select>
           </Field>
         )}

@@ -36,6 +36,8 @@ import { useRegistrationHistory } from "./admin/useRegistrationHistory";
 import { outcomeBadgeClass } from "./admin/outcomeBadge";
 import { useRegistrationFilters } from "./admin/useRegistrationFilters";
 import FilterPanel from "./admin/FilterPanel";
+import SkipLink from "../components/ui/SkipLink";
+import HeaderBadge from "../components/ui/HeaderBadge";
 
 const PAGE_SIZE = 25;
 
@@ -411,12 +413,7 @@ function AdminPage() {
 
   return (
     <div className="min-h-screen bg-surface-1 px-4 py-8 text-ink sm:px-6 lg:px-8">
-      <a
-        href="#admin-main"
-        className="sr-only left-4 top-4 z-[60] rounded-md bg-cta px-4 py-2 text-sm font-semibold text-cta-text focus:not-sr-only focus:fixed"
-      >
-        Skip to admin table
-      </a>
+      <SkipLink href="#admin-main">Skip to admin table</SkipLink>
 
       <div id="admin-main" className="mx-auto w-full max-w-7xl">
         <BrandHeader
@@ -424,9 +421,7 @@ function AdminPage() {
           badge={
             adminDepartment && (
               <div className="mt-2 flex flex-wrap gap-2">
-                <p className="inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
-                  {adminDepartment}
-                </p>
+                <HeaderBadge>{adminDepartment}</HeaderBadge>
               </div>
             )
           }

@@ -1,6 +1,7 @@
 import StickyNav from "../components/layout/StickyNav";
 import HeroSection from "../components/sections/HeroSection";
 import ProcessSection from "../components/sections/ProcessSection";
+import SkipLink from "../components/ui/SkipLink";
 
 function HomePage() {
   return (
@@ -8,12 +9,7 @@ function HomePage() {
     // (decorative corner blobs in light, a brand gradient in dark). Both are gone: the page now
     // sits on the same flat surface as the rest of the app.
     <div className="min-h-screen bg-surface-1 text-ink">
-      <a
-        href="#main-content"
-        className="sr-only left-4 top-4 z-[60] rounded-md bg-cta px-4 py-2 text-sm font-semibold text-cta-text focus:not-sr-only focus:fixed"
-      >
-        Skip to main content
-      </a>
+      <SkipLink href="#main-content">Skip to main content</SkipLink>
       <StickyNav />
 
       <main id="main-content">

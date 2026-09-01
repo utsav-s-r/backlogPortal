@@ -1,6 +1,9 @@
-// Phone-width regression coverage from the 2026-07 mobile audit. Both bugs it guards were
-// page-level horizontal overflow at 375px: a long subject name blowing out the registration list
-// (missing min-w-0 on a flex label), and the admin header nav clipping buttons (missing flex-wrap).
+// Phone-width (375px) regression coverage. NOT all about horizontal overflow — four distinct bugs:
+//   - a long subject name blowing out the registration list (missing min-w-0 on a flex label)
+//   - the admin header nav clipping buttons (missing flex-wrap)
+//   - form controls under 16px, which make iOS Safari auto-zoom on focus and never zoom back
+//   - the history dialog growing past the viewport, clipped at BOTH ends by `items-center` with no
+//     scrollbar (a fixed overlay does not scroll), taking its close button off-screen
 
 const expectNoHorizontalScroll = () =>
   cy.document().its("documentElement").should((el) => {
@@ -73,6 +76,82 @@ describe("Mobile viewport (375x812)", () => {
     cy.wait("@getSubjects");
     cy.contains("24CSL46").should("be.visible");
     // the long name must stay contained instead of widening the page
+    expectNoHorizontalScroll();
+  });
+
+  // Electron can never reproduce the iOS zoom, so the font size IS the contract — assert the
+  // computed px, not a visual outcome.
+  it("form controls are at least 16px so iOS does not zoom on focus", () => {
+    cy.visit("/student/login");
+    ["student-usn", "student-dob"].forEach((cy_) =>
+      cy.get(`[data-cy="${cy_}"]`).should(($el) => {
+        expect(parseFloat(getComputedStyle($el[0]).fontSize), `${cy_} font-size`).to.be.at.least(16);
+      }),
+    );
+  });
+
+  it("history dialog stays inside the viewport when the audit trail is long", () => {
+    const row = {
+      regId: "REG-2026-1001",
+      rollNo: "1MS22CS001",
+      studentName: "Student One",
+      semester: 4,
+      yearOfJoining: 2022,
+      subjects: ["Data Structures"],
+      status: "VERIFIED",
+      verifiedBy: "hod.cse",
+      registeredAt: "2026-04-20T10:20:00",
+    };
+    // every endpoint AdminPage fires on mount — an unstubbed /api/admin call 401s and signs the
+    // session out mid-test
+    cy.intercept("GET", "/api/admin/registrations*", {
+      statusCode: 200,
+      body: { content: [row], totalElements: 1, totalPages: 1, number: 0 },
+    });
+    cy.intercept("GET", "/api/admin/registrations/summary-counts*", {
+      statusCode: 200,
+      body: { total: 1, submitted: 0, verified: 1, rejected: 0 },
+    });
+    cy.intercept("GET", "/api/admin/exam-cycles*", { statusCode: 200, body: [] });
+    cy.intercept("GET", "/api/admin/subjects-for-filter*", { statusCode: 200, body: [] });
+    cy.intercept("GET", "/api/admin/departments", { statusCode: 200, body: [] });
+    // 15 events: comfortably past the ~8 that overflowed before the max-h cap
+    cy.intercept("GET", `/api/admin/registrations/${row.regId}/events`, {
+      statusCode: 200,
+      body: Array.from({ length: 15 }, (_, i) => ({
+        action: i === 0 ? "SUBMITTED" : "VERIFIED",
+        actor: "hod.cse",
+        actorRole: "HOD",
+        timestamp: "2026-04-20T10:20:00",
+        note: `Event ${i + 1}`,
+      })),
+    }).as("getEvents");
+
+    cy.visitAsAdmin("/admin");
+    cy.get(`[data-cy="history-${row.regId}"]`).click();
+    cy.wait("@getEvents");
+
+    // `window` in spec scope is the RUNNER's, whose innerHeight is 0 — every `at.most(...)` would
+    // then be vacuous. Measure against the app's.
+    cy.window().then((win) => {
+      cy.get('[data-cy="history-dialog"]').should(($d) => {
+        const r = $d[0].getBoundingClientRect();
+        expect(r.top, "dialog top is on screen").to.be.at.least(0);
+        expect(r.bottom, "dialog bottom is on screen").to.be.at.most(win.innerHeight);
+        // the cap is useless without a scroll container to reach the clipped events
+        const scroller = $d[0].querySelector(".overflow-y-auto");
+        expect(scroller, "content has a scroll container").to.not.be.null;
+        expect(scroller.scrollHeight, "content actually scrolls").to.be.greaterThan(
+          scroller.clientHeight,
+        );
+      });
+      // the close button was the casualty: it went off the top with the header
+      cy.get('[data-cy="history-close"]').should(($b) => {
+        const r = $b[0].getBoundingClientRect();
+        expect(r.top, "close button is on screen").to.be.at.least(0);
+        expect(r.bottom, "close button is on screen").to.be.at.most(win.innerHeight);
+      });
+    });
     expectNoHorizontalScroll();
   });
 

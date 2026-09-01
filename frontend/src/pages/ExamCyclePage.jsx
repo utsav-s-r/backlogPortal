@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, CalendarRange, CheckCircle2, CircleSlash, LoaderCircle, PlusCircle } from "lucide-react";
-import { Link } from "react-router-dom";
-import BrandHeader from "../components/layout/BrandHeader";
+import { CalendarRange, CheckCircle2, CircleSlash, LoaderCircle, PlusCircle } from "lucide-react";
+import AdminPageShell from "../components/layout/AdminPageShell";
+import HeaderBadge from "../components/ui/HeaderBadge";
 import MagneticCta from "../components/ui/MagneticCta";
 import api from "../lib/api";
 import { reportLoadError } from "../lib/loadError";
@@ -10,7 +10,6 @@ import { ADMIN_ONLY } from "../lib/roles";
 import { useRoleGuard } from "../hooks/useRoleGuard";
 import { FIELD_CONTROL } from "../lib/formClasses";
 import Field from "../components/ui/Field";
-import HeaderPill from "../components/ui/HeaderPill";
 
 function ExamCyclePage() {
   // ADMIN only: this page is entirely create/activate/deactivate, and those are the college-wide
@@ -104,134 +103,123 @@ function ExamCyclePage() {
   if (!allowed) return null;
 
   return (
-    <div className="min-h-screen bg-surface-1 px-4 py-8 text-ink sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-3xl">
-        <BrandHeader
-          className="mb-6"
-          badge={
-            <p className="mt-2 inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
-              Manage Exam Cycles
-            </p>
-          }
-        >
-          <HeaderPill as={Link} to="/admin">
-            <ArrowLeft size={14} /> Dashboard
-          </HeaderPill>
-        </BrandHeader>
+    <AdminPageShell
+      containerClassName="max-w-3xl"
+      badge={<HeaderBadge className="mt-2">Manage Exam Cycles</HeaderBadge>}
+    >
 
-        {error && (
-          <AlertBanner tone="error" className="mb-4">
-            {error}
-          </AlertBanner>
-        )}
+      {error && (
+        <AlertBanner tone="error" className="mb-4">
+          {error}
+        </AlertBanner>
+      )}
 
-        <section className="mb-6 rounded-2xl border border-stroke bg-surface-1 p-5 shadow-soft">
-          <h3 className="mb-4 inline-flex items-center gap-2 text-lg font-semibold text-secondary-ink">
-            <PlusCircle size={18} /> New Exam Cycle
-          </h3>
-          <form onSubmit={handleCreate} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Cycle Name *" htmlFor="cycle-name">
-              <input
-                id="cycle-name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. June 2026 Backlog Exams"
-                className={FIELD_CONTROL}
-              />
-            </Field>
-            <Field label="Exam Month / Year" htmlFor="cycle-my">
-              <input
-                id="cycle-my"
-                type="text"
-                value={examMonthYear}
-                onChange={(e) => setExamMonthYear(e.target.value)}
-                placeholder="e.g. June 2026"
-                className={FIELD_CONTROL}
-              />
-            </Field>
-            <div className="sm:col-span-2">
-              <MagneticCta type="submit" disabled={creating} className="gap-2 rounded-xl">
-                {creating ? <LoaderCircle size={16} className="animate-spin" /> : <PlusCircle size={16} />}
-                {creating ? "Creating..." : "Create Cycle"}
-              </MagneticCta>
-            </div>
-          </form>
-        </section>
+      <section className="mb-6 rounded-2xl border border-stroke bg-surface-1 p-5 shadow-soft">
+        <h3 className="mb-4 inline-flex items-center gap-2 text-lg font-semibold text-secondary-ink">
+          <PlusCircle size={18} /> New Exam Cycle
+        </h3>
+        <form onSubmit={handleCreate} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Cycle Name *" htmlFor="cycle-name">
+            <input
+              id="cycle-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. June 2026 Backlog Exams"
+              className={FIELD_CONTROL}
+            />
+          </Field>
+          <Field label="Exam Month / Year" htmlFor="cycle-my">
+            <input
+              id="cycle-my"
+              type="text"
+              value={examMonthYear}
+              onChange={(e) => setExamMonthYear(e.target.value)}
+              placeholder="e.g. June 2026"
+              className={FIELD_CONTROL}
+            />
+          </Field>
+          <div className="sm:col-span-2">
+            <MagneticCta type="submit" disabled={creating} className="gap-2 rounded-xl">
+              {creating ? <LoaderCircle size={16} className="animate-spin" /> : <PlusCircle size={16} />}
+              {creating ? "Creating..." : "Create Cycle"}
+            </MagneticCta>
+          </div>
+        </form>
+      </section>
 
-        <section className="rounded-2xl border border-stroke bg-surface-1 p-5 shadow-soft">
-          <h3 className="mb-4 inline-flex items-center gap-2 text-lg font-semibold text-secondary-ink">
-            <CalendarRange size={18} /> Exam Cycles
-          </h3>
-          {loading ? (
-            <p className="inline-flex items-center gap-2 text-sm">
-              <LoaderCircle size={16} className="animate-spin" /> Loading...
-            </p>
-          ) : cycles.length === 0 ? (
-            <p className="text-sm text-ink-muted">
-              No exam cycles yet. Create one above — registrations stay closed until a cycle is active.
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {cycles.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stroke bg-surface-muted px-4 py-3"
-                >
-                  <div>
-                    <p className="font-semibold text-ink">
-                      {c.name}
-                      {c.active && (
-                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary-tint px-2.5 py-0.5 text-[11px] font-semibold text-primary-ink">
-                          <CheckCircle2 size={12} /> Active
-                        </span>
-                      )}
-                    </p>
-                    {c.examMonthYear && (
-                      <p className="text-xs text-ink-muted">{c.examMonthYear}</p>
+      <section className="rounded-2xl border border-stroke bg-surface-1 p-5 shadow-soft">
+        <h3 className="mb-4 inline-flex items-center gap-2 text-lg font-semibold text-secondary-ink">
+          <CalendarRange size={18} /> Exam Cycles
+        </h3>
+        {loading ? (
+          <p className="inline-flex items-center gap-2 text-sm">
+            <LoaderCircle size={16} className="animate-spin" /> Loading...
+          </p>
+        ) : cycles.length === 0 ? (
+          <p className="text-sm text-ink-muted">
+            No exam cycles yet. Create one above — registrations stay closed until a cycle is active.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {cycles.map((c) => (
+              <li
+                key={c.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stroke bg-surface-muted px-4 py-3"
+              >
+                <div>
+                  <p className="font-semibold text-ink">
+                    {c.name}
+                    {c.active && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary-tint px-2.5 py-0.5 text-[11px] font-semibold text-primary-ink">
+                        <CheckCircle2 size={12} /> Active
+                      </span>
                     )}
-                  </div>
-                  {c.active ? (
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-semibold text-primary-ink">Accepting registrations</span>
-                      <button
-                        type="button"
-                        onClick={() => handleEnd(c.id)}
-                        disabled={endingId === c.id}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
-                        data-cy="cycle-end"
-                      >
-                        {endingId === c.id ? (
-                          <LoaderCircle size={14} className="animate-spin" />
-                        ) : (
-                          <CircleSlash size={14} />
-                        )}
-                        End cycle
-                      </button>
-                    </div>
-                  ) : (
+                  </p>
+                  {c.examMonthYear && (
+                    <p className="text-xs text-ink-muted">{c.examMonthYear}</p>
+                  )}
+                </div>
+                {c.active ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-primary-ink">Accepting registrations</span>
                     <button
                       type="button"
-                      onClick={() => handleActivate(c.id)}
-                      disabled={activatingId === c.id}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary disabled:opacity-50"
-                      data-cy="cycle-activate"
+                      onClick={() => handleEnd(c.id)}
+                      disabled={endingId === c.id}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
+                      data-cy="cycle-end"
                     >
-                      {activatingId === c.id ? (
+                      {endingId === c.id ? (
                         <LoaderCircle size={14} className="animate-spin" />
                       ) : (
-                        <CheckCircle2 size={14} />
+                        <CircleSlash size={14} />
                       )}
-                      Activate
+                      End cycle
                     </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
-    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleActivate(c.id)}
+                    disabled={activatingId === c.id}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary disabled:opacity-50"
+                    data-cy="cycle-activate"
+                  >
+                    {activatingId === c.id ? (
+                      <LoaderCircle size={14} className="animate-spin" />
+                    ) : (
+                      <CheckCircle2 size={14} />
+                    )}
+                    Activate
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </AdminPageShell>
   );
 }
 

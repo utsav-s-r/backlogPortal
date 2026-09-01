@@ -18,6 +18,8 @@ import { rememberExpiry } from "../lib/session";
 import { safeRedirect } from "../lib/redirect";
 import { DEPT_PINNED, STAFF_ROLES } from "../lib/roles";
 import { FIELD_INPUT, FIELD_LABEL } from "../lib/formClasses";
+import DepartmentOptions from "../components/ui/DepartmentOptions";
+import SkipLink from "../components/ui/SkipLink";
 
 // The five designation cards. Titles are load-bearing: several Cypress specs select a card by its
 // exact text, and `role` is what the login request sends. Local `ROLES`, distinct from lib/roles —
@@ -159,12 +161,7 @@ function AdminLoginPage() {
 
   return (
     <div className="min-h-screen bg-surface-1 px-4 py-10 sm:px-6 lg:px-8">
-      <a
-        href="#admin-login-main"
-        className="sr-only left-4 top-4 z-[60] rounded-md bg-cta px-4 py-2 text-sm font-semibold text-cta-text focus:not-sr-only focus:fixed"
-      >
-        Skip to admin login
-      </a>
+      <SkipLink href="#admin-login-main">Skip to admin login</SkipLink>
 
       <div
         id="admin-login-main"
@@ -267,11 +264,7 @@ function AdminLoginPage() {
                   data-cy="admin-department"
                 >
                   <option value="">Select department</option>
-                  {departments.map((d) => (
-                    <option key={d.id} value={String(d.id)}>
-                      {d.deptName}
-                    </option>
-                  ))}
+                  <DepartmentOptions departments={departments} />
                 </select>
                 {departmentsError ? (
                   <AlertBanner

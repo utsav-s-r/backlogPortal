@@ -14,6 +14,7 @@ import { FIELD_CONTROL, FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
 import { ALL_SEMESTERS } from "../../lib/semesters";
 import { batchStatusClass } from "../../lib/batchStatus";
+import DepartmentOptions from "../../components/ui/DepartmentOptions";
 
 // Clone a department's subjects into the next academic year. Presentational tab: the shell
 // supplies departments and the dept-lock context.
@@ -162,11 +163,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
               data-cy="clone-dept"
             >
               <option value="">Select department</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.deptName}
-                </option>
-              ))}
+              <DepartmentOptions departments={departments} />
             </select>
           </Field>
           <div className="grid grid-cols-2 gap-3">

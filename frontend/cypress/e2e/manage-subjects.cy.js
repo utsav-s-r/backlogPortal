@@ -100,4 +100,49 @@ describe("Manage Subjects page", () => {
     cy.get('[data-cy="tab-clone"]').click();
     cy.get('[data-cy="clone-preview"]').should("be.visible");
   });
+
+  // Guards the ARIA tabs pattern (WCAG 4.1.2): role="tab" without aria-controls, a tabpanel and a
+  // roving tabindex announces "tab, 1 of 3" with no route to the panel. Asserts the RELATIONSHIP
+  // RESOLVES, not just that the attribute exists — a dangling aria-controls is the same bug
+  // wearing a passing test.
+  it("wires the tabs to their panel (WCAG 4.1.2) with a roving tabindex", () => {
+    cy.intercept("GET", "/api/departments", {
+      statusCode: 200,
+      body: [{ id: 1, deptName: "Computer Science" }],
+    }).as("getDepartments");
+    cy.visitAsAdmin("/admin/manage-subjects");
+    cy.wait("@getDepartments");
+
+    cy.get('[role="tabpanel"]').should("have.length", 1);
+    cy.get('[role="tab"]').should("have.length", 3);
+
+    cy.document().then((doc) => {
+      const tabs = [...doc.querySelectorAll('[role="tab"]')];
+      const panel = doc.querySelector('[role="tabpanel"]');
+      tabs.forEach((t) => {
+        expect(t.id, "every tab needs an id for aria-labelledby").to.not.equal("");
+        // the relationship must RESOLVE — a dangling id reference reads as wired and isn't
+        expect(doc.getElementById(t.getAttribute("aria-controls")), `${t.id} -> panel`).to.equal(
+          panel,
+        );
+      });
+      expect(doc.getElementById(panel.getAttribute("aria-labelledby")), "panel -> active tab")
+        .to.equal(tabs.find((t) => t.getAttribute("aria-selected") === "true"));
+      // roving tabindex: exactly one tab stop, and it is the selected tab
+      expect(tabs.filter((t) => t.tabIndex === 0).map((t) => t.dataset.cy)).to.deep.equal([
+        "tab-manage",
+      ]);
+    });
+
+    // ArrowRight selects the next tab and takes focus with it (automatic activation)
+    cy.get('[data-cy="tab-manage"]').focus().trigger("keydown", { key: "ArrowRight" });
+    cy.get('[data-cy="tab-add"]')
+      .should("have.attr", "aria-selected", "true")
+      .and("have.focus");
+    // and the panel's label follows the selection rather than pointing at the old tab
+    cy.get('[role="tabpanel"]').should("have.attr", "aria-labelledby", "admin-tab-add");
+    // End jumps to the last tab, wrapping rules aside
+    cy.get('[data-cy="tab-add"]').trigger("keydown", { key: "End" });
+    cy.get('[data-cy="tab-clone"]').should("have.attr", "aria-selected", "true");
+  });
 });
