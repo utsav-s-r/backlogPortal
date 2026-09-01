@@ -13,16 +13,14 @@ import org.springframework.web.server.ResponseStatusException;
  * Identifying the caller, in one place. Sibling of {@link ProctorScopeService}, which answers the
  * next question (which STUDENTS may this caller touch).
  *
- * This existed as a byte-identical private helper in nine controllers, and it is the primitive that
- * failed identically in five of them: the resolvers used to return a permissive {@code null} when
- * the caller could not be identified, and every call site reads {@code null} as "ADMIN/PRINCIPAL,
- * unrestricted". Extracted so the fail-closed contract is stated once and can be unit-tested —
- * private controller helpers cannot be, and this repo has no controller tests.
+ * The contract is fail-closed and stated ONCE here: never resolve a permissive {@code null} when
+ * the caller cannot be identified, because every call site reads {@code null} as "ADMIN/PRINCIPAL,
+ * unrestricted". Living in a service (not a private controller helper) is what makes it unit-testable.
  *
  * Deliberately NOT extracted: each controller's own {@code DEPT_ROLES} set. They genuinely differ
  * ({HOD, DEPT_OFFICE, PROCTOR} in most, {HOD, DEPT_OFFICE} where PROCTOR is excluded by
  * {@code @PreAuthorize} or handled earlier), so a single shared set would silently widen or narrow
- * one of them — the exact bug class this whole pass removed.
+ * one of them.
  */
 @Service
 public class CallerScope {

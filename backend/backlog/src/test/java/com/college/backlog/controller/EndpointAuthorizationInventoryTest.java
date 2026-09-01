@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * new path into a list without deciding it belongs there.
  *
  * <p>This checks that a rule EXISTS, not that it is the right one. Whether HOD may reach a given
- * endpoint is the role-matrix suite (OPEN.md §2.3); it is deliberately not duplicated here.
+ * endpoint belongs to the role-matrix suite; it is deliberately not duplicated here.
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -85,7 +85,7 @@ class EndpointAuthorizationInventoryTest {
         }
 
         // Guard against a vacuous pass: an empty or tiny inventory would satisfy every assertion
-        // below while proving nothing. 53 endpoints across 14 controllers as of 2026-08-24.
+        // below while proving nothing.
         assertThat(all)
                 .as("handler inventory — a near-empty one means the mapping was not read")
                 .hasSizeGreaterThan(40)

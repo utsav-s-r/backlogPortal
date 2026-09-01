@@ -11,13 +11,12 @@ import { useNavigate } from "react-router-dom";
  *
  * It answers ROLE only — never "is there a session". `ProtectedAdminRoute` already redirects to
  * /admin/login when `adminToken` is absent, and every /admin/* route is wrapped in it, so a page
- * body cannot run without one. The six `!adminToken` checks this replaced were unreachable.
+ * body cannot run without one; a `!adminToken` check in a page is unreachable code.
  *
- * Unified three idioms (2026-08-31). Two pages sent a wrong-role user to `/admin/login`, where
- * AdminLoginPage sees a live token and bounces straight back to /admin — a double redirect that
- * mounted the login page and fired a wasted `GET /api/departments` on every such visit (observed
- * in the network log; the intermediate is too brief to catch by polling). /admin is the one
- * destination: it is where a staff account of any role can always go.
+ * /admin is the ONLY correct destination — it is where a staff account of any role can always go.
+ * Sending a wrong-role user to /admin/login instead makes AdminLoginPage see the live token and
+ * bounce straight back, a double redirect that mounts the login page and fires a wasted
+ * `GET /api/departments` on every such visit.
  *
  * `replace: true` so the forbidden page does not sit in history — Back from /admin would otherwise
  * return to it and bounce again, which is a trap rather than a navigation.

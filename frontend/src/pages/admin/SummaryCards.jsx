@@ -8,8 +8,7 @@ import AlertBanner from "../../components/AlertBanner";
 // The label <p> and the value <p> must stay DIRECT SIBLINGS under the card div:
 // admin-verification.cy.js asserts `cy.contains("Total").parent().should("contain", "—")`, which
 // walks exactly one level up. Wrapping the label — the obvious way to lay out the icon — moves the
-// value out of `.parent()` and breaks that test. The icon therefore lives INSIDE the label <p>,
-// which is how the four hand-written copies already had it.
+// value out of `.parent()` and breaks that test. The icon therefore lives INSIDE the label <p>.
 const CARDS = [
   { key: "total", label: "Total", Icon: Users, valueClass: "text-secondary-ink" },
   { key: "submitted", label: "Pending", Icon: CircleDashed, valueClass: "text-secondary-ink" },

@@ -22,12 +22,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * The seeder had no tests at all until 2026-08-29, which mattered once usernames became renamable:
- * {@code @SpringBootTest} does NOT invoke {@code CommandLineRunner} beans, so the whole context
- * suite can be green while this class does the wrong thing on every real boot. These are plain
- * Mockito unit tests for that reason — no context, no database.
+ * The seeder needs its own tests because {@code @SpringBootTest} does NOT invoke
+ * {@code CommandLineRunner} beans: the whole context suite can be green while this class does the
+ * wrong thing on every real boot. Plain Mockito unit tests for that reason — no context, no database.
  *
- * <p>The case that drove them is {@link #doesNotResurrectTheAdminAfterItHasBeenRenamed}.
+ * <p>The case that matters most is {@link #doesNotResurrectTheAdminAfterItHasBeenRenamed}.
  */
 @ExtendWith(MockitoExtension.class)
 class DataSeederTest {

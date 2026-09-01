@@ -10,18 +10,14 @@ import { useRoleGuard } from "../../hooks/useRoleGuard";
 import HeaderPill from "../ui/HeaderPill";
 
 // The shell behind an admin section that is one route with tabs — the subject catalog and student
-// management. Replaced two copies (2026-08-31) that were the same component: identical role guard,
-// identical /departments fetch down to the fallback message, identical pin resolution, identical
-// ?tab= whitelist, identical page chrome, and a byte-identical 22-line tab bar.
+// management. It owns the role guard, the single /departments fetch, pin resolution, the ?tab=
+// whitelist, the page chrome and the tab bar. Don't hand-roll a third copy.
 //
-// They had already drifted three ways, which is the argument for one copy rather than two:
-// `pinnedDeptId` was a useMemo in one and a plain expression in the other, the deptError banner sat
-// ABOVE the tab bar in one and BELOW it in the other, and only one had a page heading.
-//
-// Resolved as: the plain expression (react-hooks' preserve-manual-memoization rule errors on that
-// useMemo once role-dependent tab derivation joins the same render — lint, not runtime), the banner
-// directly above the tab CONTENT so it sits with what it degrades, and `heading` as an optional
-// prop so the page that has none renders exactly the DOM it did before.
+// Three details are settled here on purpose: `pinnedDeptId` is a plain expression, NOT a useMemo
+// (react-hooks' preserve-manual-memoization rule errors on that useMemo once role-dependent tab
+// derivation joins the same render — lint, not runtime); the deptError banner sits directly above
+// the tab CONTENT, with what it degrades; `heading` is optional, so a page without one renders no
+// heading markup at all.
 //
 // Auth is NOT enforced here. `allowedRoles` only decides whether to render or bounce to /admin;
 // every /api/admin/** call is authorized server-side per endpoint. Never let this be the reason an

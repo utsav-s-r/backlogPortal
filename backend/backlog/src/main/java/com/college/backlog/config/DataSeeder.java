@@ -23,16 +23,15 @@ public class DataSeeder implements CommandLineRunner {
     private PasswordEncoder passwordEncoder;
 
     // No fallback default: an unset env var leaves the password blank, and a blank one skips the
-    // account rather than installing a guessable default (old issue #1). Set it in the env to
-    // provision the initial account on a fresh database.
+    // account rather than installing a guessable default. Set it in the env to provision the
+    // initial account on a fresh database.
     //
-    // ADMIN is the ONLY seeded role (2026-08-29). It is the bootstrap account and nothing else:
-    // ADMIN may create every other role from Manage Users, PRINCIPAL included (canManageRole),
-    // and PRINCIPAL needs no department, so seeding it bought a second privileged account whose
-    // env password stayed live on the host forever. HOD/DEPT_OFFICE/PROCTOR were never seedable —
-    // they need a department a fresh-database seeder can't assign, and login rejects a dept role
-    // without one. Dropping the principal seed does NOT touch an existing `principal` row; the
-    // seeder only ever creates on a fresh DB.
+    // ADMIN is the ONLY seeded role — the bootstrap account and nothing else. ADMIN may create
+    // every other role from Manage Users, PRINCIPAL included (canManageRole), and PRINCIPAL needs
+    // no department, so seeding PRINCIPAL would buy a second privileged account whose env password
+    // stays live on the host forever. HOD/DEPT_OFFICE/PROCTOR are not seedable — they need a
+    // department a fresh-database seeder can't assign, and login rejects a dept role without one.
+    // The seeder only ever creates on a fresh DB; it never touches an existing row.
     @Value("${admin.password.admin:}")
     private String adminPassword;
 

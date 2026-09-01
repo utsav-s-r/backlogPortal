@@ -139,9 +139,9 @@ public class ProctorAssignmentController {
         User target = resolveTargetProctor(actor, req.getProctor());
         String deptCode = requireDeptCode(target);
 
-        // Null and empty are refused at binding by @NotEmpty on the DTO (400, same
-        // {"message": "No students selected."} body the hand-rolled check used to return).
-        // @Valid is what makes that annotation live; dropping it turns an empty batch into a 200 no-op.
+        // Null and empty are refused at binding by @NotEmpty on the DTO (400,
+        // {"message": "No students selected."}). @Valid is what makes that annotation live;
+        // dropping it turns an empty batch into a 200 no-op.
         List<String> rollNos = req.getRollNos();
         if (rollNos.size() > MAX_BATCH) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,

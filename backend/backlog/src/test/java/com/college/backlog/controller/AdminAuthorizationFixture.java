@@ -40,7 +40,7 @@ import java.time.LocalDate;
  * returns {@code null} for a non-proctor (= unrestricted) and a {@code Set} for a proctor, so
  * "unrestricted" and "restricted to these" differ only by null-vs-set. Any coercion of an EMPTY set
  * to null turns the query unfiltered — a 200 with the whole college in it, which no status-code
- * assertion can catch. Same shape as the fail-open in docs/adr/auth-scoping.md.
+ * assertion can catch.
  *
  * <p>Rows are written with the repositories rather than through StudentManagementService on purpose:
  * {@code createStudent} is {@code REQUIRES_NEW}, so it would commit outside the test's rollback and
@@ -195,7 +195,7 @@ public final class AdminAuthorizationFixture {
         s.setBranch(branchCode);
         s.setDateOfBirth(LocalDate.of(2006, 1, 1));
         s.setYearOfJoining(2024);
-        s.setCurrentSemester(4); // even; entry 1 is odd — the parity rule in docs/adr/backlog-progression.md
+        s.setCurrentSemester(4); // parity rule: current is even, entry is odd
         s.setEntrySemester(1);
         repo.save(s);
     }

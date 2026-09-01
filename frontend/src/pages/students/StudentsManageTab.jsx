@@ -49,8 +49,7 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
   const effectiveDeptId = deptLocked ? pinnedDeptId : fDeptId;
 
   // The endpoint returns a Page ({content, totalPages, ...}), never a bare array — loading the
-  // whole roster unfiltered used to time the client out. Each call pulls one page; filters reset
-  // to page 0.
+  // whole roster unfiltered times the client out. Each call pulls one page; filters reset to page 0.
   const load = useCallback(async (targetPage = 0) => {
     setError("");
     setBusy(true);

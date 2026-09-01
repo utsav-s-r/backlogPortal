@@ -1,15 +1,8 @@
 /**
- * The one form-control shell. Replaced 12 hand-typed `inputClass` constants plus 15 inline copies
- * (2026-08-31) that had drifted into four variants of the same intent:
- *
- *   8 files  canonical (below)
- *   3 files  missing `disabled:cursor-not-allowed disabled:opacity-60` — a disabled select that
- *            does not dim (live in ManageUsersPage's department picker and AddSubjectTab's)
- *   1 file   DepartmentsPage, also missing `duration-200` and `placeholder:text-ink-muted`
- *
- * Nothing failed on the drift: the suite asserts nothing about styles and dark mode collapses many
- * of these tints anyway, so every divergence was visible in LIGHT only, and only while a control
- * happened to be disabled.
+ * The one form-control shell — every form control uses it, no local `inputClass` constants and no
+ * inline copies. Drift here fails silently: the suite asserts nothing about styles and dark mode
+ * collapses many of these tints, so a divergence shows in LIGHT only, and often only while a
+ * control happens to be disabled.
  *
  * WIDTH IS NOT IN HERE, deliberately. Two width utilities on one element are resolved by CSS
  * SOURCE ORDER, not by the order they appear in the class string — and `.w-full` is emitted after

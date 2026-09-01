@@ -34,8 +34,7 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
   const effectiveDeptId = deptLocked ? pinnedDeptId : fDeptId;
 
   // The endpoint returns a Page ({content, totalPages, ...}), never a bare array — loading the
-  // whole catalog unfiltered used to time the client out. Each call pulls one page; filters reset
-  // to page 0.
+  // whole catalog unfiltered times the client out. Each call pulls one page; filters reset to page 0.
   const loadSubjects = useCallback(async (targetPage = 0) => {
     setError("");
     setBusy(true);

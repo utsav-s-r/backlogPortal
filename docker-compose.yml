@@ -78,8 +78,8 @@ services:
 # No CORS variable here on purpose: one origin means CORS is never exercised. app.cors
 # .allowed-origins keeps its localhost dev default for `npm run dev`.
 #
-# No redis service: evaluated 2026-08-17 and parked — see claude-work/OPEN.md §5. Nothing in the
-# application reads it, so a container would start, hold memory, and never be connected to.
+# No redis service on purpose: nothing in this stack reads it, so a container would start, hold
+# memory, and never be connected to.
 
 volumes:
   backlog-pgdata:

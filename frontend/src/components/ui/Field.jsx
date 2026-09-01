@@ -1,20 +1,16 @@
-// A labelled form control — label above, control below, one flex column. Replaced 60 hand-typed
-// copies (2026-08-31) of the same div/label/control sandwich.
+// A labelled form control — label above, control below, one flex column. Every labelled field goes
+// through this; don't hand-type the div/label/control sandwich again.
 //
 // THE LABEL WRAPS THE CONTROL, rather than sitting beside it as a sibling. That is the reason this
-// is a component and not just another class constant in lib/formClasses: 25 of the 60 copies had
-// no `htmlFor`, so their label was associated with nothing — clicking it did nothing, and a screen
-// reader announced the control unlabelled. Wrapping associates implicitly, with no id to keep in
-// sync, so those 25 are fixed structurally and the gap cannot reopen one field at a time.
+// is a component and not just another class constant in lib/formClasses: a hand-written label
+// without `htmlFor` is associated with nothing — clicking it does nothing, and a screen reader
+// announces the control unlabelled. Wrapping associates implicitly, with no id to keep in sync.
 //
-// Checked before choosing this shape — the two cases where wrapping misbehaves are a second
-// interactive element (the label would steal its clicks) and more than one control (the
-// association becomes ambiguous). Neither occurs: all 60 blocks held exactly one control and none
-// contained a button or anchor. Re-check that if a caller ever puts a second control in here.
+// Wrapping is only safe while a Field holds exactly ONE control and no button or anchor: a second
+// interactive element would have its clicks stolen by the label, and a second control makes the
+// association ambiguous. Re-check that before putting anything else in here.
 //
-// `htmlFor` is still forwarded where the original had it. Explicit and implicit association
-// coexist happily, and keeping it holds the DOM delta down to div->label and label->span — the
-// classes on both boxes are unchanged, so nothing about the rendering moves.
+// `htmlFor` is still forwarded — explicit and implicit association coexist happily.
 //
 // Layout (grid spans, margins) stays with the caller via `className` — it is context, not
 // identity, the same split BrandHeader and AlertBanner use. `labelClassName` carries the handful of

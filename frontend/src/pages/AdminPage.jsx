@@ -53,8 +53,8 @@ function AdminPage() {
   // Spelled as an INLINE literal of ROLE members, not `STAFF_ROLES.includes(adminRole)`, even
   // though that is the same set: this const feeds hook dependency arrays below, and react-hooks'
   // preserve-manual-memoization rule then errors ("Existing memoization could not be preserved")
-  // whenever such a value comes from `.includes()` on a NAMED array. Bisected
-  // 2026-08-31 — the full rule, and the three formulations that also fail, are in lib/roles.js.
+  // whenever such a value comes from `.includes()` on a NAMED array. The full rule, and the three
+  // formulations that also fail, are in lib/roles.js.
   // The named sets are still used below in JSX, where nothing memoizes and they are safe.
   const isAdmin = [
     ROLE.ADMIN,
@@ -289,8 +289,8 @@ function AdminPage() {
   };
 
   // What the export covers. Ticked rows win outright; otherwise it mirrors exactly what the table
-  // is showing — including the cycle and the status tab, which the old GET silently narrowed to
-  // "the active cycle, verified only" no matter what was on screen.
+  // is showing — the cycle and the status tab included, never a fixed "active cycle, verified only"
+  // narrowing that ignores what is on screen.
   const buildExportBody = () => {
     if (selectedIds.size > 0) {
       return { regIds: [...selectedIds] };

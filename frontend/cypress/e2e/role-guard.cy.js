@@ -1,15 +1,11 @@
 // A signed-in staff account on a page its role may not use goes to /admin, and gets there WITHOUT
 // touching the network on the way.
 //
-// This had no coverage before 2026-08-31, which is why three different guard idioms drifted apart
-// unnoticed. Two pages sent a wrong-role user to /admin/login, where AdminLoginPage sees the live
-// token and bounces straight back to /admin — so the visit worked, but it mounted the login page
-// and fired a wasted `GET /api/departments` first. The path is identical either way, so a
-// destination-only assertion could not see the difference; the request-count assertion is what
-// makes this spec evidence rather than decoration.
-//
-// Modelled on proctor.cy.js's "cannot reach Manage Users" case, the one guard test that already
-// existed.
+// The REQUEST-COUNT assertion is what makes this spec evidence rather than decoration. Sending a
+// wrong-role user to /admin/login instead lets AdminLoginPage see the live token and bounce back to
+// /admin — the visit still works, but it mounts the login page and fires a wasted
+// `GET /api/departments` first. The path is identical either way, so a destination-only assertion
+// cannot see the difference.
 describe("Wrong-role pages redirect to /admin without fetching", () => {
   // The redirect lands on /admin, which immediately loads the dashboard — stub it or its 401s
   // sign the session out and the assertions fail for an unrelated reason.
@@ -41,7 +37,7 @@ describe("Wrong-role pages redirect to /admin without fetching", () => {
     cy.visitAsAdmin("/admin/exam-cycles", DEPT_OFFICE);
 
     cy.location("pathname").should("eq", "/admin");
-    // the regression this guards: the old guard bounced via /admin/login, whose own mount fetched
+    // what this guards: a guard that bounces via /admin/login mounts AdminLoginPage, which fetches
     // this endpoint before sending the user back here
     cy.get("@publicDepartments.all").should("have.length", 0);
   });

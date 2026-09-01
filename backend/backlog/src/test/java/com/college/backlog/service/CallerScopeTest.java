@@ -21,8 +21,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * The fail-closed contract these controllers used to get wrong nine times over. Every case below
- * was previously a permissive {@code null} that call sites read as "unrestricted ADMIN/PRINCIPAL".
+ * The fail-closed contract. Every case below must refuse rather than resolve a permissive
+ * {@code null}, which call sites read as "unrestricted ADMIN/PRINCIPAL".
  */
 class CallerScopeTest {
 

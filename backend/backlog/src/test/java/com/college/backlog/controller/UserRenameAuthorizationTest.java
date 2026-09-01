@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * so its {@code @PreAuthorize} is load-bearing rather than decorative: deleting it lets PRINCIPAL
  * and HOD rename accounts, which is exactly what the two cases below catch.
  *
- * <p><b>Mutation-tested</b> (2026-08-29), as the authorization suite requires. Removing
+ * <p><b>Mutation-tested</b>, as the authorization suite requires. Removing
  * {@code @PreAuthorize("hasRole('ADMIN')")} from {@code renameUser} fails precisely
  * {@code principalCannotRename} and {@code hodCannotRename} — 403 becomes 200 — and nothing else.
  * A widening mutation was used on purpose: SecurityConfig already admits all five admin roles to

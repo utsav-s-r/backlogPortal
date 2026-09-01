@@ -15,15 +15,13 @@
  *   DEPT_PINNED_NO_PROCTOR   HOD + DEPT_OFFICE.
  *
  * The TWO dept-pinned sets are deliberate and MUST NOT be merged. They mirror the backend's own
- * split: CallerScope.java records that each controller's DEPT_ROLES is deliberately NOT extracted,
- * because "a single shared set would silently widen or narrow one of them — the exact bug class
- * this whole pass removed". Five controllers (Auth, Admin, Progression, StudentManagement,
- * UserManagement) use {HOD, DEPT_OFFICE, PROCTOR}; three (Subject, Registration, SubjectClone) use
- * {HOD, DEPT_OFFICE}. Collapsing them here re-commits precisely the bug the backend refused.
+ * split, where each controller keeps its own DEPT_ROLES for the same reason: a single shared set
+ * would silently widen or narrow one of them. Five controllers (Auth, Admin, Progression,
+ * StudentManagement, UserManagement) use {HOD, DEPT_OFFICE, PROCTOR}; three (Subject, Registration,
+ * SubjectClone) use {HOD, DEPT_OFFICE}.
  *
  * One lookup idiom on purpose: every export is a frozen array and every call site uses .includes().
- * The pre-existing code mixed arrays (.includes) with Sets (.has) for the same question; at five
- * elements a Set buys nothing and the second idiom was pure reading cost.
+ * At five elements a Set buys nothing, and a second idiom for the same question is pure reading cost.
  *
  * Own module, not a helper inside a .jsx: a non-component export in a .jsx trips
  * react-refresh/only-export-components and takes lint off its known 9 errors.
@@ -69,24 +67,24 @@ export const USER_MANAGEMENT_ROLES = Object.freeze([ROLE.ADMIN, ROLE.PRINCIPAL, 
 
 /** ADMIN alone. PRINCIPAL is excluded on purpose wherever this is used — exam cycles are the
  *  college-wide registration switch (ExamCycleController) and bulk progression is an
- *  institution-wide write (owner decision 2026-08-17). A ONE-element list, not a bare comparison,
+ *  institution-wide write (owner decision). A ONE-element list, not a bare comparison,
  *  so it can be passed to useRoleGuard like every other gate. */
 export const ADMIN_ONLY = Object.freeze([ROLE.ADMIN]);
 
 /**
- * ⚠️ LINT CONSTRAINT — measured 2026-08-31, not a style preference.
+ * ⚠️ LINT CONSTRAINT — a hard rule here, not a style preference.
  *
  * A component-scope const that feeds a hook dependency array must NOT be computed with
  * `SOME_ARRAY.includes(role)` where SOME_ARRAY is a named binding. `eslint-plugin-react-hooks` runs
  * the React Compiler's static analysis; it cannot prove the array is unmodified, so the value goes
  * opaque and `preserve-manual-memoization` reports "Existing memoization could not be preserved" —
- * an ESLint ERROR here, breaking the repo's 9-errors-0-warnings invariant. AdminPage went 9 -> 15.
+ * an ESLint ERROR here, breaking the repo's 9-errors-0-warnings invariant.
  *
  * The cost is the LINT BUDGET, not runtime. The compiler is NOT enabled in the build — vite.config
  * calls `react()` with no options and `babel-plugin-react-compiler` is not installed — so nothing
  * is auto-memoized either way. Do not reason about this as a lost optimization.
  *
- * Bisected, so the rule is exact:
+ * The rule is exact:
  *   ✗ `const x = STAFF_ROLES.includes(r)`        imported binding      — bails
  *   ✗ `const x = LOCAL_ARRAY.includes(r)`        module-local binding  — bails too, so this is
  *                                                NOT about imports

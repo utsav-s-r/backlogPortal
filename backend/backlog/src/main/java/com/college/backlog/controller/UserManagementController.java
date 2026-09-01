@@ -193,8 +193,8 @@ public class UserManagementController {
         return accountResponse(target);
     }
 
-    // 204 like every other delete here (subjects, departments, students, proctor assignments). The
-    // body it used to return was never read by the only caller.
+    // 204 like every other delete here (subjects, departments, students, proctor assignments):
+    // no body, the caller reads none.
     @DeleteMapping("/{username}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD')")

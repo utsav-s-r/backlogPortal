@@ -1,8 +1,6 @@
-// A pill button/link inside the navy BrandHeader bar. Replaced 16 hand-typed copies (2026-08-31)
-// in FIVE spellings whose only real variance was two: `bg-white/20 … hover:bg-white/30` (a filled
-// pill, used for the dashboard's section nav) and `hover:bg-white/10` (an outline pill, everything
-// else). The rest was drift — `border-white/30` vs `/35`, `gap-1` vs `gap-2` vs an `mr-1` on the
-// icon instead, `font-medium` vs `font-semibold`.
+// A pill button/link inside the navy BrandHeader bar. Two variants, and only two: `filled`
+// (`bg-white/20 … hover:bg-white/30`, the dashboard's section nav) and `outline`
+// (`hover:bg-white/10`, everything else). Don't hand-type a third spelling.
 //
 // White-on-navy is fixed, not theme-aware: this only ever renders inside BrandHeader's
 // `bg-secondary` box, which is navy in both themes. That is why there are no `[data-theme="dark"]`

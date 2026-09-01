@@ -1,7 +1,7 @@
 /**
  * VERIFIED/REJECTED/other pill classes, shared by the table rows and the history dialog. Only the
  * neutral fallback differs — a row sits on the card, an event on a muted panel — so the caller
- * passes it rather than the two copies drifting apart.
+ * passes it, so the two call sites cannot drift apart.
  *
  * Own module, not a helper inside a .jsx: a non-component export in a .jsx trips
  * react-refresh/only-export-components and takes lint off its known 9 errors.

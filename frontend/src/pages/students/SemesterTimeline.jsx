@@ -3,10 +3,9 @@ import { formatAcademicYear } from "../../lib/academicYear";
 import { FIELD_CONTROL } from "../../lib/formClasses";
 
 // Editable "which academic year did the student study each semester" table. Its one consumer is
-// the Semesters panel on the Manage-students tab (it was shared with a Progression tab until that
-// was deleted 2026-08-16). Presentational: the parent loads the student
+// the Semesters panel on the Manage-students tab. Presentational: the parent loads the student
 // (name/currentSemester/entrySemester/terms) and owns the save callback, which PUTs the
-// per-semester override. See docs/adr/backlog-progression.md.
+// per-semester override.
 
 
 // One row per semester, entry through 8, all editable. A recorded year is prefilled; semesters

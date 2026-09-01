@@ -1,7 +1,5 @@
 // A label/value pair for a fact the user cannot edit here — profile identity on the student
-// dashboard, the locked "Registering as" summary on the registration form. Replaced two copies
-// (2026-08-31) that were the same component under two names: StudentDashboardPage's `Field` and
-// RegistrationPage's `LockedField`, drifted by `gap-1.5` vs `gap-1` and a `font-medium`.
+// dashboard, the locked "Registering as" summary on the registration form.
 //
 // A <div>, NOT the <label> that components/ui/Field uses. There is no control here to associate
 // with, and a <label> pointing at nothing is exactly the broken markup Field exists to prevent.

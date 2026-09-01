@@ -17,7 +17,7 @@ const STAFF_TABS = [
 ];
 const PROCTORS_TAB = { key: "proctors", label: "Proctors", icon: UserCheck };
 // ADMIN only — an institution-wide write, not a dept one. PRINCIPAL is deliberately excluded too
-// (owner decision 2026-08-17); the server enforces it with hasRole('ADMIN').
+// (owner decision); the server enforces it with hasRole('ADMIN').
 const BULK_TAB = { key: "bulk", label: "Bulk Progression", icon: TrendingUp };
 const PROCTOR_TABS = [
   { key: "manage", label: "My Students", icon: Users },

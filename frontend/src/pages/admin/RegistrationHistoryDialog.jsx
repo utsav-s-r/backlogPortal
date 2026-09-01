@@ -20,8 +20,8 @@ const FOCUSABLE_SELECTOR =
  *     omits a wrap-DESTINATION assertion as trivially true. Adding a second focusable element here
  *     silently changes what that spec means.
  *  3. `e.preventDefault()` is the real assertion. Cypress has no native Tab, so a synthetic one
- *     moves nothing by itself and "focus stayed inside" passes even with the trap removed —
- *     mutation testing caught that on 2026-08-17. `defaultPrevented` is what proves interception.
+ *     moves nothing by itself and "focus stayed inside" passes even with the trap removed.
+ *     `defaultPrevented` is what proves interception.
  *
  * The trap is not polish: aria-modal="true" TELLS assistive tech the rest of the page is inert, so
  * letting Tab reach it makes the markup a lie.

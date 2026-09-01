@@ -19,26 +19,21 @@ import java.util.Set;
  * Only admin-type principals are checked — students are not rows in {@code users} at all.
  *
  * {@link JwtAuthenticationFilter} is fully stateless (username AND role come from the token), so a
- * deleted account keeps working until its token lapses. Verified: a deleted HOD's live cookie read
- * and wrote another department's subjects, and a deleted ADMIN opened and closed registration
+ * deleted account keeps working until its token lapses: a deleted HOD's live cookie can read and
+ * write another department's subjects, and a deleted ADMIN can open and close registration
  * college-wide. Answering 401 here revokes the session on the next request, for every admin
  * endpoint at once — including the ones that never resolve a scope (exam cycles, department CRUD),
  * which a per-controller check cannot reach. Keep this check HERE and nowhere else; moving it into
  * JwtAuthenticationFilter would apply it to STUDENT tokens, which have no {@code users} row.
  *
- * <p>Existence was only ever half the question, and the missing half was the same fail-open shape:
+ * <p>Existence alone is only half the question; the other half is the same fail-open shape:
  * because role is immutable, changing one means delete + recreate under the same username, which
  * restores existence while the live token still carries the OLD role. See
  * {@code carriesCurrentRoleOf} for what that reaches and why this revokes instead of quietly
  * rewriting the authorities.
  *
- * Logout is exempt: it merely expires the session cookie, and blocking it left exactly the accounts
- * that must be signed out unable to do so, with the cookie alive until it timed out on its own.
- *
- * This filter also used to gate a forced first-login password change. That was removed with the
- * {@code must_change_password} column (V8) — accounts now carry a derived default password
- * (username + "4321") that their holder may change at any time, and nothing has to be enforced
- * per-request to make that work.
+ * Logout is exempt: it merely expires the session cookie, and gating it leaves exactly the accounts
+ * that must be signed out unable to do so, with the cookie alive until it times out on its own.
  */
 @Component
 public class AccountExistenceFilter extends OncePerRequestFilter {
