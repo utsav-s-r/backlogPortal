@@ -1,7 +1,6 @@
 package com.college.backlog.controller;
 
 import com.college.backlog.controller.dto.DepartmentRequest;
-import com.college.backlog.controller.dto.SubjectCreateRequest;
 import com.college.backlog.controller.dto.RegistrationSummaryResponse;
 import com.college.backlog.controller.dto.RegistrationEventResponse;
 import com.college.backlog.controller.dto.RegistrationExportRequest;
@@ -284,25 +283,6 @@ public class AdminController {
                 e.getTimestamp() != null ? e.getTimestamp().toString() : null,
                 e.getNote()))
             .collect(Collectors.toList());
-    }
-
-    @PostMapping("/subjects")
-    @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD', 'DEPT_OFFICE')")
-    @Transactional
-    public Subject addSubject(@Valid @RequestBody SubjectCreateRequest request, Authentication authentication) {
-        // dept-scoped roles may only create subjects for their own department — server-side,
-        // not just pinned in the UI
-        Long callerDeptId = resolveCallerDeptId(authentication);
-        if (callerDeptId != null && !callerDeptId.equals(request.getDeptId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                "You can only add subjects for your own department.");
-        }
-        Subject saved = subjectService.createSubject(request);
-        auditService.record(AdminAuditAction.SUBJECT_CREATE, callerUser(authentication),
-                AuditTargetType.SUBJECT, String.valueOf(saved.getId()),
-                "code=" + saved.getCourseCode() + " sem=" + saved.getSemester());
-        return saved;
     }
 
     // Read is open to all admin roles like the other reads here; the writes below stay ADMIN/PRINCIPAL.

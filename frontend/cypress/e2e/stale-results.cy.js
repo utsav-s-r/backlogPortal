@@ -10,7 +10,7 @@ describe("A failed run never leaves the previous result standing", () => {
     cy.wait("@getDepartments");
   };
 
-  const CSV = "1MS24CS001,Asha Rao,9999999999,2006-04-12,1,1\n1MS24CS002,Bhavya S,,2006-05-02,1,1";
+  const CSV = "1MS24CS001,Asha Rao,2006-04-12,9999999999,2,1\n1MS24CS002,Bhavya S,2006-05-02,,2,1";
 
   const PREVIEW_OK = {
     statusCode: 200,

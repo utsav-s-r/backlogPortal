@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { LoaderCircle, PlusCircle } from "lucide-react";
 import MagneticCta from "../../components/ui/MagneticCta";
 import api from "../../lib/api";
-import { formatAcademicYear, buildCourseCode, courseCodeSuffix } from "../../lib/academicYear";
-import CourseCodeField from "../../components/ui/CourseCodeField";
+import { formatAcademicYear, recentAcademicYears } from "../../lib/academicYear";
 import AlertBanner from "../../components/AlertBanner";
 import { FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
@@ -43,17 +42,6 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // The academic year is authoritative and stamps the course code's locked two-digit prefix;
-  // changing it re-prefixes the code, preserving the suffix.
-  const handleYearChange = (e) => {
-    const year = e.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      academicYearOffered: year,
-      courseCode: buildCourseCode(year, courseCodeSuffix(prev.courseCode)),
-    }));
-  };
-
   const toggleEligibleDept = (id) => {
     setEligibleDeptIds((prev) =>
       prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id],
@@ -70,11 +58,6 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
         setError("All fields are required.");
         return;
       }
-    }
-    // a year stamps only the prefix — the admin still enters the suffix
-    if (!courseCodeSuffix(formData.courseCode)) {
-      setError("Enter the course code.");
-      return;
     }
     if (subjectType === "ELECTIVE" && eligibleDeptIds.length === 0) {
       setError("Please select at least one eligible department for an elective subject.");
@@ -120,20 +103,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
     }
   };
 
-  const selectedYear = formData.academicYearOffered
-    ? Number(formData.academicYearOffered)
-    : NaN;
-  // recent years for the dropdown, plus the selected one if outside that window
-  const baseYears = Array.from(
-    { length: 6 },
-    (_, i) => new Date().getFullYear() - i + 1,
-  );
-  const availableYears = Array.from(
-    new Set([
-      ...baseYears,
-      ...(Number.isInteger(selectedYear) ? [selectedYear] : []),
-    ]),
-  ).sort((a, b) => b - a);
+  const availableYears = recentAcademicYears(formData.academicYearOffered);
 
   return (
     <div
@@ -153,7 +123,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
               id="academicYearOffered"
               name="academicYearOffered"
               value={formData.academicYearOffered}
-              onChange={handleYearChange}
+              onChange={handleChange}
               className={FIELD_INPUT}
             >
               <option value="">Select Academic Year</option>
@@ -175,19 +145,15 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
             />
           </Field>
           <Field label="Course Code *" htmlFor="courseCode">
-            <CourseCodeField
+            <input
               id="courseCode"
-              year={formData.academicYearOffered}
+              name="courseCode"
               value={formData.courseCode}
-              onChange={(code) =>
-                setFormData((prev) => ({ ...prev, courseCode: code }))
-              }
-              inputClassName={FIELD_INPUT}
-              dataCy="course-code-suffix"
+              onChange={handleChange}
+              className={FIELD_INPUT}
+              placeholder="e.g., CSL44"
+              data-cy="course-code"
             />
-            <p className="text-xs text-ink-muted">
-              The first two digits are set from the academic year.
-            </p>
           </Field>
           <Field label="Semester *" htmlFor="semester">
             <select

@@ -18,7 +18,7 @@ package com.college.backlog.service;
  * eligibility window — a sem-2 student's backlogs are in sem 1, so odd semesters must stay
  * registrable. Applying parity to those would lock every student out of half their backlogs.
  *
- * Sibling of {@link AcademicYears} and {@link CourseCodes}. Enforced in application code only —
+ * Sibling of {@link AcademicYears}. Enforced in application code only —
  * {@code student_semester_terms.semester} is a plain integer with no CHECK, by decision.
  */
 public final class Semesters {

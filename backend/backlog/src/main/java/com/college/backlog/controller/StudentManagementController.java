@@ -168,7 +168,7 @@ public class StudentManagementController {
     // ---- bulk import ----
 
     @PostMapping("/import")
-    public BatchResult importRows(@RequestBody StudentImportRequest req, Authentication auth) {
+    public BatchResult<ProgressionRowResult> importRows(@RequestBody StudentImportRequest req, Authentication auth) {
         User actor = callerScope.requireActor(auth);
         proctorScope.rejectProctor(actor,
             "Proctors cannot import student accounts — claim existing students instead.");
@@ -211,7 +211,18 @@ public class StudentManagementController {
                     results.add(new ProgressionRowResult(roll, currentSem, "CREATED", null));
                     created++;
                 }
+            } catch (NumberFormatException e) {
+                // NFE extends IllegalArgumentException, so without this clause it lands below and
+                // its raw message ("For input string: \"null\"") is shown to the admin as if the ROW
+                // were malformed — a server bug dressed as a data problem, and counted as an
+                // ordinary bad-row instead of logged. Must precede the IAE clause; the reverse does
+                // not compile. Same rule as the two subject-side batch loops.
+                log.error("STUDENT_IMPORT_ROW_FAILED rollNo={}", roll, e);
+                results.add(new ProgressionRowResult(roll, currentSem, "ERROR", "Could not import this row."));
+                errors++;
             } catch (IllegalArgumentException e) {
+                // Only this method's own validation throws IAE, with curated literal messages, so
+                // surfacing getMessage() is safe here.
                 results.add(new ProgressionRowResult(roll, currentSem, "ERROR", e.getMessage()));
                 errors++;
             } catch (ResponseStatusException e) {
@@ -229,7 +240,7 @@ public class StudentManagementController {
                 errors++;
             }
         }
-        return new BatchResult(req.isDryRun(), created, skipped, errors, results);
+        return new BatchResult<>(req.isDryRun(), created, skipped, errors, results);
     }
 
     // ---- helpers ----

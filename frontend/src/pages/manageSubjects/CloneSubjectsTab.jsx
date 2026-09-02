@@ -9,7 +9,6 @@ import {
 import MagneticCta from "../../components/ui/MagneticCta";
 import api from "../../lib/api";
 import { formatAcademicYear, parseAcademicYear } from "../../lib/academicYear";
-import CourseCodeField from "../../components/ui/CourseCodeField";
 import { FIELD_CONTROL, FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
 import { ALL_SEMESTERS } from "../../lib/semesters";
@@ -83,8 +82,8 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
   const toggleRemove = (key) =>
     setRows((prev) => prev.map((r) => (r._key === key ? { ...r, removed: !r.removed } : r)));
 
-  // ERROR rows are excluded too: they cannot be created (e.g. a course code with no year prefix),
-  // so submitting them would just produce guaranteed per-row failures on apply.
+  // ERROR rows are excluded too: they cannot be created (e.g. a source with no course code), so
+  // submitting them would just produce guaranteed per-row failures on apply.
   // Memoised on `rows`: rebuilding this array every render gave runApply's useCallback a new
   // dependency each time, so the memoisation below was doing nothing.
   const applicableRows = useMemo(
@@ -287,13 +286,12 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
                         />
                       </td>
                       <td className="px-3 py-2">
-                        <CourseCodeField
-                          year={previewYears?.target}
+                        <input
+                          className={`${FIELD_CONTROL} w-24`}
                           value={r.courseCode || ""}
-                          onChange={(code) => updateRow(r._key, "courseCode", code)}
-                          inputClassName={`${FIELD_CONTROL} w-24`}
+                          onChange={(e) => updateRow(r._key, "courseCode", e.target.value)}
                           disabled={r.removed}
-                          dataCy={`clone-row-code-${r.semester}`}
+                          data-cy={`clone-row-code-${r.semester}`}
                         />
                       </td>
                       <td className="px-3 py-2">

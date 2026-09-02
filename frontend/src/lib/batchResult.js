@@ -1,5 +1,5 @@
-// The batch-result DTO (created/skipped/errors counts + ProgressionRowResult rows) returned by
-// student import and proctor claim. Own module, not BatchResultTable.jsx:
+// The batch-result DTO (created/skipped/errors counts + per-row results) returned by student
+// import, proctor claim and subject import. Own module, not BatchResultTable.jsx:
 // react-refresh/only-export-components bars a non-component export from a component file.
 
 /**

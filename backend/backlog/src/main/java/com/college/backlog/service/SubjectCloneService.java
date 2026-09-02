@@ -2,6 +2,7 @@ package com.college.backlog.service;
 
 import com.college.backlog.controller.dto.SubjectCloneApplyRequest;
 import com.college.backlog.controller.dto.SubjectCloneResult;
+import com.college.backlog.controller.dto.SubjectRowResult;
 import com.college.backlog.controller.dto.SubjectClonePreviewResponse;
 import com.college.backlog.controller.dto.SubjectCreateRequest;
 import com.college.backlog.model.Department;
@@ -18,8 +19,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Clones a department's subject offerings year to year: each row is copied with its course-code
- * prefix and academic_year_offered bumped to the target. {@code preview} builds the editable
+ * Clones a department's subject offerings year to year: each row is copied verbatim with only
+ * academic_year_offered moved to the target. {@code preview} builds the editable
  * draft; {@code apply} commits the approved rows, skipping existing ones with the
  * (course_code, academic_year_offered) uniqueness as backstop. See docs/adr/backlog-progression.md.
  */
@@ -41,16 +42,20 @@ public class SubjectCloneService {
 
         List<SubjectClonePreviewResponse.Row> rows = new ArrayList<>();
         for (Subject s : sources) {
-            String newCode = CourseCodes.bumpPrefix(s.getCourseCode(), targetYear);
-            boolean exists = newCode != null
+            // The code carries forward verbatim — a course keeps its identity across years, and
+            // UNIQUE(course_code, academic_year_offered) is what separates the two offerings.
+            String newCode = s.getCourseCode() == null ? "" : s.getCourseCode().trim();
+            boolean blank = newCode.isEmpty();
+            boolean exists = !blank
                 && subjectRepository.existsByCourseCodeAndAcademicYearOffered(newCode, targetYear);
             List<Long> eligible = s.getEligibleDepartments() == null ? List.of()
                 : s.getEligibleDepartments().stream().map(Department::getId).collect(Collectors.toList());
-            // no numeric prefix to bump: createSubject's prefix=year check would reject this row
-            // on apply, so say so now rather than previewing a WOULD_CREATE that cannot happen
-            String status = newCode == null ? "ERROR" : exists ? "WOULD_SKIP" : "WOULD_CREATE";
-            String message = newCode == null
-                ? "Course code '" + s.getCourseCode() + "' has no year prefix to update."
+            // apply refuses a blank code, so preview must say ERROR here too rather than promising
+            // a WOULD_CREATE that cannot happen — the preview/apply parity break fixed on the
+            // progression import
+            String status = blank ? "ERROR" : exists ? "WOULD_SKIP" : "WOULD_CREATE";
+            String message = blank
+                ? "This subject has no course code to copy."
                 : exists ? "Already exists for the target year" : null;
             rows.add(new SubjectClonePreviewResponse.Row(
                 s.getSubjectName(), newCode, s.getSemester(), s.getCredits(),
@@ -64,7 +69,7 @@ public class SubjectCloneService {
     // can't roll back the rest of the batch.
     public SubjectCloneResult apply(Long deptId, int targetYear, List<SubjectCloneApplyRequest.Row> rows) {
         int created = 0, skipped = 0, errors = 0;
-        List<SubjectCloneResult.ResultRow> results = new ArrayList<>();
+        List<SubjectRowResult> results = new ArrayList<>();
         if (rows != null) {
             for (SubjectCloneApplyRequest.Row row : rows) {
                 String code = row.getCourseCode() == null ? "" : row.getCourseCode().trim();
@@ -72,11 +77,10 @@ public class SubjectCloneService {
                     if (code.isEmpty()) {
                         throw new IllegalArgumentException("Course code is required.");
                     }
-                    if (row.getSemester() < 1 || row.getSemester() > 8) {
-                        throw new IllegalArgumentException("Semester must be between 1 and 8.");
-                    }
+                    // the shared 1..8 rule, not a re-typed literal — Semesters owns the range
+                    Semesters.assertStudiable(row.getSemester());
                     if (subjectRepository.existsByCourseCodeAndAcademicYearOffered(code, targetYear)) {
-                        results.add(new SubjectCloneResult.ResultRow(code, row.getSemester(), "SKIPPED_EXISTS", null));
+                        results.add(new SubjectRowResult(code, row.getSemester(), "SKIPPED_EXISTS", null));
                         skipped++;
                         continue;
                     }
@@ -91,7 +95,7 @@ public class SubjectCloneService {
                     req.setEligibleDeptIds(row.getEligibleDeptIds() != null
                         ? row.getEligibleDeptIds() : new ArrayList<>());
                     subjectService.createSubject(req);
-                    results.add(new SubjectCloneResult.ResultRow(code, row.getSemester(), "CREATED", null));
+                    results.add(new SubjectRowResult(code, row.getSemester(), "CREATED", null));
                     created++;
                 } catch (DataIntegrityViolationException e) {
                     // Only the code+year unique index means "already exists". Reporting every
@@ -100,21 +104,20 @@ public class SubjectCloneService {
                     // never screens them, so other violations are reachable. A wrong SKIPPED_EXISTS
                     // reads as "catalog complete", which is invisible until someone diffs two years.
                     if (Constraints.isViolationOf(e, Constraints.SUBJECT_CODE_YEAR)) {
-                        results.add(new SubjectCloneResult.ResultRow(code, row.getSemester(), "SKIPPED_EXISTS", "Already exists"));
+                        results.add(new SubjectRowResult(code, row.getSemester(), "SKIPPED_EXISTS", "Already exists"));
                         skipped++;
                     } else {
                         // the only record this row failed at all — the result row can't carry a trace
                         log.error("CLONE_ROW_FAILED code={} semester={}", code, row.getSemester(), e);
-                        results.add(new SubjectCloneResult.ResultRow(code, row.getSemester(), "ERROR",
+                        results.add(new SubjectRowResult(code, row.getSemester(), "ERROR",
                             "Could not create this subject."));
                         errors++;
                     }
                 } catch (org.springframework.web.server.ResponseStatusException e) {
-                    // e.g. createSubject's prefix=year validation — shouldn't fire since the
-                    // prefix is locked to the target year, but kept defensive. Must stay ABOVE the
-                    // generic catch: RSE is itself a RuntimeException, and that one would flatten
-                    // this actionable reason into the generic sentence.
-                    results.add(new SubjectCloneResult.ResultRow(code, row.getSemester(), "ERROR", e.getReason()));
+                    // e.g. createSubject's year-range or elective-departments validation. Must stay
+                    // ABOVE the generic catch: RSE is itself a RuntimeException, and that one would
+                    // flatten this actionable reason into the generic sentence.
+                    results.add(new SubjectRowResult(code, row.getSemester(), "ERROR", e.getReason()));
                     errors++;
                 } catch (NumberFormatException e) {
                     // NFE extends IllegalArgumentException, so without this clause it would be
@@ -124,13 +127,13 @@ public class SubjectCloneService {
                     // GlobalExceptionHandler refuses to map IAE centrally. Must precede the IAE
                     // clause; the reverse order does not compile.
                     log.error("CLONE_ROW_FAILED code={} semester={}", code, row.getSemester(), e);
-                    results.add(new SubjectCloneResult.ResultRow(code, row.getSemester(), "ERROR",
+                    results.add(new SubjectRowResult(code, row.getSemester(), "ERROR",
                         "Could not create this subject."));
                     errors++;
                 } catch (IllegalArgumentException e) {
                     // Only this method's OWN validation above throws IAE, with curated literal
                     // messages, so surfacing getMessage() is safe here.
-                    results.add(new SubjectCloneResult.ResultRow(code, row.getSemester(), "ERROR", e.getMessage()));
+                    results.add(new SubjectRowResult(code, row.getSemester(), "ERROR", e.getMessage()));
                     errors++;
                 } catch (RuntimeException e) {
                     // The batch is deliberately NOT transactional (see above), so every row before
@@ -149,7 +152,7 @@ public class SubjectCloneService {
                     // DataIntegrityViolationException, so all three clauses above miss them.
                     // Logged because the result row cannot carry a stack trace.
                     log.error("CLONE_ROW_FAILED code={} semester={}", code, row.getSemester(), e);
-                    results.add(new SubjectCloneResult.ResultRow(code, row.getSemester(), "ERROR",
+                    results.add(new SubjectRowResult(code, row.getSemester(), "ERROR",
                         "Could not create this subject."));
                     errors++;
                 }

@@ -9,8 +9,7 @@ import {
   X,
 } from "lucide-react";
 import api from "../../lib/api";
-import { formatAcademicYear, parseAcademicYear, courseCodeSuffix } from "../../lib/academicYear";
-import CourseCodeField from "../../components/ui/CourseCodeField";
+import { formatAcademicYear, parseAcademicYear } from "../../lib/academicYear";
 import { FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
 import Pager from "../../components/ui/Pager";
@@ -80,8 +79,8 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
           <BookOpen size={18} /> Manage subjects
         </h1>
         <p className="mb-4 text-sm text-ink-muted">
-          Browse the catalog and fix subjects. The academic year can't be changed (it's the
-          year-binding key); the course-code prefix stays locked to it.
+          Browse the catalog and fix subjects. The academic year can't be changed — it's the
+          year-binding key, so moving an offering would re-point every backlog resolving through it.
         </p>
         {deptLocked && adminDepartment && (
           <p className="mb-4 text-xs font-semibold text-primary-ink">
@@ -205,7 +204,7 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
     setEligible((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const save = async () => {
-    if (!courseCodeSuffix(code)) {
+    if (!code.trim()) {
       setError("Enter the course code.");
       return;
     }
@@ -309,12 +308,11 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
           />
         </Field>
         <Field label="Course code">
-          <CourseCodeField
-            year={subject.academicYearOffered}
+          <input
+            className={FIELD_INPUT}
             value={code}
-            onChange={setCode}
-            inputClassName={FIELD_INPUT}
-            dataCy="subject-code"
+            onChange={(e) => setCode(e.target.value)}
+            data-cy="subject-code"
           />
         </Field>
         <Field label="Semester">

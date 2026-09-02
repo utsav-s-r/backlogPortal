@@ -41,22 +41,13 @@ public class SubjectService {
 
     @Transactional
     public Subject createSubject(SubjectCreateRequest request) {
-        // Authoritative year check — must run BEFORE the prefix check below, which only compares
-        // the code against whatever year was sent and so accepts any absurd year with a matching
-        // prefix (year 0 + "00CS44", year 9999 + "99CS44" both pass it). The DTO's @Min is only a
-        // floor; the upper bound is relative to now and can't be expressed as an annotation.
+        // The year is the binding key, so it is the ONLY thing constraining the offering — the
+        // course code is free text. The DTO's @Min is only a floor; the upper bound is relative to
+        // now and can't be expressed as an annotation.
         try {
             AcademicYears.assertInRange(request.getAcademicYearOffered());
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
-        }
-
-        // prefix=year invariant: the code's first two digits are the academic-year start. The UI
-        // locks the prefix; this is the server backstop against a crafted request.
-        if (!CourseCodes.matchesYear(request.getCourseCode(), request.getAcademicYearOffered())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Course code must start with the academic year's two digits ("
-                    + CourseCodes.prefixForYear(request.getAcademicYearOffered()) + ").");
         }
 
         // 400, not 404: the deptId comes from the REQUEST BODY, so the resource addressed by the
@@ -88,9 +79,9 @@ public class SubjectService {
     }
 
     /**
-     * Edit a subject. The academic year is NOT editable (it is the binding key), so the
-     * course-code prefix stays locked to it. callerDeptId is non-null for HOD/DEPT_OFFICE, who may
-     * only touch their own department.
+     * Edit a subject. The academic year is NOT editable — it is the binding key, and moving an
+     * offering between years would re-point every backlog that resolves through it. callerDeptId
+     * is non-null for HOD/DEPT_OFFICE, who may only touch their own department.
      */
     @Transactional
     public Subject updateSubject(Long id, SubjectUpdateRequest request, Long callerDeptId) {
@@ -101,13 +92,6 @@ public class SubjectService {
                 && (subject.getDepartment() == null || !callerDeptId.equals(subject.getDepartment().getId()))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                 "You can only edit subjects for your own department.");
-        }
-
-        // year is fixed, so the prefix must still match it — suffix-only edits
-        if (!CourseCodes.matchesYear(request.getCourseCode(), subject.getAcademicYearOffered())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Course code must start with the academic year's two digits ("
-                    + CourseCodes.prefixForYear(subject.getAcademicYearOffered()) + ").");
         }
 
         subject.setSubjectName(request.getSubjectName());
@@ -229,7 +213,7 @@ public class SubjectService {
      * "the form only sends REGULAR or ELECTIVE", but the clone path builds these requests from
      * client-supplied rows, so that was a client-trust assumption on a write path.
      */
-    private SubjectType resolveSubjectType(String raw) {
+    static SubjectType resolveSubjectType(String raw) {
         if (raw == null || raw.isBlank()) {
             return SubjectType.REGULAR;
         }
@@ -265,7 +249,7 @@ public class SubjectService {
      * that resolves to nothing rather than dropping it, so a non-empty request cannot become an
      * empty persisted list.
      */
-    private void assertElectiveNamesItsDepartments(SubjectType type, Collection<Long> eligibleDeptIds) {
+    static void assertElectiveNamesItsDepartments(SubjectType type, Collection<Long> eligibleDeptIds) {
         if (type == SubjectType.ELECTIVE && (eligibleDeptIds == null || eligibleDeptIds.isEmpty())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "An elective must have at least one eligible department.");

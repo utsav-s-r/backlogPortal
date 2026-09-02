@@ -75,11 +75,11 @@ public final class AdminAuthorizationFixture {
     /** The other department — no dept-scoped role may reach it. */
     public static final String CV_STUDENT = "1MS24CV001";
 
-    /** Catalog year both fixture subjects are offered in. The course-code prefix must equal
-     *  {@code year % 100} (CourseCodes) — "24CS44" for 2024 — so year and code move together. */
+    /** Catalog year both fixture subjects are offered in. The codes are free text and independent
+     *  of it — the year alone binds the offering, so these three move independently. */
     public static final int SUBJECT_YEAR = 2024;
-    public static final String CS_SUBJECT_CODE = "24CS44";
-    public static final String CV_SUBJECT_CODE = "24CV44";
+    public static final String CS_SUBJECT_CODE = "CS44";
+    public static final String CV_SUBJECT_CODE = "CV44";
 
     /** Ids of the seeded departments, subjects and proctors, which are {@code @GeneratedValue} and
      *  so cannot be constants. Returned rather than re-queried, because the dept-scoping assertions

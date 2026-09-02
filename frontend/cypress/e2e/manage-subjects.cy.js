@@ -1,5 +1,5 @@
-// The Manage Subjects page: load the catalog, edit a subject (academic year locked, and the code
-// prefix with it), and delete — blocked when referenced by registrations, allowed otherwise.
+// The Manage Subjects page: load the catalog, edit a subject (the academic year stays locked — it
+// is the year-binding key), and delete — blocked when referenced by registrations, allowed otherwise.
 describe("Manage Subjects page", () => {
   const subject = {
     id: 10,
@@ -102,7 +102,7 @@ describe("Manage Subjects page", () => {
   });
 
   // Guards the ARIA tabs pattern (WCAG 4.1.2): role="tab" without aria-controls, a tabpanel and a
-  // roving tabindex announces "tab, 1 of 3" with no route to the panel. Asserts the RELATIONSHIP
+  // roving tabindex announces "tab, 1 of 4" with no route to the panel. Asserts the RELATIONSHIP
   // RESOLVES, not just that the attribute exists — a dangling aria-controls is the same bug
   // wearing a passing test.
   it("wires the tabs to their panel (WCAG 4.1.2) with a roving tabindex", () => {
@@ -114,7 +114,8 @@ describe("Manage Subjects page", () => {
     cy.wait("@getDepartments");
 
     cy.get('[role="tabpanel"]').should("have.length", 1);
-    cy.get('[role="tab"]').should("have.length", 3);
+    // tracks the TABS array in ManageSubjectsPage — Manage / Add / Clone / Import
+    cy.get('[role="tab"]').should("have.length", 4);
 
     cy.document().then((doc) => {
       const tabs = [...doc.querySelectorAll('[role="tab"]')];
@@ -141,8 +142,8 @@ describe("Manage Subjects page", () => {
       .and("have.focus");
     // and the panel's label follows the selection rather than pointing at the old tab
     cy.get('[role="tabpanel"]').should("have.attr", "aria-labelledby", "admin-tab-add");
-    // End jumps to the last tab, wrapping rules aside
+    // End jumps to the LAST tab, wrapping rules aside — Import since the CSV tab was added
     cy.get('[data-cy="tab-add"]').trigger("keydown", { key: "End" });
-    cy.get('[data-cy="tab-clone"]').should("have.attr", "aria-selected", "true");
+    cy.get('[data-cy="tab-import"]').should("have.attr", "aria-selected", "true");
   });
 });

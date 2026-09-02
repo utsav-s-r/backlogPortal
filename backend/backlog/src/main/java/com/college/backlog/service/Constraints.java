@@ -13,7 +13,7 @@ import org.springframework.dao.DataIntegrityViolationException;
  * was reported as already-existing — leaving the admin believing the target year's catalog was
  * complete.
  *
- * Sibling of {@link Semesters} / {@link AcademicYears} / {@link CourseCodes}. Matching on the name
+ * Sibling of {@link Semesters} / {@link AcademicYears}. Matching on the name
  * is string-ish, but the names are fixed by the Flyway migrations and it is strictly better than
  * asserting the cause outright: an unrecognised violation now falls through to the generic
  * "conflicts with existing data" 409 in GlobalExceptionHandler, which also logs it.

@@ -3,6 +3,8 @@ package com.college.backlog.repository;
 import com.college.backlog.model.Subject;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.Collection;
 import java.util.List;
@@ -25,6 +27,14 @@ public interface SubjectRepository extends JpaRepository<Subject, Long>, JpaSpec
 
     // Skip-existing guard for cloning, backed by UNIQUE(course_code, academic_year_offered).
     boolean existsByCourseCodeAndAcademicYearOffered(String courseCode, int academicYearOffered);
+
+    // Batch form of the guard, for CSV import: one query for a whole file instead of one per row.
+    // Projects the code alone rather than returning entities — Subject.eligibleDepartments is EAGER,
+    // so hydrating rows here would drag the join table in for data nobody reads.
+    @Query("select s.courseCode from Subject s "
+         + "where s.academicYearOffered = :year and s.courseCode in :codes")
+    List<String> findExistingCourseCodes(@Param("year") int academicYearOffered,
+                                         @Param("codes") Collection<String> codes);
 
     // Department-delete guards: block removing a department any subject still references, as
     // owner (dept_id) or via subject_eligible_departments — the FK would break otherwise.

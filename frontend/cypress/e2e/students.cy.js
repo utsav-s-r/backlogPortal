@@ -172,14 +172,26 @@ describe("Students page", () => {
     cy.wait("@getDepartments");
 
     cy.get('[data-cy="students-import-csv"]').type(
-      "1MS24CS001,Asha Rao,9999999999,2006-04-12,2,1",
+      "1MS24CS001,Asha Rao,2006-04-12,9999999999,2,1",
     );
     cy.get('[data-cy="students-import-preview"]').click();
 
+    // rows is asserted in full: the CSV is parsed POSITIONALLY, so nothing else here would fail if
+    // the column order and the destructure disagreed
     cy.wait("@importStudents").its("request.body").should("deep.include", {
       dryRun: true,
       defaultCurrentSemester: 2,
       defaultEntrySemester: 1,
+      rows: [
+        {
+          rollNo: "1MS24CS001",
+          name: "Asha Rao",
+          dateOfBirth: "2006-04-12",
+          phone: "9999999999",
+          currentSemester: 2,
+          entrySemester: 1,
+        },
+      ],
     });
     cy.get('[data-cy="students-import-result"]').should("contain", "1 created");
   });

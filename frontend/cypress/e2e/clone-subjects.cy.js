@@ -55,7 +55,7 @@ describe("Clone Subjects tab", () => {
     // one creatable + one already-existing; only the creatable one is applied
     cy.contains("Create 1 subject(s)").should("be.visible");
 
-    // edit the creatable row's code suffix — prefix "25" is locked to the year
+    // the code is free text: the whole value is editable, nothing is stamped from the year
     cy.get('[data-cy="clone-row-code-4"]').first().clear().type("CSL99");
 
     cy.get('[data-cy="clone-apply"]').click();
@@ -67,7 +67,7 @@ describe("Clone Subjects tab", () => {
         rows: [
           {
             subjectName: "Data Structures",
-            courseCode: "25CSL99",
+            courseCode: "CSL99",
             semester: 4,
             credits: 4,
             subjectType: "REGULAR",

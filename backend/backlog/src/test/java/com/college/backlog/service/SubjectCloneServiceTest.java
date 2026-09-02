@@ -20,9 +20,11 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -48,21 +50,37 @@ class SubjectCloneServiceTest {
     }
 
     @Test
-    void previewBumpsAndFlagsExisting() {
-        Subject a = subject("Data Structures", "22CSL44", 4, 4);
-        Subject b = subject("Operating Systems", "22CSL45", 4, 3);
+    void previewCopiesCodesVerbatimAndFlagsExisting() {
+        // A course keeps its code across years; only academic_year_offered moves, and the
+        // (code, year) uniqueness is what separates the two offerings.
+        Subject a = subject("Data Structures", "CSL44", 4, 4);
+        Subject b = subject("Operating Systems", "CSL45", 4, 3);
         when(subjectRepository
                 .findByDepartment_IdAndAcademicYearOfferedAndSemesterInOrderBySemesterAscSubjectNameAsc(eq(1L), eq(2022), any()))
             .thenReturn(List.of(a, b));
-        when(subjectRepository.existsByCourseCodeAndAcademicYearOffered("23CSL44", 2023)).thenReturn(false);
-        when(subjectRepository.existsByCourseCodeAndAcademicYearOffered("23CSL45", 2023)).thenReturn(true);
+        when(subjectRepository.existsByCourseCodeAndAcademicYearOffered("CSL44", 2023)).thenReturn(false);
+        when(subjectRepository.existsByCourseCodeAndAcademicYearOffered("CSL45", 2023)).thenReturn(true);
 
         SubjectClonePreviewResponse res = service.preview(1L, 2022, 2023, null);
 
         assertThat(res.getRows()).hasSize(2);
-        assertThat(res.getRows().get(0).getCourseCode()).isEqualTo("23CSL44");
+        assertThat(res.getRows().get(0).getCourseCode()).isEqualTo("CSL44");
         assertThat(res.getRows().get(0).getStatus()).isEqualTo("WOULD_CREATE");
         assertThat(res.getRows().get(1).getStatus()).isEqualTo("WOULD_SKIP");
+    }
+
+    @Test
+    void previewReportsErrorForASourceWithNoCourseCode() {
+        // preview/apply parity: apply refuses a blank code, so preview must not promise a
+        // WOULD_CREATE that apply will turn into an ERROR row.
+        when(subjectRepository
+                .findByDepartment_IdAndAcademicYearOfferedAndSemesterInOrderBySemesterAscSubjectNameAsc(eq(1L), eq(2022), any()))
+            .thenReturn(List.of(subject("Orphan", "   ", 4, 4)));
+
+        SubjectClonePreviewResponse res = service.preview(1L, 2022, 2023, null);
+
+        assertThat(res.getRows().get(0).getStatus()).isEqualTo("ERROR");
+        verify(subjectRepository, never()).existsByCourseCodeAndAcademicYearOffered(any(), anyInt());
     }
 
     @Test

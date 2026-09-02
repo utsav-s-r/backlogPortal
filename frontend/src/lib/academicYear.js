@@ -12,6 +12,21 @@ export function formatAcademicYear(startYear) {
   return `${start}-${endShort}`;
 }
 
+// Years to offer in a "which academic year?" picker: a recent window, plus `selected` when it falls
+// outside so an existing value is never silently dropped from its own dropdown. Newest first.
+// Shared because Add and Import must offer the SAME list — two copies would drift into one tab
+// accepting a year the other refuses.
+export function recentAcademicYears(selected) {
+  const base = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i + 1);
+  // `selected ?` before Number, not Number alone: Number("") is 0 and Number.isInteger(0) is true,
+  // so an unset picker appended a year 0 whose formatAcademicYear label is "" — a blank, selectable
+  // option under the placeholder that the server then 400s on.
+  const chosen = selected ? Number(selected) : NaN;
+  return Array.from(
+    new Set([...base, ...(Number.isInteger(chosen) ? [chosen] : [])]),
+  ).sort((a, b) => b - a);
+}
+
 // Accepts spans and bare start years alike, so older "2025" inputs and CSV pastes keep working:
 //   "2025-26" | "2025-2026" | "2025" | 2025  ->  2025
 // NaN when no 4-digit start year can be read; callers treat NaN / empty as "not provided".
@@ -19,27 +34,4 @@ export function parseAcademicYear(value) {
   if (value == null) return NaN;
   const match = String(value).trim().match(/^(\d{4})/);
   return match ? Number(match[1]) : NaN;
-}
-
-// By institutional convention a course code's first two digits are the start year of the academic
-// year it is offered in (22CSL44 -> AY 2022-23). The year is authoritative and stamps this locked
-// prefix; only the suffix is editable. These helpers compose/split a code around that rule, which
-// the server enforces too via CourseCodes.java. See docs/adr/backlog-progression.md.
-
-// Two-digit prefix for an academic-year start: 2022 -> "22"; "" for invalid input.
-export function academicYearPrefix(year) {
-  const y = Number(year);
-  if (!Number.isInteger(y) || y <= 0) return "";
-  return String(((y % 100) + 100) % 100).padStart(2, "0");
-}
-
-// The editable part of a code, everything after the two-digit year prefix: "22CSL44" -> "CSL44".
-// A code with no numeric prefix is returned as-is.
-export function courseCodeSuffix(code) {
-  return /^\d{2}/.test(code || "") ? String(code).slice(2) : code || "";
-}
-
-// Compose a full course code from an academic year and the editable suffix.
-export function buildCourseCode(year, suffix) {
-  return academicYearPrefix(year) + (suffix || "");
 }

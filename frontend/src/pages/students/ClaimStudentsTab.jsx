@@ -8,7 +8,7 @@ import {
   Users,
 } from "lucide-react";
 import api from "../../lib/api";
-import { batchRows } from "./batchResult";
+import { batchRows } from "../../lib/batchResult";
 import { reportLoadError } from "../../lib/loadError";
 import { ALL_SEMESTERS } from "../../lib/semesters";
 import { ROLE } from "../../lib/roles";

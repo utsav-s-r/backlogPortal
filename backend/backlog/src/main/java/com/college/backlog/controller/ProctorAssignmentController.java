@@ -134,7 +134,7 @@ public class ProctorAssignmentController {
     // ---- claim / assign (batch) ----
 
     @PostMapping("/assignments")
-    public BatchResult assign(@Valid @RequestBody ProctorAssignRequest req, Authentication auth) {
+    public BatchResult<ProgressionRowResult> assign(@Valid @RequestBody ProctorAssignRequest req, Authentication auth) {
         User actor = callerScope.requireActor(auth);
         User target = resolveTargetProctor(actor, req.getProctor());
         String deptCode = requireDeptCode(target);
@@ -178,7 +178,19 @@ public class ProctorAssignmentController {
                 assignmentRepository.save(new ProctorAssignment(roll, target.getId(), actor.getUsername()));
                 results.add(new ProgressionRowResult(roll, null, "CREATED", null));
                 assigned++;
+            } catch (NumberFormatException e) {
+                // NFE extends IllegalArgumentException, so without this clause it lands below and
+                // its raw message is shown as if the ROW were bad — a server bug dressed as a data
+                // problem. Must precede the IAE clause; the reverse does not compile. Deliberately
+                // NOT the catch-all's wording below: "it may have just been claimed" names a race
+                // as the cause, which for an NFE is a confident false explanation.
+                log.error("PROCTOR_ASSIGN_ROW_FAILED rollNo={}", roll, e);
+                results.add(new ProgressionRowResult(roll, null, "ERROR",
+                    "Could not assign this student."));
+                errors++;
             } catch (IllegalArgumentException e) {
+                // Only this loop's own validation throws IAE, with curated literal messages, so
+                // surfacing getMessage() is safe here.
                 results.add(new ProgressionRowResult(roll, null, "ERROR", e.getMessage()));
                 errors++;
             } catch (ResponseStatusException e) {
@@ -196,7 +208,7 @@ public class ProctorAssignmentController {
                 errors++;
             }
         }
-        return new BatchResult(false, assigned, skipped, errors, results);
+        return new BatchResult<>(false, assigned, skipped, errors, results);
     }
 
     // ---- remove from supervision ----

@@ -1,5 +1,6 @@
 package com.college.backlog.controller;
 
+import com.college.backlog.repository.AdminAuditEventRepository;
 import com.college.backlog.repository.DepartmentRepository;
 import com.college.backlog.repository.ProctorAssignmentRepository;
 import com.college.backlog.repository.StudentRepository;
@@ -17,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static com.college.backlog.controller.AdminAuthorizationFixture.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -29,18 +31,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * The role × endpoint matrix for the subject catalog — step 3 of
- * claude-work/notes/role-endpoint-matrix-plan.md. Three controllers, one resource: read/edit/delete
- * on {@link SubjectController}, year-to-year cloning on {@link SubjectCloneController}, and
- * <b>create on {@link AdminController}</b> ({@code POST /api/admin/subjects}), which is covered here
- * rather than with the rest of AdminController in step 4 — its dept-scope guard is inline in that
- * handler and does NOT live in {@code SubjectService.createSubject}, which takes no caller
- * department at all. Testing the catalog without it would leave the write that introduces rows
- * unproven.
+ * claude-work/notes/role-endpoint-matrix-plan.md. Two controllers, one resource: create / list /
+ * edit / delete / CSV import on {@link SubjectController}, and year-to-year cloning on
+ * {@link SubjectCloneController}. Create's dept-scope guard is inline in the handler and does NOT
+ * live in {@code SubjectService.createSubject}, which takes no caller department at all, so the
+ * write that introduces rows would be unproven without the cases here.
  *
  * <p>Simpler than steps 1-2: no proctor axis, and dept scoping is by department ID rather than by
  * USN branch code. Two things are still worth stating:
  * <ol>
- *   <li><b>PROCTOR is absent from all three {@code @PreAuthorize} lists on purpose</b>, and — as with
+ *   <li><b>PROCTOR is absent from both {@code @PreAuthorize} lists on purpose</b>, and — as with
  *       DEPT_OFFICE on the proctor controller — that annotation is the ONLY layer denying them:
  *       SecurityConfig's {@code /api/admin/**} rule admits PROCTOR. Nothing below would stop a
  *       widened annotation, and {@code EndpointAuthorizationInventoryTest} would still pass.</li>
@@ -65,6 +65,7 @@ class SubjectCatalogAuthorizationTest {
     private static final String SUBJECTS = "/api/admin/subjects";
     private static final String CLONE_PREVIEW = "/api/admin/subjects/clone/preview";
     private static final String CLONE_APPLY = "/api/admin/subjects/clone/apply";
+    private static final String IMPORT = "/api/admin/subjects/import";
     private static final int CLONE_TARGET_YEAR = 2025;
 
     @Autowired private MockMvc mockMvc;
@@ -73,6 +74,7 @@ class SubjectCatalogAuthorizationTest {
     @Autowired private StudentRepository studentRepository;
     @Autowired private ProctorAssignmentRepository assignmentRepository;
     @Autowired private SubjectRepository subjectRepository;
+    @Autowired private AdminAuditEventRepository auditEventRepository;
 
     private AdminAuthorizationFixture.Ids ids;
 
@@ -101,6 +103,9 @@ class SubjectCatalogAuthorizationTest {
                 .andExpect(status().isForbidden());
         mockMvc.perform(post(CLONE_APPLY).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content(applyBody(ids.csDeptId)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post(IMPORT).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(importBody(ids.csDeptId, false)))
                 .andExpect(status().isForbidden());
     }
 
@@ -145,7 +150,7 @@ class SubjectCatalogAuthorizationTest {
                 .andExpect(jsonPath("$.content[*].courseCode", not(hasItem(CV_SUBJECT_CODE))));
     }
 
-    // ---- POST /api/admin/subjects (create, in AdminController) ----
+    // ---- POST /api/admin/subjects (create) ----
 
     @Test
     @WithMockUser(username = HOD, roles = "HOD")
@@ -314,20 +319,150 @@ class SubjectCatalogAuthorizationTest {
                 .andExpect(status().isOk());
     }
 
+    // ---- POST /import ----
+
+    @Test
+    @WithMockUser(username = HOD, roles = "HOD")
+    void hodImportsIntoOwnDepartmentWithoutNamingIt() throws Exception {
+        // deptId omitted: a dept-scoped caller's own department is implied, as on clone
+        mockMvc.perform(post(IMPORT).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(importBody(null, true)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.created").value(1));
+    }
+
+    @Test
+    @WithMockUser(username = HOD, roles = "HOD")
+    void hodCannotImportIntoAnotherDepartment() throws Exception {
+        // THE case this endpoint's scoping exists for. A silent redirect to the caller's own
+        // department would answer 200 and report rows created somewhere the admin did not choose,
+        // so the refusal must be explicit.
+        mockMvc.perform(post(IMPORT).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(importBody(ids.cvDeptId, true)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = DEPT_OFFICE, roles = "DEPT_OFFICE")
+    void deptOfficeCannotImportIntoAnotherDepartment() throws Exception {
+        mockMvc.perform(post(IMPORT).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(importBody(ids.cvDeptId, true)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = ADMIN, roles = "ADMIN")
+    void adminImportsIntoAnyDepartment() throws Exception {
+        mockMvc.perform(post(IMPORT).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(importBody(ids.cvDeptId, true)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.created").value(1));
+    }
+
+    @Test
+    @WithMockUser(username = PRINCIPAL, roles = "PRINCIPAL")
+    void principalImportsIntoAnyDepartment() throws Exception {
+        mockMvc.perform(post(IMPORT).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(importBody(ids.cvDeptId, true)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = ADMIN, roles = "ADMIN")
+    void adminMustNameADepartmentToImportInto() throws Exception {
+        // 400, not 403: ADMIN has no own department to imply, so the target is required — the
+        // mirror image of the dept-scoped case above
+        mockMvc.perform(post(IMPORT).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(importBody(null, true)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = ADMIN, roles = "ADMIN")
+    void importingIntoAnUnknownDepartmentIsA400NotA404() throws Exception {
+        // the id comes from the BODY, so the URL's resource exists and the reference is what's wrong
+        mockMvc.perform(post(IMPORT).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(importBody(999999L, true)))
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * The one case that actually WRITES through import. Every other allowed import case above is a
+     * dry run — correct for an authorization assertion, but it means the seam between the row loop
+     * and {@code SubjectService.createSubject} would otherwise never execute, and the audit row
+     * would never be written by any test.
+     *
+     * <p>Safe to commit-and-roll-back here: nothing on this path is {@code REQUIRES_NEW}
+     * ({@code createSubject} is plain {@code @Transactional} and {@code AdminAuditService.record}
+     * is explicitly {@code REQUIRED}), so both joins the test transaction. Check that again before
+     * copying this shape onto the student endpoints, where {@code createStudent} IS
+     * {@code REQUIRES_NEW} and a happy path would leak committed rows into the shared database.
+     */
+    @Test
+    @WithMockUser(username = ADMIN, roles = "ADMIN")
+    void aRealImportPersistsTheSubjectAndItsAuditRow() throws Exception {
+        long auditRowsBefore = auditEventRepository.count();
+
+        mockMvc.perform(post(IMPORT).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(importBody(ids.csDeptId, false)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dryRun").value(false))
+                .andExpect(jsonPath("$.created").value(1))
+                .andExpect(jsonPath("$.results[0].status").value("CREATED"));
+
+        // the row actually landed, under the BATCH year rather than anything from the row
+        assertThat(subjectRepository.existsByCourseCodeAndAcademicYearOffered("IMP01", CLONE_TARGET_YEAR))
+            .isTrue();
+        // and the operation recorded itself — one row for the whole import, as with SUBJECT_CLONE
+        assertThat(auditEventRepository.count()).isEqualTo(auditRowsBefore + 1);
+    }
+
+    @Test
+    @WithMockUser(username = ADMIN, roles = "ADMIN")
+    void aDryRunWritesNeitherTheSubjectNorAnAuditRow() throws Exception {
+        long auditRowsBefore = auditEventRepository.count();
+
+        mockMvc.perform(post(IMPORT).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(importBody(ids.csDeptId, true)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.created").value(1));
+
+        // "created: 1" on a dry run means WOULD create — nothing may actually exist
+        assertThat(subjectRepository.existsByCourseCodeAndAcademicYearOffered("IMP01", CLONE_TARGET_YEAR))
+            .isFalse();
+        assertThat(auditEventRepository.count()).isEqualTo(auditRowsBefore);
+    }
+
     // ---- bodies ----
 
-    /** A new subject in the given department. The course code carries the academic year's two
-     *  digits ({@code CourseCodes}), so the year and the prefix must be changed together. */
+    /** A new subject in the given department. The course code is free text and unrelated to the
+     *  year, so only {@code academicYearOffered} has to stay in the valid range — a 400 here would
+     *  mask the 403 these tests are looking for. */
     private static String createBody(Long deptId) {
-        return "{\"subjectName\":\"New Subject\",\"courseCode\":\"24CS99\",\"semester\":4,"
+        return "{\"subjectName\":\"New Subject\",\"courseCode\":\"CS99\",\"semester\":4,"
                 + "\"credits\":3,\"academicYearOffered\":" + SUBJECT_YEAR + ",\"deptId\":" + deptId + "}";
     }
 
-    /** An edit keeps the course code's prefix: the academic year is not editable, so a changed
-     *  prefix is a 400 and would mask the 403 these tests are looking for. */
+    /** The course code is free text, so any value reaches the authorization check unimpeded. */
     private static String editBody(String courseCode) {
         return "{\"subjectName\":\"Renamed\",\"courseCode\":\"" + courseCode + "\",\"semester\":4,"
                 + "\"credits\":3}";
+    }
+
+    /**
+     * A one-row import. {@code dryRun} keeps the assertion about AUTHORIZATION rather than about
+     * whether the row happens to be creatable — the scope check runs before any row is touched, so
+     * a dry run reaches it just the same. A null deptId omits the field entirely, which is what
+     * distinguishes "my own department is implied" from "I named another one".
+     */
+    private static String importBody(Long deptId, boolean dryRun) {
+        return "{" + (deptId == null ? "" : "\"deptId\":" + deptId + ",")
+                + "\"academicYearOffered\":" + CLONE_TARGET_YEAR
+                + ",\"dryRun\":" + dryRun
+                + ",\"rows\":[{\"courseCode\":\"IMP01\",\"subjectName\":\"Imported\","
+                + "\"semester\":4,\"credits\":3,\"subjectType\":\"REGULAR\",\"eligibleDeptCodes\":[]}]}";
     }
 
     private static String previewBody(Long deptId) {
@@ -337,6 +472,6 @@ class SubjectCatalogAuthorizationTest {
 
     private static String applyBody(Long deptId) {
         return "{\"deptId\":" + deptId + ",\"targetYear\":" + CLONE_TARGET_YEAR + ",\"rows\":["
-                + "{\"subjectName\":\"Cloned\",\"courseCode\":\"25CS44\",\"semester\":4,\"credits\":4}]}";
+                + "{\"subjectName\":\"Cloned\",\"courseCode\":\"CS44\",\"semester\":4,\"credits\":4}]}";
     }
 }

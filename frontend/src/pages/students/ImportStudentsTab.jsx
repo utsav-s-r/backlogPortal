@@ -2,38 +2,14 @@ import { useState, useCallback } from "react";
 import { Download, LoaderCircle, Search, UploadCloud } from "lucide-react";
 import MagneticCta from "../../components/ui/MagneticCta";
 import api from "../../lib/api";
-import BatchResultTable from "./BatchResultTable";
+import BatchResultTable from "../../components/ui/BatchResultTable";
 import { saveBlob } from "../../lib/download";
+import { parseStudentCsv, STUDENT_CSV_HEADER, STUDENT_CSV_TEMPLATE } from "./studentImportCsv";
 import { CURRENT_SEMESTERS, ENTRY_SEMESTERS } from "../../lib/semesters";
 import { FIELD_CONTROL, FIELD_INPUT } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
 
 
-const HEADER = "USN,name,phone,dateOfBirth,currentSemester,entrySemester";
-const TEMPLATE =
-  HEADER + "\n1MS24CS001,Asha Rao,9999999999,2006-04-12,1,1\n1MS24CS002,Migrant Kid,,2005-09-01,3,3";
-
-// Parse a CSV body into import rows; blank semester cells fall back to the batch defaults
-// server-side, and a header line is skipped if present.
-function parseCsv(text) {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !/^usn|^rollno/i.test(line))
-    .map((line) => {
-      const [rollNo, name, phone, dateOfBirth, currentSemester, entrySemester] = line
-        .split(",")
-        .map((c) => (c == null ? "" : c.trim()));
-      return {
-        rollNo,
-        name,
-        phone: phone ? phone.replace(/\D/g, "").slice(0, 10) : null,
-        dateOfBirth: dateOfBirth || null,
-        currentSemester: currentSemester ? Number(currentSemester) : null,
-        entrySemester: entrySemester ? Number(entrySemester) : null,
-      };
-    });
-}
 
 // Bulk-import students from CSV. Presentational tab: per-row semesters fall back to the batch
 // defaults, existing USNs are skipped, and dryRun previews without writing.
@@ -51,9 +27,16 @@ function ImportStudentsTab() {
       // the card describes ONE run; cleared here, not in the catch, so the empty-CSV early-return
       // below is covered too
       setResult(null);
-      const rows = parseCsv(csv);
+      let rows;
+      try {
+        rows = parseStudentCsv(csv);
+      } catch (parseError) {
+        // parseCsv throws only on malformed quoting, with a message written for an admin
+        setError(parseError.message);
+        return;
+      }
       if (rows.length === 0) {
-        setError("Paste at least one row: " + HEADER);
+        setError("Paste at least one row: " + STUDENT_CSV_HEADER);
         return;
       }
       setBusy(true);
@@ -79,7 +62,7 @@ function ImportStudentsTab() {
 
   // saveBlob, not a hand-rolled anchor: an immediate revokeObjectURL cancels the download outright
   // on iOS Safari, which consumes the blob URL asynchronously.
-  const downloadTemplate = () => saveBlob(TEMPLATE, "students-template.csv", "text/csv");
+  const downloadTemplate = () => saveBlob(STUDENT_CSV_TEMPLATE, "students-template.csv", "text/csv");
 
   return (
     <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
@@ -87,10 +70,11 @@ function ImportStudentsTab() {
         <UploadCloud size={18} /> Import students (CSV)
       </h2>
       <p className="mb-3 text-sm text-ink-muted">
-        One row per line: <code>{HEADER}</code>. Date of birth is <code>yyyy-MM-dd</code>. Phone is
-        optional; email is assigned automatically as <code>usn@msrit.edu</code>. Leave the two semester
-        columns blank to use the batch defaults below. Existing USNs are skipped, so it's safe to re-run.
-        Preview first to check.
+        One row per line: <code>{STUDENT_CSV_HEADER}</code>. Date of birth is <code>yyyy-MM-dd</code>. Phone is
+        optional; email is assigned automatically as <code>usn@msrit.edu</code>. Current semester must
+        be even (2, 4, 6, 8) and entry semester odd (1, 3, 5, 7) — entry is where the student joined,
+        so <code>3</code> or above means lateral entry. Leave the two semester columns blank to use the
+        batch defaults below. Existing USNs are skipped, so it's safe to re-run. Preview first to check.
       </p>
 
       <div className="mb-3 flex flex-wrap items-end gap-3">
@@ -134,7 +118,7 @@ function ImportStudentsTab() {
 
       <textarea
         className={`${FIELD_INPUT} min-h-32 font-mono`}
-        placeholder={"1MS24CS001,Asha Rao,9999999999,2006-04-12,1,1"}
+        placeholder={"1MS24CS001,Asha Rao,2006-04-12,9999999999,2,1"}
         value={csv}
         onChange={(e) => setCsv(e.target.value)}
         data-cy="students-import-csv"
@@ -167,7 +151,13 @@ function ImportStudentsTab() {
         </MagneticCta>
       </div>
 
-      <BatchResultTable result={result} verb="Imported" dataCy="students-import-result" />
+      <BatchResultTable
+        result={result}
+        verb="Imported"
+        dataCy="students-import-result"
+        idLabel="USN"
+        idKey="rollNo"
+      />
     </section>
   );
 }
