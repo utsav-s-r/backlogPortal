@@ -15,6 +15,7 @@ import com.college.backlog.repository.UserRepository;
 import com.college.backlog.service.StudentManagementService;
 import com.college.backlog.service.StudentSpecification;
 import com.college.backlog.service.Usn;
+import com.college.backlog.service.Batches;
 import com.college.backlog.service.CallerScope;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -61,7 +62,6 @@ public class ProctorAssignmentController {
     private static final int MAX_PAGE_SIZE = 200;
     private static final int DEFAULT_PAGE_SIZE = 25;
     // Same bound as bulk progression: a claim batch is an explicit, bounded list.
-    private static final int MAX_BATCH = 500;
 
     @Autowired private ProctorAssignmentRepository assignmentRepository;
     @Autowired private StudentRepository studentRepository;
@@ -143,10 +143,7 @@ public class ProctorAssignmentController {
         // {"message": "No students selected."}). @Valid is what makes that annotation live;
         // dropping it turns an empty batch into a 200 no-op.
         List<String> rollNos = req.getRollNos();
-        if (rollNos.size() > MAX_BATCH) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "At most " + MAX_BATCH + " students per batch.");
-        }
+        Batches.assertWithinLimit(rollNos.size(), "students");
 
         List<ProgressionRowResult> results = new ArrayList<>();
         int assigned = 0, skipped = 0, errors = 0;
@@ -180,10 +177,10 @@ public class ProctorAssignmentController {
                 assigned++;
             } catch (NumberFormatException e) {
                 // NFE extends IllegalArgumentException, so without this clause it lands below and
-                // its raw message is shown as if the ROW were bad — a server bug dressed as a data
-                // problem. Must precede the IAE clause; the reverse does not compile. Deliberately
-                // NOT the catch-all's wording below: "it may have just been claimed" names a race
-                // as the cause, which for an NFE is a confident false explanation.
+                // its raw message reaches the admin as if the ROW were bad — a server bug dressed as
+                // a data problem. Must precede the IAE clause; the reverse does not compile. NOT the
+                // catch-all's wording: "it may have just been claimed" names a race, which for an
+                // NFE is a false explanation.
                 log.error("PROCTOR_ASSIGN_ROW_FAILED rollNo={}", roll, e);
                 results.add(new ProgressionRowResult(roll, null, "ERROR",
                     "Could not assign this student."));

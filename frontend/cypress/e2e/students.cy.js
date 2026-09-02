@@ -196,6 +196,64 @@ describe("Students page", () => {
     cy.get('[data-cy="students-import-result"]').should("contain", "1 created");
   });
 
+  // Both import tabs render through the shared CsvImportPanel, so a prop-wiring slip here (wrong
+  // dataCyPrefix, missing parse or endpoint) ships silently — the subject specs still pass. These
+  // cover the controls the dry-run test above never touches.
+  it("wires the shared import panel's own controls on the students side", () => {
+    stubDepartments();
+    cy.visitAsAdmin("/admin/students?tab=import");
+    cy.wait("@getDepartments");
+
+    cy.get('[data-cy="students-import-template"]').should("be.visible");
+    cy.get('[data-cy="students-import-default-current"]').should("have.value", "2");
+    cy.get('[data-cy="students-import-default-entry"]').should("have.value", "1");
+    cy.get('[data-cy="students-import-apply"]').should("be.visible");
+    cy.get('[data-cy="students-import-error"]').should("not.exist");
+  });
+
+  it("reports a bad paste on the students side instead of sending it", () => {
+    cy.intercept("POST", "/api/admin/students/import", cy.spy().as("importSpy"));
+    stubDepartments();
+    cy.visitAsAdmin("/admin/students?tab=import");
+    cy.wait("@getDepartments");
+
+    // empty textarea -> the shared panel's own refusal, quoting this tab's header line
+    cy.get('[data-cy="students-import-preview"]').click();
+    cy.get('[data-cy="students-import-error"]').should("contain", "Paste at least one row");
+    cy.get('[data-cy="students-import-error"]').should("contain", "USN,name,dateOfBirth");
+
+    // malformed quoting -> parse throws, and the message reaches the banner unchanged
+    cy.get('[data-cy="students-import-csv"]').type('1MS24CS001,"unterminated,2006-04-12', {
+      parseSpecialCharSequences: false,
+    });
+    cy.get('[data-cy="students-import-preview"]').click();
+    cy.get('[data-cy="students-import-error"]').should("contain", "Unclosed quote");
+
+    cy.get("@importSpy").should("not.have.been.called");
+  });
+
+  it("sends dryRun false from the students Import button", () => {
+    cy.intercept("POST", "/api/admin/students/import", {
+      statusCode: 200,
+      body: { dryRun: false, created: 1, skipped: 0, errors: 0,
+        results: [{ rollNo: "1MS24CS001", semester: 2, status: "CREATED", message: null }] },
+    }).as("importStudents");
+    stubDepartments();
+    cy.visitAsAdmin("/admin/students?tab=import");
+    cy.wait("@getDepartments");
+
+    cy.get('[data-cy="students-import-csv"]').type("1MS24CS001,Asha Rao,2006-04-12,9999999999,2,1");
+    cy.get('[data-cy="students-import-apply"]').click();
+
+    cy.wait("@importStudents").its("request.body.dryRun").should("eq", false);
+    // "Imported", not "Preview" — the verb prop, which only a real run shows
+    cy.get('[data-cy="students-import-result"]').should("contain", "Imported");
+    // idKey="rollNo" actually resolves: a wrong one renders blanks, and BatchResultTable keys its
+    // rows by index, so nothing else complains
+    cy.get('[data-cy="students-import-result"]').should("contain", "USN");
+    cy.get('[data-cy="students-import-result"]').should("contain", "1MS24CS001");
+  });
+
   it("switches between the Manage, Add and Import tabs", () => {
     stubDepartments();
     cy.visitAsAdmin("/admin/students");

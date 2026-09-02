@@ -15,6 +15,7 @@ import com.college.backlog.model.UserRole;
 import com.college.backlog.repository.DepartmentRepository;
 import com.college.backlog.repository.SubjectRepository;
 import com.college.backlog.service.AcademicYears;
+import com.college.backlog.service.Batches;
 import com.college.backlog.service.SubjectImportService;
 import com.college.backlog.service.SubjectService;
 import com.college.backlog.service.SubjectSpecification;
@@ -159,6 +160,8 @@ public class SubjectController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
 
+        Batches.assertWithinLimit(req.getRows() == null ? 0 : req.getRows().size(), "rows");
+
         BatchResult<SubjectRowResult> result = subjectImportService.importRows(
                 deptId, req.getAcademicYearOffered(), req.isDryRun(), req.getRows());
 
@@ -178,9 +181,8 @@ public class SubjectController {
      * (403) if they named another — not silently redirected, which would report success for rows
      * the admin believes went somewhere else. An unrestricted caller must name a real one.
      *
-     * <p>Takes the already-loaded {@code actor} rather than {@code Authentication}: resolving it
-     * again here is a second {@code users} lookup per request, which AdminController's callerUser
-     * comment calls out as the thing to avoid.
+     * <p>Takes the already-loaded {@code actor}, not {@code Authentication}: resolving it again is a
+     * second {@code users} lookup per request.
      */
     private Long requireWritableDept(User actor, Long requestedDeptId) {
         Long pinned = resolveCallerDeptId(actor);

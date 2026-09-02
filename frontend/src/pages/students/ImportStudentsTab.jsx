@@ -1,164 +1,79 @@
-import { useState, useCallback } from "react";
-import { Download, LoaderCircle, Search, UploadCloud } from "lucide-react";
-import MagneticCta from "../../components/ui/MagneticCta";
-import api from "../../lib/api";
-import BatchResultTable from "../../components/ui/BatchResultTable";
-import { saveBlob } from "../../lib/download";
+import { useState } from "react";
+import CsvImportPanel from "../../components/CsvImportPanel";
+import Field from "../../components/ui/Field";
 import { parseStudentCsv, STUDENT_CSV_HEADER, STUDENT_CSV_TEMPLATE } from "./studentImportCsv";
 import { CURRENT_SEMESTERS, ENTRY_SEMESTERS } from "../../lib/semesters";
-import { FIELD_CONTROL, FIELD_INPUT } from "../../lib/formClasses";
-import Field from "../../components/ui/Field";
+import { FIELD_CONTROL } from "../../lib/formClasses";
 
-
-
-// Bulk-import students from CSV. Presentational tab: per-row semesters fall back to the batch
-// defaults, existing USNs are skipped, and dryRun previews without writing.
+// Bulk-import students from CSV: per-row semesters fall back to the batch defaults, existing USNs
+// are skipped, dryRun previews without writing. CsvImportPanel owns the shell, the run and the
+// result table; this owns the two defaults and the payload.
 function ImportStudentsTab() {
-  const [csv, setCsv] = useState("");
   const [defaultCurrent, setDefaultCurrent] = useState("2");
   const [defaultEntry, setDefaultEntry] = useState("1");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [result, setResult] = useState(null);
-
-  const run = useCallback(
-    async (dryRun) => {
-      setError("");
-      // the card describes ONE run; cleared here, not in the catch, so the empty-CSV early-return
-      // below is covered too
-      setResult(null);
-      let rows;
-      try {
-        rows = parseStudentCsv(csv);
-      } catch (parseError) {
-        // parseCsv throws only on malformed quoting, with a message written for an admin
-        setError(parseError.message);
-        return;
-      }
-      if (rows.length === 0) {
-        setError("Paste at least one row: " + STUDENT_CSV_HEADER);
-        return;
-      }
-      setBusy(true);
-      try {
-        const res = await api.post(
-          "/admin/students/import",
-          {
-            rows,
-            defaultCurrentSemester: defaultCurrent ? Number(defaultCurrent) : null,
-            defaultEntrySemester: defaultEntry ? Number(defaultEntry) : null,
-            dryRun,
-          },
-        );
-        setResult(res.data);
-      } catch (err) {
-        setError(err.response?.data?.message || "Import failed.");
-      } finally {
-        setBusy(false);
-      }
-    },
-    [csv, defaultCurrent, defaultEntry],
-  );
-
-  // saveBlob, not a hand-rolled anchor: an immediate revokeObjectURL cancels the download outright
-  // on iOS Safari, which consumes the blob URL asynchronously.
-  const downloadTemplate = () => saveBlob(STUDENT_CSV_TEMPLATE, "students-template.csv", "text/csv");
 
   return (
-    <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
-      <h2 className="mb-1 inline-flex items-center gap-2 text-lg font-semibold text-secondary-ink">
-        <UploadCloud size={18} /> Import students (CSV)
-      </h2>
-      <p className="mb-3 text-sm text-ink-muted">
-        One row per line: <code>{STUDENT_CSV_HEADER}</code>. Date of birth is <code>yyyy-MM-dd</code>. Phone is
-        optional; email is assigned automatically as <code>usn@msrit.edu</code>. Current semester must
-        be even (2, 4, 6, 8) and entry semester odd (1, 3, 5, 7) — entry is where the student joined,
-        so <code>3</code> or above means lateral entry. Leave the two semester columns blank to use the
-        batch defaults below. Existing USNs are skipped, so it's safe to re-run. Preview first to check.
-      </p>
-
-      <div className="mb-3 flex flex-wrap items-end gap-3">
-        <Field label="Default current sem">
-          <select
-            className={`${FIELD_CONTROL} w-32`}
-            value={defaultCurrent}
-            onChange={(e) => setDefaultCurrent(e.target.value)}
-            data-cy="students-import-default-current"
-          >
-            {CURRENT_SEMESTERS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Default entry sem">
-          <select
-            className={`${FIELD_CONTROL} w-32`}
-            value={defaultEntry}
-            onChange={(e) => setDefaultEntry(e.target.value)}
-            data-cy="students-import-default-entry"
-          >
-            {ENTRY_SEMESTERS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <button
-          type="button"
-          onClick={downloadTemplate}
-          className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-3 py-2 text-sm font-semibold transition-colors hover:border-primary"
-          data-cy="students-import-template"
-        >
-          <Download size={15} /> Template
-        </button>
-      </div>
-
-      <textarea
-        className={`${FIELD_INPUT} min-h-32 font-mono`}
-        placeholder={"1MS24CS001,Asha Rao,2006-04-12,9999999999,2,1"}
-        value={csv}
-        onChange={(e) => setCsv(e.target.value)}
-        data-cy="students-import-csv"
-      />
-
-      {error && (
-        <p className="mt-3 text-sm text-red-600" role="alert" data-cy="students-import-error">
-          {error}
-        </p>
-      )}
-
-      <div className="mt-4 flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={() => run(true)}
-          disabled={busy}
-          data-cy="students-import-preview"
-          className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-2 text-sm font-semibold transition-colors hover:border-primary disabled:opacity-60"
-        >
-          {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />} Preview
-        </button>
-        <MagneticCta
-          type="button"
-          onClick={() => run(false)}
-          disabled={busy}
-          className="gap-2 rounded-xl"
-          data-cy="students-import-apply"
-        >
-          <UploadCloud size={15} /> Import
-        </MagneticCta>
-      </div>
-
-      <BatchResultTable
-        result={result}
-        verb="Imported"
-        dataCy="students-import-result"
-        idLabel="USN"
-        idKey="rollNo"
-      />
-    </section>
+    <CsvImportPanel
+      title="Import students (CSV)"
+      dataCyPrefix="students-import"
+      headerLine={STUDENT_CSV_HEADER}
+      placeholder="1MS24CS001,Asha Rao,2006-04-12,9999999999,2,1"
+      templateText={STUDENT_CSV_TEMPLATE}
+      templateFilename="students-template.csv"
+      parse={parseStudentCsv}
+      endpoint="/admin/students/import"
+      buildPayload={(rows, dryRun) => ({
+        rows,
+        defaultCurrentSemester: defaultCurrent ? Number(defaultCurrent) : null,
+        defaultEntrySemester: defaultEntry ? Number(defaultEntry) : null,
+        dryRun,
+      })}
+      verb="Imported"
+      idLabel="USN"
+      idKey="rollNo"
+      description={
+        <>
+          One row per line: <code>{STUDENT_CSV_HEADER}</code>. Date of birth is{" "}
+          <code>yyyy-MM-dd</code>. Phone is optional; email is assigned automatically as{" "}
+          <code>usn@msrit.edu</code>. Current semester must be even (2, 4, 6, 8) and entry semester
+          odd (1, 3, 5, 7) — entry is where the student joined, so <code>3</code> or above means
+          lateral entry. Leave the two semester columns blank to use the batch defaults below.
+          Existing USNs are skipped, so it&apos;s safe to re-run. Preview first to check.
+        </>
+      }
+      controls={
+        <>
+          <Field label="Default current sem">
+            <select
+              className={`${FIELD_CONTROL} w-32`}
+              value={defaultCurrent}
+              onChange={(e) => setDefaultCurrent(e.target.value)}
+              data-cy="students-import-default-current"
+            >
+              {CURRENT_SEMESTERS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Default entry sem">
+            <select
+              className={`${FIELD_CONTROL} w-32`}
+              value={defaultEntry}
+              onChange={(e) => setDefaultEntry(e.target.value)}
+              data-cy="students-import-default-entry"
+            >
+              {ENTRY_SEMESTERS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </>
+      }
+    />
   );
 }
 

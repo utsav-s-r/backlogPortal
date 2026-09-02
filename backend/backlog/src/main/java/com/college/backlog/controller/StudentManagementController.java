@@ -10,6 +10,7 @@ import com.college.backlog.service.ProctorScopeService;
 import com.college.backlog.service.StudentManagementService;
 import com.college.backlog.service.StudentSpecification;
 import com.college.backlog.service.Usn;
+import com.college.backlog.service.Batches;
 import com.college.backlog.service.CallerScope;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -177,6 +178,9 @@ public class StudentManagementController {
         int created = 0, skipped = 0, errors = 0;
 
         List<StudentImportRow> rows = req.getRows() == null ? List.of() : req.getRows();
+        // after the scope checks, so an out-of-scope caller gets 403 regardless of batch size
+        Batches.assertWithinLimit(rows.size(), "rows");
+
         for (StudentImportRow row : rows) {
             String roll = studentService.normalizeUsn(row.getRollNo());
             int currentSem = firstNonNull(row.getCurrentSemester(), req.getDefaultCurrentSemester(), 0);
@@ -213,10 +217,9 @@ public class StudentManagementController {
                 }
             } catch (NumberFormatException e) {
                 // NFE extends IllegalArgumentException, so without this clause it lands below and
-                // its raw message ("For input string: \"null\"") is shown to the admin as if the ROW
-                // were malformed — a server bug dressed as a data problem, and counted as an
-                // ordinary bad-row instead of logged. Must precede the IAE clause; the reverse does
-                // not compile. Same rule as the two subject-side batch loops.
+                // its raw message ("For input string: \"null\"") reaches the admin as if the ROW were
+                // malformed — a server bug dressed as a data problem, counted as a bad row instead
+                // of logged. Must precede the IAE clause; the reverse does not compile.
                 log.error("STUDENT_IMPORT_ROW_FAILED rollNo={}", roll, e);
                 results.add(new ProgressionRowResult(roll, currentSem, "ERROR", "Could not import this row."));
                 errors++;

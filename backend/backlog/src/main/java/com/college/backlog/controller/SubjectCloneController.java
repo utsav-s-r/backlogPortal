@@ -13,6 +13,7 @@ import com.college.backlog.model.UserRole;
 import com.college.backlog.repository.DepartmentRepository;
 import com.college.backlog.service.AcademicYears;
 import com.college.backlog.service.SubjectCloneService;
+import com.college.backlog.service.Batches;
 import com.college.backlog.service.CallerScope;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -58,6 +59,7 @@ public class SubjectCloneController {
         User actor = callerScope.requireActor(auth);
         Department dept = resolveDept(auth, req.getDeptId());
         validateYear(req.getTargetYear());
+        Batches.assertWithinLimit(req.getRows() == null ? 0 : req.getRows().size(), "rows");
         SubjectCloneResult result = cloneService.apply(dept.getId(), req.getTargetYear(), req.getRows());
         // ONE row for the whole operation, not one per subject: cloning a year's catalog is a single
         // administrative act. NOT @Transactional here on purpose — SubjectCloneService.apply commits
