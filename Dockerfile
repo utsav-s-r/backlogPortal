@@ -84,7 +84,13 @@ ENV JAVA_OPTS="-XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -XX:+UseS
 # TCP, not HTTP: there is no actuator dependency, and the public /api/registration-status endpoint
 # would make health depend on the DATABASE being awake — which on a serverless Neon that suspends
 # when idle would report a healthy app as unhealthy.
+#
+# ${PORT:-8080} tracks `server.port=${PORT:8080}`: a platform that assigns a port at runtime sets
+# PORT, so a hardcoded 8080 probes a port nothing listens on and the container reports unhealthy
+# while serving fine. `:-` not `-`, so an empty PORT still falls back rather than probing "127.0.0.1/".
+# Docker does not substitute variables in HEALTHCHECK/CMD, so this expands in the container at
+# runtime, not at build time.
 HEALTHCHECK --interval=15s --timeout=3s --start-period=60s --retries=5 \
-  CMD bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080' || exit 1
+  CMD bash -c 'exec 3<>/dev/tcp/127.0.0.1/${PORT:-8080}' || exit 1
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
