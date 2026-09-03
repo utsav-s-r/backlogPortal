@@ -1,135 +1,99 @@
 # Backlog Registration Portal
 
-This project is a modern, full-stack web application designed to digitize and streamline the process of student registration for backlog (supplementary) examinations at an academic institution. It replaces a tedious, manual, paper-based system with an efficient, accurate, and user-friendly digital workflow.
+A full-stack web app that digitises student registration for backlog (supplementary) examinations at
+an engineering college. Students sign in, pick the subjects they're eligible to re-attempt, and
+download a pre-filled PDF form; departmental staff verify the signed hard copy from a role-scoped
+admin dashboard.
 
-Built for my college, this portal aims to significantly reduce administrative overhead, minimize data entry errors, and provide a much-improved experience for both students and staff.
+Replaces a paper process where students hand-filled forms and staff re-keyed hundreds of them into a
+spreadsheet.
 
-## The Problem: A Manual Process
+## How it works
 
-Traditionally, registering for backlog exams involves several manual steps that are inefficient and prone to error:
+**Student** — signs in with USN and date of birth, sees only the subjects they're eligible for,
+registers while an exam cycle is open, downloads the pre-filled PDF, and submits the signed copy to
+the department office.
 
-- **Manual Form Filling:** Students have to physically collect forms, fill them out by hand, and risk making mistakes with subject codes or personal details.
-- **Data Entry Burden:** Administrative staff must manually enter the data from hundreds of physical forms into a spreadsheet or database, a time-consuming and error-prone task.
-- **Difficult Tracking:** There is no centralized, real-time system to track the status of registrations, making it hard to know who has submitted forms and whose are pending approval.
-- **Wasted Time:** Students and staff spend valuable time standing in queues, handling paperwork, and correcting errors.
+**Staff** — browse and filter registrations, verify or reject them against the hard copy, and
+maintain the data behind the process: subject catalog, student accounts and semester progression,
+departments, exam cycles and staff users.
 
-## The Solution: A Digital-First Approach
+## Features
 
-This portal solves these problems by providing a centralized, web-based platform for the entire registration lifecycle.
+- Eligibility computed server-side; subjects are bound to the academic year the student first
+  studied that semester.
+- Registrations are immutable history — `SUBMITTED → VERIFIED | REJECTED`, with an audit trail.
+- Server-side PDF generation for the student form and bulk staff exports.
+- CSV import and year-to-year cloning for subjects; CSV import and audited bulk progression for
+  student accounts.
+- Five staff roles with department and per-student scoping, enforced server-side on every endpoint.
+- Light/dark theming, responsive to mobile, one-hour non-renewable sessions.
 
-### How It Works
+## Roles
 
-The workflow is divided into two simple parts for the student and the administrator.
+| Role | Scope |
+| :--- | :--- |
+| `ADMIN` | College-wide, including bulk progression and staff renames |
+| `PRINCIPAL` | College-wide |
+| `HOD` | Own department, plus creating `DEPT_OFFICE`/`PROCTOR` users |
+| `DEPT_OFFICE` | Own department |
+| `PROCTOR` | Own department, and only an explicitly assigned set of students |
 
-#### Student Flow
+## Stack
 
-1.  **Enter Details:** The student visits the portal, enters their personal and academic information (Name, USN, Semester, etc.).
-2.  **Select Subjects:** The system displays a list of relevant backlog subjects for their batch and semester. The student selects the subjects they need to register for.
-3.  **Submit & Download:** Upon submission, the system instantly generates a pre-filled, professional PDF registration form containing all the entered details.
-4.  **Sign & Submit Physically:** The student downloads, prints, and obtains the required physical signatures (Student, Proctor, HOD).
-5.  **Final Submission:** The signed hard copy is submitted to the department office for final verification.
+| Area | Technology |
+| :--- | :--- |
+| Backend | Java 21, Spring Boot 3.5, Spring Data JPA, Spring Security, Flyway, iText |
+| Frontend | React 19, Vite 8, React Router 7, Tailwind CSS 4, axios |
+| Database | PostgreSQL 18 |
+| Testing | JUnit 5 + Mockito (backend), Cypress (end-to-end) |
 
-#### Admin Flow
+## Setup
 
-1.  **Login:** The administrator securely logs into a dedicated admin dashboard.
-2.  **View Registrations:** The dashboard displays a comprehensive list of all student registrations, which can be filtered by status (e.g., `SUBMITTED`, `VERIFIED`).
-3.  **Verify:** When a student submits the physical form, the admin finds the corresponding digital record using the Registration ID or student name.
-4.  **Approve:** The admin clicks "Verify" to mark the registration as complete, updating its status in the central database.
+Needs **JDK 21**, **Node ≥ 22.12**, and **PostgreSQL 18**. Maven comes from the wrapper.
 
-## Key Features
-
-- **Dynamic Student Form:** A clean, user-friendly interface for students to enter their information.
-- **Automated Subject Filtering:** Intelligently fetches and displays only the relevant subjects based on the student's batch and semester.
-- **Instant PDF Generation:** Uses the **iTextPDF** library to create a standardized, professional, and ready-to-print A4 registration form on the fly.
-- **Centralized Admin Dashboard:** A secure area for administrators to view, manage, and track all registrations in real-time.
-- **Status Tracking:** Clear `SUBMITTED` and `VERIFIED` statuses provide visibility into the progress of each registration.
-- **Secure Authentication:** The admin portal is protected by JWT-based authentication with security features like brute-force login prevention.
-
-## Benefits for the College
-
-- **Increased Efficiency:** Frees up administrative staff from hours of manual data entry, allowing them to focus on more critical tasks.
-- **Improved Accuracy:** Dramatically reduces errors by eliminating handwritten forms and ensuring data is captured correctly from the start.
-- **Centralized Data:** Provides a single, searchable source of truth for all backlog registrations, making reporting and auditing simple.
-- **Enhanced Student Experience:** Offers students a convenient, fast, and modern way to complete their registration from anywhere.
-- **Standardization:** Enforces a consistent format for all registration documents, simplifying processing and filing.
-- **Cost and Paper Reduction:** Reduces the reliance on pre-printed forms and minimizes paper waste.
-
-## Technology Stack
-
-This project is built with a modern, robust, and scalable technology stack.
-
-| Area         | Technology                                                           |
-| :----------- | :------------------------------------------------------------------- |
-| **Backend**  | Java, Spring Boot, Spring Data JPA, Spring Security, iTextPDF, Maven |
-| **Frontend** | React, Vite, JavaScript, CSS, Framer Motion                          |
-| **Database** | PostgreSQL / MySQL (or any JPA-compatible relational database)       |
-| **Testing**  | Cypress (for End-to-End tests)                                       |
-
-## Local Development Setup
-
-### Backend (Spring Boot)
-
-The backend targets **Java 21** (see `pom.xml`). Maven itself is provided via the Maven Wrapper, so you do **not** need a system-wide Maven install — just a JDK 21 and `./mvnw`.
-
-**macOS (Apple Silicon / Intel)** — pin JDK 21 to this folder without disturbing any newer JDK you use globally:
-
-```bash
-# 1. Install JDK 21 and direnv (once)
-brew install --cask temurin@21
-brew install direnv
-
-# 2. Hook direnv into your shell (zsh), then reload
-echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
-source ~/.zshrc
-
-# 3. Allow this project's .envrc (once per clone)
-cd backend/backlog
-direnv allow
-```
-
-The committed `.envrc` sets `JAVA_HOME` to JDK 21 automatically whenever you enter `backend/backlog/`, and reverts when you leave — so a different global JDK is fine. Verify with:
-
-```bash
-./mvnw -version   # should report "Java version: 21.x"
-```
-
-> Not on macOS / don't want direnv? Just ensure a JDK 21 is active (`java -version` shows 21) before running `./mvnw` — direnv is only a convenience for per-folder switching.
-
-**Configure before the first run.** Two config files are gitignored, so a fresh clone must create them from the provided templates:
+Two files are gitignored; create them from their tracked templates:
 
 ```bash
 cd backend/backlog
-
-# 1. App config (DB connection, etc.)
 cp src/main/resources/application.properties.example src/main/resources/application.properties
-
-# 2. Secrets / environment (DB credentials, JWT secret, admin seed passwords)
 cp .env.example .env
 ```
 
-Then edit `.env` and set at minimum:
+Then set in `.env`:
 
-- `DB_URL`, `DB_USER`, `DB_PASSWORD` — pointing at your own PostgreSQL database (the example uses a Neon cloud DB). The schema is built on first boot by **Flyway**, which runs the migrations in `src/main/resources/db/migration/` (`V1__baseline.sql` onward); Hibernate only validates the result, it never alters the DB. Against an empty database V1 creates everything. Change the schema by adding the next `V<n>__…sql` migration — never by hand and never via entity annotations.
-- `JWT_SECRET` — a long random base64 string.
-- `ADMIN_PASSWORD_ADMIN` — so the bootstrap `admin` account is created on first boot. There is **no default password**: a blank value skips the account entirely rather than installing a guessable one, so with it unset the `users` table stays empty and nobody can sign in (every other account is created from Manage Users, which requires being signed in). This is the **only** seed variable read — ADMIN is the sole seedable role, since it can create every other one including PRINCIPAL, while HOD/DEPT_OFFICE/PROCTOR additionally need a department that a fresh-database seeder cannot assign and login refuses a dept role without one. The value is **long-lived**: it stands until its holder changes it via Change Password (there is no forced first-login change — that was removed with the `must_change_password` column). It also only applies while the account is absent; an existing row is never overwritten, so re-setting the variable cannot reset a forgotten password.
+- `DB_URL` (JDBC spelling: `jdbc:postgresql://host:5432/db`), `DB_USER`, `DB_PASSWORD`
+- `JWT_SECRET` — 32 bytes minimum (`openssl rand -base64 48`)
+- `ADMIN_PASSWORD_ADMIN` — seeds the bootstrap admin on a fresh database; every other account is
+  created from Manage Users once signed in
 
-**Run the backend:**
-
-```bash
-cd backend/backlog
-./mvnw spring-boot:run    # Windows: mvnw.cmd spring-boot:run
-```
-
-The backend starts on `http://localhost:8080`.
-
-### Frontend (React + Vite)
+Run:
 
 ```bash
-cd frontend
-npm install
-npm run dev
+cd backend/backlog && ./mvnw spring-boot:run   # :8080, Flyway builds the schema on first boot
+cd frontend && npm install && npm run dev      # :5173, proxies /api to :8080
 ```
 
----
+The SPA is bundled into the jar in production, so one container serves both the app and the API:
 
-This project serves as a practical demonstration of how modern software engineering can be applied to solve real-world administrative challenges within an educational institution.
+```bash
+cp compose.env.example .env    # set JWT_SECRET and ADMIN_PASSWORD_ADMIN
+docker compose up --build      # :8081
+```
+
+## Testing
+
+The backend suite runs the Flyway migrations and validates the schema, so it needs a database on
+`localhost:5433`:
+
+```bash
+docker run -d --name backlog-test -e POSTGRES_USER=verify -e POSTGRES_PASSWORD=verify \
+  -e POSTGRES_DB=backlog -p 5433:5432 postgres:18
+cd backend/backlog && ./mvnw test
+```
+
+```bash
+cd frontend && npm run test:e2e   # Cypress; specs stub their API calls, no backend needed
+```
+
+Architecture decision records are in [`docs/adr/`](docs/adr).
