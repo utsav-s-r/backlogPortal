@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, KeyRound, LoaderCircle, Lock, UserPen } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import BrandIdentity from "../components/layout/BrandIdentity";
+import BrandHeader from "../components/layout/BrandHeader";
 import MagneticCta from "../components/ui/MagneticCta";
 import api, { clearAdminSession } from "../lib/api";
 import AlertBanner from "../components/AlertBanner";
@@ -96,8 +96,8 @@ function ChangePasswordPage() {
         className="mx-auto w-full max-w-md rounded-3xl border border-stroke bg-surface-1 p-6 shadow-soft sm:p-8"
       >
         <div className="mb-6 text-left">
-          <BrandIdentity compact onSurface />
-          <p className="mb-2 mt-4 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-surface-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
+          <BrandHeader className="mb-4" />
+          <p className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-surface-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
             <KeyRound size={12} /> My Account
           </p>
           <h1 className="text-3xl font-semibold text-secondary-ink">Account Settings</h1>
