@@ -169,9 +169,6 @@ function AdminLoginPage() {
       >
         <div className="mb-6 text-left">
           <BrandHeader className="mb-4" />
-          <p className="mb-2 inline-flex rounded-full border border-primary/30 bg-surface-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
-            Restricted Access
-          </p>
           <h1 className="admin-login-heading text-3xl font-semibold text-secondary-ink">
             {step === 1 ? "Select Designation" : "Staff Login"}
           </h1>

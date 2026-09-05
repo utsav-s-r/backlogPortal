@@ -170,9 +170,6 @@ function ChangePasswordPage() {
         <hr className="my-7 border-stroke" />
 
         <div className="mb-4 text-left">
-          <p className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-surface-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
-            <UserPen size={12} /> Change Username
-          </p>
           <h2 className="text-xl font-semibold text-secondary-ink">Change Username</h2>
           {/* Stated up front, not discovered: the username is the session identity, so changing it
               necessarily ends the session. */}

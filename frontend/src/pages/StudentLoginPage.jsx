@@ -76,9 +76,6 @@ function StudentLoginPage() {
       >
         <div className="mb-6 text-left">
           <BrandHeader className="mb-4" />
-          <p className="mb-2 inline-flex rounded-full border border-primary/30 bg-surface-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
-            Student Login
-          </p>
           <h1 className="text-3xl font-semibold text-secondary-ink">Sign in</h1>
           <p className="mt-2 text-sm text-ink">
             Log in with your USN and date of birth to register for backlog exams and download your forms.

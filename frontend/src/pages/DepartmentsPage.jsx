@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Building2, LoaderCircle, PlusCircle, Save, Trash2 } from "lucide-react";
 import AdminPageShell from "../components/layout/AdminPageShell";
-import HeaderBadge from "../components/ui/HeaderBadge";
 import MagneticCta from "../components/ui/MagneticCta";
 import api from "../lib/api";
 import { reportLoadError } from "../lib/loadError";
@@ -180,7 +179,6 @@ function DepartmentsPage() {
   return (
     <AdminPageShell
       containerClassName="max-w-3xl"
-      badge={<HeaderBadge className="mt-2">Manage Departments</HeaderBadge>}
     >
 
       {error && (

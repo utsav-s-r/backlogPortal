@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { CalendarRange, CheckCircle2, CircleSlash, LoaderCircle, PlusCircle } from "lucide-react";
 import AdminPageShell from "../components/layout/AdminPageShell";
-import HeaderBadge from "../components/ui/HeaderBadge";
 import MagneticCta from "../components/ui/MagneticCta";
 import api from "../lib/api";
 import { reportLoadError } from "../lib/loadError";
@@ -105,7 +104,6 @@ function ExamCyclePage() {
   return (
     <AdminPageShell
       containerClassName="max-w-3xl"
-      badge={<HeaderBadge className="mt-2">Manage Exam Cycles</HeaderBadge>}
     >
 
       {error && (
