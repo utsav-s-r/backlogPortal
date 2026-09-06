@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, LogIn, LoaderCircle } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
-import MagneticCta from "../components/ui/MagneticCta";
+import PrimaryCta from "../components/ui/PrimaryCta";
 import api, { getStudentToken } from "../lib/api";
 import { rememberExpiry } from "../lib/session";
 import { safeRedirect } from "../lib/redirect";
@@ -135,7 +135,7 @@ function StudentLoginPage() {
             </AlertBanner>
           ) : null}
 
-          <MagneticCta
+          <PrimaryCta
             onClick={handleLogin}
             className="mt-2 w-full gap-2 rounded-xl"
             disabled={loading}
@@ -143,7 +143,7 @@ function StudentLoginPage() {
             aria-label="Student login"
           >
             {loading ? <LoaderCircle size={16} className="animate-spin" /> : <LogIn size={16} />} Login
-          </MagneticCta>
+          </PrimaryCta>
         </div>
 
         <div className="mt-6 text-center">

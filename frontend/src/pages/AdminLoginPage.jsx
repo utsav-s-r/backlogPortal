@@ -12,7 +12,7 @@ import {
 import AlertBanner from "../components/AlertBanner";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
-import MagneticCta from "../components/ui/MagneticCta";
+import PrimaryCta from "../components/ui/PrimaryCta";
 import api, { getAdminToken, logoutAdmin } from "../lib/api";
 import { rememberExpiry } from "../lib/session";
 import { safeRedirect } from "../lib/redirect";
@@ -281,7 +281,7 @@ function AdminLoginPage() {
               </AlertBanner>
             ) : null}
 
-            <MagneticCta
+            <PrimaryCta
               onClick={handleLogin}
               className="mt-2 w-full gap-2 rounded-xl"
               disabled={loading}
@@ -294,7 +294,7 @@ function AdminLoginPage() {
                 <Lock size={16} />
               )}{" "}
               Login
-            </MagneticCta>
+            </PrimaryCta>
 
             <button
               type="button"

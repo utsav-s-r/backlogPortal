@@ -103,7 +103,7 @@ admin-supplied exclusion list. **ADMIN only** — `hasRole('ADMIN')`, which excl
 every dept role; this is an institution-wide write.
 
 **It writes `students.current_semester` and its own audit tables, and must NEVER touch
-`student_semester_terms`.** The timeline keeps exactly two writers (`backfillLinear` at creation,
+`student_semester_terms`.** The timeline keeps exactly two writers (`seedLinearTimeline` at creation,
 `overrideProgression` for a hand correction) — a third is what made progression disagreement
 possible in the deleted bulk tools. A detained student's *years* are corrected on the per-student
 Semesters panel; bulk progression only moves the integer.
@@ -161,7 +161,7 @@ Fail-closed: if an eligible semester has no progression row, the student gets a 
   **Reduced 2026-08-16:** all of Phase 3 except the backfill seeder and the audited single-row
   override was deleted. Once seeding at creation became total, the bulk tools could only ever report
   "already recorded" — `recordProgression` was insert-if-absent onto rows that always exist, and the
-  gaps sweep scanned a range already fully written. What remains: `backfillLinear` (called only from
+  gaps sweep scanned a range already fully written. What remains: `seedLinearTimeline` (called only from
   `createStudent`), `overrideProgression`, and `GET`/`PUT /api/admin/progression/{rollNo}...`. The
   `CONFLICT` outcome went with them — it required two writers disagreeing, and there is now one
   creator and one deliberate overwriter.
@@ -288,7 +288,7 @@ branch code exactly like `ProgressionController` (ADMIN/PRINCIPAL broad; HOD/DEP
 - **Progression IS auto-seeded on create** (superseded 2026-07-06). The original decision was the
   opposite — "no fabricated years; wrong years fail silently, missing years fail loud" — backed by a
   post-create warning, a "gaps" filter, and an incomplete badge. Full seeding replaced all three:
-  `createStudent` calls `backfillLinear`, stamping `entrySemester..8` linearly from the admission
+  `createStudent` calls `seedLinearTimeline`, stamping `entrySemester..8` linearly from the admission
   year. The trade-off, accepted knowingly: a seeded year is indistinguishable
   from a verified one, so "contact the department office" can no longer fire for a portal-created
   student, and the no-detention assumption is wrong for exactly the population registering backlogs.

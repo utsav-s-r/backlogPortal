@@ -9,8 +9,7 @@
  * server-side preconditions of a registration, and real PDF bytes over a real session.
  *
  * NOT a replacement for the stubbed specs — they exercise error states a real backend will not
- * produce on demand, and they run without any of this. See
- * claude-work/notes/e2e-live-smoke-plan.md.
+ * produce on demand, and they run without any of this.
  *
  * REQUIRES, or every test here fails at the first request:
  *   1. Postgres on :5433 with a `backlog_e2e` database

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ArrowLeft, LoaderCircle, Lock, UserPen } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
-import MagneticCta from "../components/ui/MagneticCta";
+import PrimaryCta from "../components/ui/PrimaryCta";
 import api, { clearAdminSession } from "../lib/api";
 import AlertBanner from "../components/AlertBanner";
 import { FIELD_INPUT } from "../lib/formClasses";
@@ -149,7 +149,7 @@ function ChangePasswordPage() {
             </AlertBanner>
           )}
 
-          <MagneticCta
+          <PrimaryCta
             type="submit"
             disabled={loading}
             className="mt-2 w-full gap-2 rounded-xl"
@@ -161,7 +161,7 @@ function ChangePasswordPage() {
               <Lock size={16} />
             )}{" "}
             Save New Password
-          </MagneticCta>
+          </PrimaryCta>
         </form>
 
         <hr className="my-7 border-stroke" />
@@ -208,7 +208,7 @@ function ChangePasswordPage() {
             </AlertBanner>
           )}
 
-          <MagneticCta
+          <PrimaryCta
             type="submit"
             disabled={renaming}
             className="mt-2 w-full gap-2 rounded-xl"
@@ -220,7 +220,7 @@ function ChangePasswordPage() {
               <UserPen size={16} />
             )}{" "}
             Save New Username
-          </MagneticCta>
+          </PrimaryCta>
         </form>
 
         <div className="mt-4 text-center">

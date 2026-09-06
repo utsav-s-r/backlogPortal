@@ -4,7 +4,7 @@
 // that count.
 //
 // BulkProgressionTab deliberately does NOT use this — it keys by `d.code`, since bulk progression
-// filters on the branch code (`lower(branch)`, V5's functional index). Swapping it in would send an
+// filters on the branch code (`lower(branch)`, a functional index). Swapping it in would send an
 // id where a code is expected, and the preview would look legitimately empty.
 function DepartmentOptions({ departments }) {
   return departments.map((d) => (

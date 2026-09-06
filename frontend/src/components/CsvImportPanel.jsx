@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Download, LoaderCircle, Search, UploadCloud } from "lucide-react";
-import MagneticCta from "./ui/MagneticCta";
+import PrimaryCta from "./ui/PrimaryCta";
 import BatchResultTable from "./ui/BatchResultTable";
 import api from "../lib/api";
 import { saveBlob } from "../lib/download";
@@ -133,7 +133,7 @@ function CsvImportPanel({
         >
           {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />} Preview
         </button>
-        <MagneticCta
+        <PrimaryCta
           type="button"
           onClick={() => run(false)}
           disabled={busy}
@@ -141,7 +141,7 @@ function CsvImportPanel({
           data-cy={`${dataCyPrefix}-apply`}
         >
           <UploadCloud size={15} /> Import
-        </MagneticCta>
+        </PrimaryCta>
       </div>
 
       <BatchResultTable

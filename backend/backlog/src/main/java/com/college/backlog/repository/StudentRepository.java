@@ -46,7 +46,7 @@ public interface StudentRepository extends JpaRepository<Student, String>, JpaSp
     // The CASTs are load-bearing, not decoration: Postgres cannot infer the type of a bare
     // parameter in "? IS NULL" and fails the statement with "could not determine data type of
     // parameter". Only reproduces against a real database — no unit test covers it.
-    // lower(), not upper(): V5 created ix_students_branch_lower ON students (lower(branch)), and a
+    // lower(), not upper(): ix_students_branch_lower is ON students (lower(branch)), and a
     // functional index only serves the exact expression it was built on. upper() seq-scans.
     String SELECTION = """
         (CAST(:filterSemester AS integer) IS NULL OR s.current_semester = CAST(:filterSemester AS integer))

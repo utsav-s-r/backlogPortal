@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../../lib/api";
-import MagneticCta from "../ui/MagneticCta";
+import PrimaryCta from "../ui/PrimaryCta";
 
 export default function HeroSection() {
   // null = still checking; otherwise { open, cycleName?, examMonthYear? }
@@ -103,9 +103,9 @@ export default function HeroSection() {
               justifyContent: "center",
             }}
           >
-            <MagneticCta as={Link} to="/register" className="gap-2">
+            <PrimaryCta as={Link} to="/register" className="gap-2">
               Start Registration <ArrowRight size={16} />
-            </MagneticCta>
+            </PrimaryCta>
             <Link
               to="/admin/login"
               style={{

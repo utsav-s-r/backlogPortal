@@ -30,15 +30,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The role × endpoint matrix for the subject catalog — step 3 of
- * claude-work/notes/role-endpoint-matrix-plan.md. Two controllers, one resource: create / list /
+ * The role × endpoint matrix for the subject catalog. Two controllers, one resource: create / list /
  * edit / delete / CSV import on {@link SubjectController}, and year-to-year cloning on
  * {@link SubjectCloneController}. Create's dept-scope guard is inline in the handler and does NOT
  * live in {@code SubjectService.createSubject}, which takes no caller department at all, so the
  * write that introduces rows would be unproven without the cases here.
  *
- * <p>Simpler than steps 1-2: no proctor axis, and dept scoping is by department ID rather than by
- * USN branch code. Two things are still worth stating:
+ * <p>Simpler than the student and proctor suites: no proctor axis, and dept scoping is by department
+ * ID rather than by USN branch code. Two things are still worth stating:
  * <ol>
  *   <li><b>PROCTOR is absent from both {@code @PreAuthorize} lists on purpose</b>, and — as with
  *       DEPT_OFFICE on the proctor controller — that annotation is the ONLY layer denying them:

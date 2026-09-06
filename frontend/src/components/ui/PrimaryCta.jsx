@@ -1,11 +1,9 @@
 // Primary call-to-action. Renders a <button> by default; pass `as={Link}` (or any component) to
-// navigate instead. The name is vestigial: there is no magnetic hover effect, and this project uses
-// no motion library — don't add one back to make the name true.
+// navigate instead. Hover/press feedback is CSS only — this project uses no motion library.
 //
 // Focus styling is deliberately absent: the global :focus-visible outline in index.css already
-// covers a/button/input/select/textarea. This component used to set focus-visible:outline-none and
-// re-implement it as a ring coloured var(--color-cta) — the button's OWN fill, so the ring was
-// invisible except for the ring-offset gap. Don't reintroduce a local ring here.
+// covers a/button/input/select/textarea. Don't add a local ring — a ring in var(--color-cta) is the
+// button's OWN fill, visible only in the ring-offset gap.
 const BASE = [
   "inline-flex items-center justify-center rounded-full px-5 py-3",
   "bg-cta text-cta-text text-sm font-semibold",
@@ -15,7 +13,7 @@ const BASE = [
   "active:scale-[0.98]",
 ].join(" ");
 
-export default function MagneticCta({
+export default function PrimaryCta({
   children,
   className,
   as: Component = "button",

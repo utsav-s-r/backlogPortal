@@ -28,11 +28,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * The role × endpoint matrix for the two college-wide resources — departments
- * ({@link AdminController}) and exam cycles ({@link ExamCycleController}) — part of step 4 of
- * claude-work/notes/role-endpoint-matrix-plan.md. Grouped because they share one shape that none of
- * the earlier controllers had: <b>reads are open to every admin role while writes are narrow, and
- * neither resource has a department to scope by</b>, so the role check is the ONLY control. There is
- * no second layer to fall back on.
+ * ({@link AdminController}) and exam cycles ({@link ExamCycleController}). Grouped because they
+ * share one shape no other controller has: <b>reads are open to every admin role while writes are
+ * narrow, and neither resource has a department to scope by</b>, so the role check is the ONLY
+ * control. There is no second layer to fall back on.
  *
  * <p>Exam cycles carry the sharper history. The class-level annotation is {@code hasRole('ADMIN')}
  * with the read endpoint widening itself — deliberately the narrow default, because the previous

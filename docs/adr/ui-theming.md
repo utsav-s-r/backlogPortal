@@ -136,5 +136,5 @@ silently become `undefined` still renders a plausible-looking page.
 
 - `frontend/src/index.css` (its opening block is the token vocabulary — read it before adding UI),
   `frontend/src/context/ThemeContext.jsx`, `frontend/src/components/ui/ThemeToggle.jsx`.
-- No motion libraries: none is a dependency, and none should be added; `MagneticCta` is a plain
+- No motion libraries: none is a dependency, and none should be added; `PrimaryCta` is a plain
   styled button/link with `active:scale-[0.98]`.

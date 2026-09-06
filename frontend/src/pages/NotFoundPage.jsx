@@ -1,7 +1,7 @@
 import { FileQuestion } from "lucide-react";
 import { Link } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
-import MagneticCta from "../components/ui/MagneticCta";
+import PrimaryCta from "../components/ui/PrimaryCta";
 
 // Catch-all for any unmatched URL. Without this React Router rendered NOTHING — a blank page with
 // no message and no way back, which is what a stale bookmark to a removed route (e.g. the old
@@ -24,9 +24,9 @@ function NotFoundPage() {
         </p>
 
         <div className="mt-6 flex flex-col gap-2">
-          <MagneticCta as={Link} to="/" className="w-full rounded-xl" data-cy="not-found-home">
+          <PrimaryCta as={Link} to="/" className="w-full rounded-xl" data-cy="not-found-home">
             Go to home
-          </MagneticCta>
+          </PrimaryCta>
           <Link
             to="/student/login"
             className="inline-flex items-center justify-center rounded-xl border border-stroke bg-surface-muted px-5 py-3 text-sm font-semibold text-ink transition-colors hover:border-primary"

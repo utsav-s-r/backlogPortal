@@ -80,11 +80,10 @@
   --color-primary-ink: var(--color-primary);
   --color-secondary-ink: var(--color-secondary);
   /* Call-to-action accent, for solid CTA fills — `bg-cta` (Home hero, admin/login primary buttons,
-     MagneticCta) plus MagneticCta's focus ring. Was a standalone pink (#ed145b), replaced
-     2026-08-10: white-on-pink measured 4.33 vs the 4.5 AA floor, and the brand didn't need a third
-     hue. Unlike most tokens this one is BRIGHTER in dark — a CTA has to out-contrast the page, and
-     the page is dark navy there, so brand maroon/navy would dissolve into it (1.92 / 1.24 vs the
-     3.0 floor). Hence maroon in light, its established dark tint in dark. */
+     PrimaryCta). Never a standalone accent hue: white on the pink this replaced measured 4.33
+     against the 4.5 AA floor. Unlike most tokens this one is BRIGHTER in dark — a CTA has to
+     out-contrast the page, and the page is dark navy there, so brand maroon/navy would dissolve
+     into it (1.92 / 1.24 vs the 3.0 floor). Hence maroon in light, its dark tint in dark. */
   --color-cta: var(--color-primary);
   /* CTA label (`text-cta-text`). Always the page surface: white on the maroon fill (light), dark
      navy on the light fill (dark). Resolves correctly in both themes with no override. */
@@ -119,7 +118,7 @@
      rather than a var() reference — which would leave the [data-theme="dark"] override below dead
      across all 56 usages, with nothing failing. Kept as the hand-written unlayered class instead. */
   --shadow-soft: 0 16px 40px rgba(36, 42, 82, 0.14);
-  /* MagneticCta hover glow — the accent at low alpha. --color-* named but kept OUT of @theme on
+  /* PrimaryCta hover glow — the accent at low alpha. --color-* named but kept OUT of @theme on
      purpose: it's only ever read inside an arbitrary shadow value, so generating bg-/text-/border-
      families for it would be dead CSS. */
   --color-cta-glow: rgba(145, 25, 28, 0.35);

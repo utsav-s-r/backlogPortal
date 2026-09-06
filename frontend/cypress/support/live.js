@@ -4,8 +4,8 @@
 // the entire point.
 //
 // Everything below seeds through the REAL admin API rather than SQL, so the domain rules have one
-// definition and `createStudent` seeds the progression timeline (backfillLinear) for free.
-// Preconditions, traps and the boot command: claude-work/notes/e2e-live-smoke-plan.md.
+// definition and `createStudent` seeds the progression timeline (seedLinearTimeline) for free.
+// Preconditions, traps and the boot command: the header of e2e-live/student-journey.cy.js.
 
 beforeEach(() => {
   cy.clearLocalStorage();
@@ -62,9 +62,10 @@ Cypress.Commands.add("seedRegistrationFixture", () => {
     currentSemester: 4,
     entrySemester: 1,
   };
-  // Sem 3 of a 2024 intake entering at sem 1 falls in AY 2025 (backfillLinear: 1-2 -> 2024,
-  // 3-4 -> 2025). The subject must match that year exactly, and the course-code prefix must be the
-  // year's last two digits — both are server-enforced, so a mismatch here fails the seed, loudly.
+  // Sem 3 of a 2024 intake entering at sem 1 falls in AY 2025 (seedLinearTimeline: 1-2 -> 2024,
+  // 3-4 -> 2025). The subject's academicYearOffered must match that year exactly — year-binding is
+  // server-enforced and fails closed, so a mismatch here makes the student ineligible. The course
+  // code is free text; nothing derives a year from it.
   const subject = {
     subjectName: "Data Structures",
     courseCode: "25CS31",

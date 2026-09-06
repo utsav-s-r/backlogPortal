@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { LoaderCircle, PlusCircle } from "lucide-react";
-import MagneticCta from "../../components/ui/MagneticCta";
+import PrimaryCta from "../../components/ui/PrimaryCta";
 import api from "../../lib/api";
 import { formatAcademicYear, recentAcademicYears } from "../../lib/academicYear";
 import AlertBanner from "../../components/AlertBanner";
@@ -289,7 +289,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
         )}
 
         <div className="border-t border-stroke pt-4">
-          <MagneticCta
+          <PrimaryCta
             type="submit"
             disabled={loading}
             className="w-full gap-2 rounded-xl"
@@ -305,7 +305,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                 <PlusCircle size={16} /> Add Subject
               </>
             )}
-          </MagneticCta>
+          </PrimaryCta>
         </div>
       </form>
     </div>

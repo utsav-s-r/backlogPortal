@@ -94,16 +94,15 @@ class StudentManagementServiceTest {
     }
 
     @Test
-    void createSeedsFullTimelineViaBackfill() {
+    void createSeedsFullTimelineViaSeeder() {
         stubCsDept();
         when(studentRepository.save(any(Student.class))).thenAnswer(i -> i.getArgument(0));
 
         service.createStudent(req("1MS22CS001", 4, 1), ACTOR);
 
-        // the whole sem 1..8 academic-year timeline is seeded up front (linear from
-        // the admission year); the per-semester year math is covered in
-        // ProgressionServiceTest.backfillLinear*. currentSemester is never bumped here.
-        verify(progressionService).backfillLinear("1MS22CS001");
+        // currentSemester is never bumped here; the per-semester year math is covered in
+        // ProgressionServiceTest.seedLinearTimeline*.
+        verify(progressionService).seedLinearTimeline("1MS22CS001");
     }
 
     @Test
@@ -113,9 +112,8 @@ class StudentManagementServiceTest {
 
         service.createStudent(req("1MS22CS001", 6, 3), ACTOR);
 
-        // lateral entrants are seeded the same way (backfillLinear ranges entry..8,
-        // leaving pre-entry sems empty) — no special-casing at the create layer.
-        verify(progressionService).backfillLinear("1MS22CS001");
+        // lateral entrants take the same path — no special-casing at the create layer.
+        verify(progressionService).seedLinearTimeline("1MS22CS001");
     }
 
     @Test

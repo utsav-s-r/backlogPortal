@@ -23,11 +23,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The per-student scope on /api/admin/progression — part of step 4 of
- * claude-work/notes/role-endpoint-matrix-plan.md. Covers ONLY {@code view} and {@code override}:
+ * The per-student scope on /api/admin/progression. Covers ONLY {@code view} and {@code override}:
  * the four {@code /bulk} endpoints are ADMIN-only and already executed by
- * {@link BulkProgressionAuthorizationTest}, and the plan's non-goals say not to re-assert what an
- * existing suite owns.
+ * {@link BulkProgressionAuthorizationTest}. <b>No suite here re-asserts what another one owns</b> —
+ * a duplicated case is a second place to update when the rule moves, and the copy that gets missed
+ * goes on passing.
  *
  * <p>This controller is the third place the same two-layer student scope appears — dept-pinning by
  * USN branch code, then {@code ProctorScopeService.assertSupervises} on top — after

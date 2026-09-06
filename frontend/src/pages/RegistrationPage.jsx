@@ -11,7 +11,7 @@ import {
 import AlertBanner from "../components/AlertBanner";
 import { Link, useNavigate } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
-import MagneticCta from "../components/ui/MagneticCta";
+import PrimaryCta from "../components/ui/PrimaryCta";
 import api from "../lib/api";
 import { formatAcademicYear } from "../lib/academicYear";
 import { saveBlob, readBlobErrorMessage } from "../lib/download";
@@ -229,9 +229,9 @@ function RegistrationPage() {
           You need a phone number on your profile before you can register for backlog exams. Please
           add it in your dashboard and come back.
         </p>
-        <MagneticCta onClick={() => navigate("/student")} className="gap-2 rounded-xl">
+        <PrimaryCta onClick={() => navigate("/student")} className="gap-2 rounded-xl">
           Go to Dashboard
-        </MagneticCta>
+        </PrimaryCta>
       </CenteredCard>
     );
   }
@@ -258,10 +258,10 @@ function RegistrationPage() {
           </AlertBanner>
         )}
         <div className="flex flex-wrap gap-3">
-          <MagneticCta onClick={handleDownloadPdf} disabled={downloading} className="gap-2">
+          <PrimaryCta onClick={handleDownloadPdf} disabled={downloading} className="gap-2">
             {downloading ? <LoaderCircle size={16} className="animate-spin" /> : <Download size={16} />}
             Download PDF
-          </MagneticCta>
+          </PrimaryCta>
           <Link
             to="/student"
             className="inline-flex items-center justify-center rounded-full border border-stroke bg-surface-1 px-5 py-3 text-sm font-semibold text-secondary-ink transition-colors hover:border-primary hover:text-primary-ink"
@@ -478,7 +478,7 @@ function RegistrationPage() {
             </AlertBanner>
           ) : null}
 
-          <MagneticCta
+          <PrimaryCta
             type="button"
             onClick={handleSubmit}
             disabled={selectedSubjects.length === 0 || submitting}
@@ -495,7 +495,7 @@ function RegistrationPage() {
                 <CheckCircle2 size={16} /> Submit Registration
               </>
             )}
-          </MagneticCta>
+          </PrimaryCta>
         </div>
       </div>
     </div>

@@ -29,8 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The role × endpoint matrix for /api/admin/proctor — step 2 of
- * claude-work/notes/role-endpoint-matrix-plan.md, sharing {@link AdminAuthorizationFixture} with
+ * The role × endpoint matrix for /api/admin/proctor, sharing {@link AdminAuthorizationFixture} with
  * {@link StudentManagementAuthorizationTest}. Read that class's javadoc for why this is a full
  * {@code @SpringBootTest} and why every denial asserts exactly 403.
  *

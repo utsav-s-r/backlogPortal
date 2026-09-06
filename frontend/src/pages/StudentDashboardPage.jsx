@@ -13,7 +13,7 @@ import {
 import AlertBanner from "../components/AlertBanner";
 import { Link, useNavigate } from "react-router-dom";
 import BrandHeader from "../components/layout/BrandHeader";
-import MagneticCta from "../components/ui/MagneticCta";
+import PrimaryCta from "../components/ui/PrimaryCta";
 import ThemeToggle from "../components/ui/ThemeToggle";
 import api, { logoutStudent } from "../lib/api";
 import { saveBlob, readBlobErrorMessage } from "../lib/download";
@@ -253,13 +253,13 @@ function StudentDashboardPage() {
               </div>
 
               <div className="mt-6 border-t border-stroke pt-5">
-                <MagneticCta
+                <PrimaryCta
                   onClick={() => navigate("/register")}
                   className="gap-2 rounded-xl"
                   data-cy="register-cta"
                 >
                   Register for backlog subjects <ArrowRight size={16} />
-                </MagneticCta>
+                </PrimaryCta>
               </div>
             </section>
 

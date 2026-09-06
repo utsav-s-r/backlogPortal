@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * annotations. {@code EndpointAuthorizationInventoryTest} owns "a rule exists"; this owns "the rule
  * is the RIGHT one and is actually enforced" — it passes today whether {@code @PreAuthorize} names
  * ADMIN or all five roles, and Cypress can only show a tab is hidden (every spec stubs its API
- * calls, so no spec can ever observe a 403). See claude-work/notes/role-endpoint-matrix-plan.md.
+ * calls, so no spec can ever observe a 403).
  *
  * <p>Three things make this real rather than vacuous:
  * <ol>

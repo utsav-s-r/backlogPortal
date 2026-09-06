@@ -11,7 +11,7 @@ import {
 import AlertBanner from "../components/AlertBanner";
 import { Link } from "react-router-dom";
 import AdminPageShell from "../components/layout/AdminPageShell";
-import MagneticCta from "../components/ui/MagneticCta";
+import PrimaryCta from "../components/ui/PrimaryCta";
 import api from "../lib/api";
 import { reportLoadError } from "../lib/loadError";
 import { findOwnDepartment } from "../lib/session";
@@ -343,7 +343,7 @@ function ManageUsersPage() {
                 ))}
               </select>
             </Field>
-            <MagneticCta
+            <PrimaryCta
               type="submit"
               disabled={creating}
               className="w-full gap-2 rounded-xl"
@@ -355,7 +355,7 @@ function ManageUsersPage() {
                 <UserPlus size={16} />
               )}{" "}
               Create
-            </MagneticCta>
+            </PrimaryCta>
           </form>
         </section>
 

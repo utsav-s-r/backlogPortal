@@ -78,12 +78,10 @@ public class StudentManagementService {
         log.info("STUDENT_CREATE actor={} rollNo={} currentSem={} entrySem={}",
                 actor, rollNo, saved.getCurrentSemester(), saved.getEntrySemester());
 
-        // Seed the FULL timeline up front: entry..8, mapped linearly from the admission year
-        // (1-2 -> join year, 3-4 -> +1, ...); pre-entry sems stay empty for lateral entrants.
-        // Write-once and does NOT touch currentSemester (set on the form, advanced on the
-        // Progression page), so a year-back is fixed by editing the affected sems there.
-        // The CSV import funnels through here too.
-        progressionService.backfillLinear(rollNo);
+        // Seeds entry..8 up front, not just to currentSemester, and does NOT touch currentSemester
+        // (set on the form, advanced on the Progression page) — so a year-back is fixed by editing
+        // the affected sems there. The CSV import funnels through here too.
+        progressionService.seedLinearTimeline(rollNo);
         return saved;
     }
 

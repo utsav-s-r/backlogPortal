@@ -35,10 +35,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The role × endpoint matrix for the registration READ surface on {@link AdminController} — the last
- * part of step 4 of claude-work/notes/role-endpoint-matrix-plan.md. Split into its own class because
- * it is the only one needing registrations, and those cannot go in the shared
- * {@link AdminAuthorizationFixture}: a registration makes its student and its subject
+ * The role × endpoint matrix for the registration READ surface on {@link AdminController}. Split
+ * into its own class because it is the only one needing registrations, and those cannot go in the
+ * shared {@link AdminAuthorizationFixture}: a registration makes its student and its subject
  * <b>undeletable</b> (409), which would break the delete cases in
  * {@link StudentManagementAuthorizationTest} and {@link SubjectCatalogAuthorizationTest}. So they
  * are seeded here, on top of the shared cast.

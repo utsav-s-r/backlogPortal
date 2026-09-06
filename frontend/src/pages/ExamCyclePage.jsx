@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { CalendarRange, CheckCircle2, CircleSlash, LoaderCircle, PlusCircle } from "lucide-react";
 import AdminPageShell from "../components/layout/AdminPageShell";
-import MagneticCta from "../components/ui/MagneticCta";
+import PrimaryCta from "../components/ui/PrimaryCta";
 import api from "../lib/api";
 import { reportLoadError } from "../lib/loadError";
 import AlertBanner from "../components/AlertBanner";
@@ -138,10 +138,10 @@ function ExamCyclePage() {
             />
           </Field>
           <div className="sm:col-span-2">
-            <MagneticCta type="submit" disabled={creating} className="gap-2 rounded-xl">
+            <PrimaryCta type="submit" disabled={creating} className="gap-2 rounded-xl">
               {creating ? <LoaderCircle size={16} className="animate-spin" /> : <PlusCircle size={16} />}
               {creating ? "Creating..." : "Create Cycle"}
-            </MagneticCta>
+            </PrimaryCta>
           </div>
         </form>
       </section>

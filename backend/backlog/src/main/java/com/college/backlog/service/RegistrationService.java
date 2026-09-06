@@ -85,7 +85,7 @@ public class RegistrationService {
      * The paginated query deliberately does not fetch-join {@code subjects} (a collection fetch
      * makes Hibernate paginate in memory instead of emitting SQL LIMIT), so {@code getSubjects()}
      * is a lazy load; mapping in the controller would only work with open-in-view, which is off.
-     * {@code @BatchSize(30)} collapses the per-row loads. {@code readOnly} skips dirty-check/flush.
+     * {@code @BatchSize(1000)} collapses the per-row loads. {@code readOnly} skips dirty-check/flush.
      */
     @Transactional(readOnly = true)
     public Page<RegistrationSummaryResponse> listSummaries(Specification<Registration> spec, Pageable pageable) {
@@ -95,7 +95,7 @@ public class RegistrationService {
     /** Private on purpose: touches lazy state, so it must not be reachable from a controller
      *  (see {@link #listSummaries}). */
     private RegistrationSummaryResponse toSummary(Registration reg) {
-        // Snapshot columns only — NOT NULL as of V7. The old `snap != null ? snap : student.get()`
+        // Snapshot columns only — NOT NULL in the schema. The old `snap != null ? snap : student.get()`
         // fallbacks silently printed the LIVE student row on an old registration, inverting the
         // immutable-history convention this table exists to uphold.
         return new RegistrationSummaryResponse(

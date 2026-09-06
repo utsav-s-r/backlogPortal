@@ -9,8 +9,8 @@ import org.springframework.web.server.ResponseStatusException;
  *
  * <p>Bounds WALL CLOCK, not memory — 500 rows of JSON is nothing, but each row is its own
  * transaction against remote Neon, so cost is round trips × rows. Sized for the heaviest endpoint,
- * student import: {@code createStudent} is REQUIRES_NEW and its {@code backfillLinear} writes one
- * {@code student_semester_terms} row per semester from entry to current.
+ * student import: {@code createStudent} is REQUIRES_NEW and its {@code seedLinearTimeline} writes
+ * one {@code student_semester_terms} row per semester from entry to 8.
  *
  * <p>An uncapped batch can outlive the proxy or the browser, and since no loop is transactional the
  * rows already written stay written while the caller sees only a failure and no result table — the

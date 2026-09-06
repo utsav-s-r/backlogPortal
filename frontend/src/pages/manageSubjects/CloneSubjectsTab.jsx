@@ -6,7 +6,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import MagneticCta from "../../components/ui/MagneticCta";
+import PrimaryCta from "../../components/ui/PrimaryCta";
 import api from "../../lib/api";
 import { formatAcademicYear, parseAcademicYear } from "../../lib/academicYear";
 import { FIELD_CONTROL, FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
@@ -332,7 +332,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
 
           {rows.length > 0 && (
             <div className="mt-4">
-              <MagneticCta
+              <PrimaryCta
                 type="button"
                 onClick={runApply}
                 disabled={busy || applicableRows.length === 0}
@@ -341,7 +341,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
               >
                 {busy ? <LoaderCircle size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                 Create {applicableRows.length} subject(s)
-              </MagneticCta>
+              </PrimaryCta>
             </div>
           )}
 

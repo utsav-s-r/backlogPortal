@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { BadgeCheck, LoaderCircle, UserPlus } from "lucide-react";
-import MagneticCta from "../../components/ui/MagneticCta";
+import PrimaryCta from "../../components/ui/PrimaryCta";
 import api from "../../lib/api";
 import { findOwnDepartment } from "../../lib/session";
 import AlertBanner from "../../components/AlertBanner";
@@ -221,7 +221,7 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
         )}
 
         <div className="border-t border-stroke pt-4">
-          <MagneticCta
+          <PrimaryCta
             type="submit"
             disabled={loading}
             className="w-full gap-2 rounded-xl"
@@ -236,7 +236,7 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
                 <UserPlus size={16} /> Add student
               </>
             )}
-          </MagneticCta>
+          </PrimaryCta>
         </div>
       </form>
     </div>

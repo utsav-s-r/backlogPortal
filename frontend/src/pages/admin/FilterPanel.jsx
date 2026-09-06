@@ -1,6 +1,6 @@
 import { Search, X } from "lucide-react";
 import AlertBanner from "../../components/AlertBanner";
-import MagneticCta from "../../components/ui/MagneticCta";
+import PrimaryCta from "../../components/ui/PrimaryCta";
 import Field from "../../components/ui/Field";
 import { FIELD_CONTROL } from "../../lib/formClasses";
 // ALL_SEMESTERS, the canonical 1..8 subject/filter range from lib/semesters.js — NOT
@@ -182,14 +182,14 @@ function FilterPanel({
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-stroke pt-4">
-        <MagneticCta
+        <PrimaryCta
           type="button"
           onClick={applyFilters}
           className="gap-2 rounded-xl"
           data-cy="admin-filters-apply"
         >
           <Search size={15} /> Apply filters
-        </MagneticCta>
+        </PrimaryCta>
         <button
           type="button"
           onClick={clearFilters}

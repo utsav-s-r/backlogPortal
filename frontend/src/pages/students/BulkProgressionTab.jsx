@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { History, LoaderCircle, TrendingUp, TriangleAlert } from "lucide-react";
-import MagneticCta from "../../components/ui/MagneticCta";
+import PrimaryCta from "../../components/ui/PrimaryCta";
 import AlertBanner from "../../components/AlertBanner";
 import api from "../../lib/api";
 import { reportLoadError } from "../../lib/loadError";
@@ -184,7 +184,7 @@ function BulkProgressionTab({ departments }) {
             >
               <option value="">All departments</option>
               {/* NOT components/ui/DepartmentOptions, which keys by d.id: this filters on the branch
-                  CODE (StudentRepository's `lower(s.branch)`, V5's functional index). Swapping it in
+                  CODE (StudentRepository's `lower(s.branch)`, a functional index). Swapping it in
                   would send an id where a code is expected and the preview would look empty. */}
               {departments.map((d) => (
                 <option key={d.id} value={d.code}>
@@ -214,10 +214,10 @@ function BulkProgressionTab({ departments }) {
           </p>
         </Field>
 
-        <MagneticCta as="button" type="submit" disabled={busy} className="mt-3" data-cy="bulk-preview">
+        <PrimaryCta as="button" type="submit" disabled={busy} className="mt-3" data-cy="bulk-preview">
           {busy ? <LoaderCircle size={15} className="animate-spin" /> : <TrendingUp size={15} />}
           Preview
-        </MagneticCta>
+        </PrimaryCta>
       </form>
 
       {preview && (
@@ -272,7 +272,7 @@ function BulkProgressionTab({ departments }) {
                   onChange={(e) => setConfirmWord(e.target.value.toUpperCase())}
                   data-cy="bulk-confirm-word"
                 />
-                <MagneticCta
+                <PrimaryCta
                   as="button"
                   type="button"
                   onClick={commit}
@@ -281,7 +281,7 @@ function BulkProgressionTab({ departments }) {
                 >
                   {busy ? <LoaderCircle size={15} className="animate-spin" /> : <TrendingUp size={15} />}
                   Promote {preview.promoteCount}
-                </MagneticCta>
+                </PrimaryCta>
               </div>
             </div>
           )}

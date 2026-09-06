@@ -27,8 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The role × endpoint matrix for /api/admin/users — part of step 4 of
- * claude-work/notes/role-endpoint-matrix-plan.md, split out because the management LADDER is a
+ * The role × endpoint matrix for /api/admin/users, split out because the management LADDER is a
  * matrix in its own right. See {@link StudentManagementAuthorizationTest} for why this is a full
  * {@code @SpringBootTest} and why every denial asserts exactly 403.
  *

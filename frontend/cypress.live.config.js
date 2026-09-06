@@ -6,7 +6,8 @@ import { defineConfig } from "cypress";
 //      cypress/e2e only, so these can never be picked up by it.
 //   2. The default support file throws on any unstubbed /api/admin call — correct there, fatal
 //      here, where every call is real. This config loads its own support file instead.
-// Needs a booted backend and the backlog_e2e database — see claude-work/notes/e2e-live-smoke-plan.md.
+// Needs a booted backend and the backlog_e2e database — full recipe in the header of
+// cypress/e2e-live/student-journey.cy.js.
 export default defineConfig({
   e2e: {
     baseUrl: "http://127.0.0.1:4173",

@@ -6,7 +6,7 @@
 // `bg-secondary` box, which is navy in both themes. That is why there are no `[data-theme="dark"]`
 // counterparts to these classes and why none are needed.
 //
-// Renders a <button> by default; pass `as={Link}` to navigate, the same escape hatch MagneticCta
+// Renders a <button> by default; pass `as={Link}` to navigate, the same escape hatch PrimaryCta
 // uses. Focus styling is deliberately absent — the global :focus-visible outline in index.css
 // already covers a/button.
 const BASE =
