@@ -27,7 +27,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Admin student-account management. Authorization mirrors ProgressionController and is enforced

@@ -71,9 +71,7 @@ output as candidates to triage, not a verdict.
   animation and transition durations to `0.01ms`.
 - CTA buttons give press feedback via `active:scale-[0.98]`.
 
-> Corrected 2026-08-10: this file previously described a "subtle magnetic effect" on CTA buttons.
-> `framer-motion` and the `useMagnetic` hook were removed in the 2026-07 UI pass; `MagneticCta`
-> keeps the name but has no magnetic translate.
+> `MagneticCta` keeps its name but has no magnetic translate — this project uses no motion library.
 
 ## Notes
 

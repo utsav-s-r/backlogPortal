@@ -1,6 +1,6 @@
 // Primary call-to-action. Renders a <button> by default; pass `as={Link}` (or any component) to
-// navigate instead. Named for a magnetic hover effect that no longer exists — framer-motion and
-// the useMagnetic hook were removed in the 2026-07 UI pass; only the name survives.
+// navigate instead. The name is vestigial: there is no magnetic hover effect, and this project uses
+// no motion library — don't add one back to make the name true.
 //
 // Focus styling is deliberately absent: the global :focus-visible outline in index.css already
 // covers a/button/input/select/textarea. This component used to set focus-visible:outline-none and
@@ -11,7 +11,7 @@ const BASE = [
   "bg-cta text-cta-text text-sm font-semibold",
   "shadow-soft transition-[box-shadow,transform] duration-200",
   "hover:shadow-[0_10px_30px_var(--color-cta-glow)]",
-  // press feedback (formerly framer-motion whileTap={{ scale: 0.98 }})
+  // press feedback
   "active:scale-[0.98]",
 ].join(" ");
 
