@@ -14,7 +14,7 @@ import Field from "../../components/ui/Field";
 import { ALL_SEMESTERS } from "../../lib/semesters";
 import { batchStatusClass } from "../../lib/batchStatus";
 import DepartmentOptions from "../../components/ui/DepartmentOptions";
-import { BTN_QUIET } from "../../lib/buttonClasses";
+import { btn } from "../../lib/buttonClasses";
 
 // Clone a department's subjects into the next academic year. Presentational tab: the shell
 // supplies departments and the dept-lock context.
@@ -196,10 +196,10 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
                 value only. Those name where a STUDENT joined and sits; these are SUBJECT semesters
                 being cloned. Swapping them in asserts a rule that does not apply here. */}
             <span className={FIELD_LABEL}>Semesters</span>
-            <button type="button" onClick={() => setSemesters([...ALL_SEMESTERS])} className="rounded-lg bg-surface-muted px-2.5 py-1 text-xs font-semibold text-primary-ink transition-colors hover:bg-primary-tint">All</button>
-            <button type="button" onClick={() => setSemesters([1, 3, 5, 7])} className="rounded-lg bg-surface-muted px-2.5 py-1 text-xs font-semibold text-primary-ink transition-colors hover:bg-primary-tint">Odd</button>
-            <button type="button" onClick={() => setSemesters([2, 4, 6, 8])} className="rounded-lg bg-surface-muted px-2.5 py-1 text-xs font-semibold text-primary-ink transition-colors hover:bg-primary-tint">Even</button>
-            <button type="button" onClick={() => setSemesters([])} className="rounded-lg bg-surface-muted px-2.5 py-1 text-xs font-semibold text-ink-muted transition-colors hover:bg-primary-tint">None</button>
+            <button type="button" onClick={() => setSemesters([...ALL_SEMESTERS])} className={btn("neutral", "sm")}>All</button>
+            <button type="button" onClick={() => setSemesters([1, 3, 5, 7])} className={btn("neutral", "sm")}>Odd</button>
+            <button type="button" onClick={() => setSemesters([2, 4, 6, 8])} className={btn("neutral", "sm")}>Even</button>
+            <button type="button" onClick={() => setSemesters([])} className={btn("neutral", "sm")}>None</button>
           </div>
           <div className="flex flex-wrap gap-2">
             {ALL_SEMESTERS.map((s) => {
@@ -210,11 +210,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
                   type="button"
                   onClick={() => toggleSem(s)}
                   data-cy={`clone-sem-${s}`}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
-                    on
-                      ? "bg-primary text-white"
-                      : "bg-surface-muted text-ink hover:bg-primary-tint"
-                  }`}
+                  className={btn(on ? "primary" : "neutral", "sm")}
                 >
                   {s}
                 </button>
@@ -235,7 +231,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
             onClick={runPreview}
             disabled={busy}
             data-cy="clone-preview"
-            className={BTN_QUIET}
+            className={btn()}
           >
             {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />} Preview
           </button>
@@ -318,7 +314,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
                         <button
                           type="button"
                           onClick={() => toggleRemove(r._key)}
-                          className="inline-flex items-center gap-1 rounded-md bg-surface-muted px-2 py-1 text-xs font-semibold text-ink transition-colors hover:bg-primary-tint"
+                          className={btn("neutral", "sm")}
                           data-cy={`clone-row-remove-${r.semester}`}
                         >
                           <Trash2 size={13} /> {r.removed ? "Undo" : "Remove"}
@@ -337,7 +333,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
                 type="button"
                 onClick={runApply}
                 disabled={busy || applicableRows.length === 0}
-                className="gap-2 rounded-xl disabled:opacity-60"
+                className="gap-2 disabled:opacity-60"
                 data-cy="clone-apply"
               >
                 {busy ? <LoaderCircle size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}

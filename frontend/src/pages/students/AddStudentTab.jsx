@@ -224,7 +224,7 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
           <PrimaryCta
             type="submit"
             disabled={loading}
-            className="w-full gap-2 rounded-xl"
+            className="w-full gap-2"
             data-cy="student-add-submit"
           >
             {loading ? (

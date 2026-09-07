@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { formatAcademicYear } from "../../lib/academicYear";
 import { FIELD_CONTROL } from "../../lib/formClasses";
+import { btn } from "../../lib/buttonClasses";
 
 // Editable "which academic year did the student study each semester" table. Its one consumer is
 // the Semesters panel on the Manage-students tab. Presentational: the parent loads the student
@@ -96,7 +97,7 @@ function TermRow({ semester, academicYear, future, onSave, busy }) {
           onClick={() => onSave(semester, year)}
           disabled={busy || !year.trim() || year === original}
           data-cy={`prog-term-save-${semester}`}
-          className="rounded-md bg-surface-muted px-3 py-1 text-xs font-semibold transition-colors hover:bg-primary-tint disabled:opacity-50"
+          className={btn("neutral", "sm")}
         >
           Save
         </button>

@@ -2,7 +2,7 @@ import { FileQuestion } from "lucide-react";
 import { Link } from "react-router-dom";
 import PageLayout from "../components/layout/PageLayout";
 import PrimaryCta from "../components/ui/PrimaryCta";
-import { BTN_QUIET_LG } from "../lib/buttonClasses";
+import { btn } from "../lib/buttonClasses";
 
 // Catch-all for any unmatched URL. Without this React Router rendered NOTHING — a blank page with
 // no message and no way back, which is what a stale bookmark to a removed route (e.g. the old
@@ -23,19 +23,19 @@ function NotFoundPage() {
         </p>
 
         <div className="mt-6 flex flex-col gap-2">
-          <PrimaryCta as={Link} to="/" className="w-full rounded-xl" data-cy="not-found-home">
+          <PrimaryCta as={Link} to="/" className="w-full" data-cy="not-found-home">
             Go to home
           </PrimaryCta>
           <Link
             to="/student/login"
-            className={BTN_QUIET_LG}
+            className={btn("neutral", "lg")}
             data-cy="not-found-student"
           >
             Student login
           </Link>
           <Link
             to="/admin/login"
-            className={BTN_QUIET_LG}
+            className={btn("neutral", "lg")}
             data-cy="not-found-admin"
           >
             Staff login

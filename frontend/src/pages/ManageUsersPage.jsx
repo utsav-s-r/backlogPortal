@@ -18,6 +18,7 @@ import { DEPT_PINNED, ROLE, USER_MANAGEMENT_ROLES } from "../lib/roles";
 import { useRoleGuard } from "../hooks/useRoleGuard";
 import { FIELD_INPUT } from "../lib/formClasses";
 import Field from "../components/ui/Field";
+import { btn } from "../lib/buttonClasses";
 
 // Roles each actor may create. The server enforces the same rules; this only shapes the UI. Kept
 // as an explicit ladder rather than assembled from lib/roles' subsets — it is page policy keyed by
@@ -267,7 +268,7 @@ function ManageUsersPage() {
               type="button"
               onClick={() => setNotice(null)}
               aria-label="Dismiss"
-              className="rounded-full p-1 text-ink-muted hover:bg-surface-muted"
+              className="rounded-lg p-1.5 text-ink-muted transition-colors hover:bg-surface-muted"
             >
               <X size={16} />
             </button>
@@ -345,7 +346,7 @@ function ManageUsersPage() {
             <PrimaryCta
               type="submit"
               disabled={creating}
-              className="w-full gap-2 rounded-xl"
+              className="w-full gap-2"
               aria-label="Create user"
             >
               {creating ? (
@@ -414,7 +415,7 @@ function ManageUsersPage() {
                               type="button"
                               onClick={() => handleReset(u.username)}
                               disabled={busy}
-                              className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-2.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-primary-tint hover:text-primary-ink disabled:opacity-50"
+                              className={btn("neutral", "sm")}
                             >
                               {busy ? (
                                 <LoaderCircle size={13} className="animate-spin" />
@@ -428,7 +429,7 @@ function ManageUsersPage() {
                                 type="button"
                                 onClick={() => handleRename(u.username)}
                                 disabled={busy}
-                                className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-2.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-primary-tint hover:text-primary-ink disabled:opacity-50"
+                                className={btn("neutral", "sm")}
                               >
                                 <PencilLine size={13} /> Rename
                               </button>
@@ -437,7 +438,7 @@ function ManageUsersPage() {
                               type="button"
                               onClick={() => handleDelete(u.username)}
                               disabled={busy}
-                              className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
+                              className={btn("danger", "sm")}
                             >
                               <Trash2 size={13} /> Delete
                             </button>

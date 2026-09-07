@@ -1,4 +1,5 @@
 import { useTheme } from "../../context/ThemeContext";
+import { btn } from "../../lib/buttonClasses";
 
 // Decision 13: the WORDS "Dark Mode" next to a plain sliding toggle. That is the whole design —
 // no sun/moon, no icon swapping, no segmented track, no three-state system option. A word needs no
@@ -13,9 +14,7 @@ import { useTheme } from "../../context/ThemeContext";
 // still operable, so nothing in the rail becomes decoration.
 // The default shell is the top band's pill (a fill, a different fill on hover, no border). The
 // sidebar passes its own NAV_ITEM row instead.
-const BAND_PILL =
-  "inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-2 text-sm font-semibold " +
-  "text-white transition-colors hover:bg-white/30";
+const BAND_PILL = btn("onNavy");
 
 export default function ThemeToggle({
   className = BAND_PILL,

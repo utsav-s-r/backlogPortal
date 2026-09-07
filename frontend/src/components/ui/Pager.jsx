@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { btn } from "../../lib/buttonClasses";
 
 // Prev/next pager over a Spring `Page` ({number 0-based, totalPages, totalElements}).
 // `onGo(pageIndex)` re-fetches; the loader reads filters from state, so this never carries them.
@@ -39,7 +40,7 @@ function Pager({ pageInfo, busy, onGo, noun, dataCy = noun, className = "" }) {
           onClick={() => onGo(number - 1)}
           disabled={busy || number <= 0}
           data-cy={`${dataCy}-prev`}
-          className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-primary-tint disabled:opacity-40"
+          className={btn("neutral", "sm")}
         >
           <ChevronLeft size={13} /> Prev
         </button>
@@ -48,7 +49,7 @@ function Pager({ pageInfo, busy, onGo, noun, dataCy = noun, className = "" }) {
           onClick={() => onGo(number + 1)}
           disabled={busy || number >= totalPages - 1}
           data-cy={`${dataCy}-next`}
-          className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-primary-tint disabled:opacity-40"
+          className={btn("neutral", "sm")}
         >
           Next <ChevronRight size={13} />
         </button>

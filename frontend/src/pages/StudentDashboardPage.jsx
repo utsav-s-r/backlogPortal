@@ -13,7 +13,7 @@ import {
 import AlertBanner from "../components/AlertBanner";
 import { Link, useNavigate } from "react-router-dom";
 import PageLayout from "../components/layout/PageLayout";
-import { BTN_ROW } from "../lib/buttonClasses";
+import { btn } from "../lib/buttonClasses";
 import PrimaryCta from "../components/ui/PrimaryCta";
 import api, { logoutStudent } from "../lib/api";
 import { saveBlob, readBlobErrorMessage } from "../lib/download";
@@ -204,7 +204,7 @@ function StudentDashboardPage() {
                         type="button"
                         onClick={savePhone}
                         disabled={savingPhone}
-                        className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                        className={btn("primary")}
                         data-cy="phone-save"
                       >
                         {savingPhone ? (
@@ -217,7 +217,7 @@ function StudentDashboardPage() {
                       <button
                         type="button"
                         onClick={() => setEditingPhone(false)}
-                        className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-2 text-sm font-semibold text-ink"
+                        className={btn()}
                       >
                         <X size={14} /> Cancel
                       </button>
@@ -235,7 +235,7 @@ function StudentDashboardPage() {
                       <button
                         type="button"
                         onClick={startEditPhone}
-                        className={BTN_ROW}
+                        className={btn("neutral", "sm")}
                         data-cy="phone-edit"
                       >
                         <Pencil size={13} /> {profile?.phone ? "Edit" : "Add phone"}
@@ -255,7 +255,7 @@ function StudentDashboardPage() {
               <div className="mt-6 border-t border-stroke pt-5">
                 <PrimaryCta
                   onClick={() => navigate("/register")}
-                  className="gap-2 rounded-xl"
+                  className="gap-2"
                   data-cy="register-cta"
                 >
                   Register for backlog subjects <ArrowRight size={16} />
@@ -318,7 +318,7 @@ function StudentDashboardPage() {
                         type="button"
                         onClick={() => downloadPdf(reg.regId)}
                         disabled={downloadingId === reg.regId}
-                        className="inline-flex shrink-0 items-center gap-2 self-stretch justify-center rounded-xl bg-surface-muted px-4 py-2 text-sm font-semibold text-secondary-ink transition-colors hover:bg-primary-tint hover:text-primary-ink disabled:opacity-60 sm:self-start sm:justify-start"
+                        className={`${btn()} shrink-0 self-stretch sm:self-start`}
                         data-cy="download-pdf"
                       >
                         {downloadingId === reg.regId ? (

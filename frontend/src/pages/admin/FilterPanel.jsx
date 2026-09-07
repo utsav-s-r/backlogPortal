@@ -8,6 +8,7 @@ import { FIELD_CONTROL } from "../../lib/formClasses";
 // sem 1, so narrowing this to even would hide half of every student's registrations.
 import { ALL_SEMESTERS } from "../../lib/semesters";
 import DepartmentOptions from "../../components/ui/DepartmentOptions";
+import { btn } from "../../lib/buttonClasses";
 
 // The dashboard's filter panel. Purely presentational — every value and setter comes from
 // useRegistrationFilters, which owns the draft/applied split.
@@ -185,7 +186,7 @@ function FilterPanel({
         <PrimaryCta
           type="button"
           onClick={applyFilters}
-          className="gap-2 rounded-xl"
+          className="gap-2"
           data-cy="admin-filters-apply"
         >
           <Search size={15} /> Apply filters
@@ -194,7 +195,7 @@ function FilterPanel({
           type="button"
           onClick={clearFilters}
           data-cy="admin-filters-clear"
-          className="inline-flex items-center gap-2 rounded-lg bg-surface-muted px-4 py-2 text-sm font-semibold transition-colors hover:bg-primary-tint"
+          className={btn()}
         >
           <X size={15} /> Clear all filters
         </button>

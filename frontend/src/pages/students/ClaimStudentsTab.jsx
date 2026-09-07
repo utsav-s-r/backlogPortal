@@ -15,7 +15,7 @@ import { ROLE } from "../../lib/roles";
 import { FIELD_INPUT } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
 import Pager from "../../components/ui/Pager";
-import { BTN_DANGER_SM, BTN_QUIET } from "../../lib/buttonClasses";
+import { btn } from "../../lib/buttonClasses";
 
 
 const PAGE_SIZE = 25;
@@ -210,7 +210,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
           onClick={loadAssigned}
           disabled={assignedBusy || !targetChosen}
           data-cy="assigned-load"
-          className={BTN_QUIET}
+          className={btn()}
         >
           {assignedBusy ? <LoaderCircle size={15} className="animate-spin" /> : <Users size={15} />}
           Load assigned students
@@ -252,7 +252,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
                             onClick={() => removeAssignment(s.rollNo)}
                             disabled={removingRoll === s.rollNo}
                             data-cy={`assigned-remove-${s.rollNo}`}
-                            className={BTN_DANGER_SM}
+                            className={btn("danger", "sm")}
                           >
                             {removingRoll === s.rollNo ? (
                               <LoaderCircle size={13} className="animate-spin" />
@@ -333,7 +333,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
             }}
             disabled={busy || !targetChosen}
             data-cy="claim-load"
-            className={BTN_QUIET}
+            className={btn()}
           >
             {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />}
             Find students
@@ -343,7 +343,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
             onClick={claim}
             disabled={busy || selected.size === 0}
             data-cy="claim-submit"
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            className={btn("primary")}
           >
             <Check size={15} /> Claim selected ({selected.size})
           </button>

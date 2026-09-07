@@ -22,6 +22,7 @@ import { outcomeBadgeClass } from "./admin/outcomeBadge";
 import { useRegistrationFilters } from "./admin/useRegistrationFilters";
 import FilterPanel from "./admin/FilterPanel";
 import SkipLink from "../components/ui/SkipLink";
+import { btn } from "../lib/buttonClasses";
 
 const PAGE_SIZE = 25;
 
@@ -384,7 +385,7 @@ function AdminPage() {
           </p>
           <Link
             to="/admin/login"
-            className="inline-flex items-center justify-center rounded-full bg-cta px-5 py-3 text-sm font-semibold text-cta-text"
+            className={btn("cta", "lg")}
           >
             Go to Admin Login
           </Link>
@@ -418,11 +419,7 @@ function AdminPage() {
                     setPage(0); // switching status tab restarts at the first page
                     setFilter(f);
                   }}
-                  className={`rounded-lg px-4 py-2 text-xs font-semibold tracking-[0.06em] transition-transform duration-200 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface-1 ${
-                    filter === f
-                      ? "bg-primary text-white"
-                      : "bg-surface-muted text-ink hover:bg-primary-tint"
-                  }`}
+                  className={`${btn(filter === f ? "primary" : "neutral")} tracking-[0.06em]`}
                   data-cy={`admin-filter-${f.toLowerCase()}`}
                 >
                   {f}
@@ -436,7 +433,7 @@ function AdminPage() {
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
                   data-cy="admin-selection-clear"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-surface-muted px-3 py-2 text-xs font-semibold text-secondary-ink transition-colors hover:bg-primary-tint"
+                  className={btn("neutral", "sm")}
                 >
                   <X size={13} /> Clear {selectedIds.size} selected
                 </button>
@@ -446,7 +443,7 @@ function AdminPage() {
                 onClick={handleExportPdf}
                 disabled={isExporting}
                 data-cy="admin-export-pdf"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary disabled:opacity-50"
+                className={btn("navy")}
               >
                 {isExporting ? (
                   <LoaderCircle size={14} className="animate-spin" />
@@ -615,7 +612,7 @@ function AdminPage() {
                                 onClick={() => handleVerify(reg.regId)}
                                 disabled={verifyingRegId === reg.regId || rejectingRegId === reg.regId}
                                 data-cy="admin-verify"
-                                className="inline-flex w-15 items-center justify-center gap-1 rounded-lg bg-primary py-1 text-xs font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50"
+                                className={`${btn("primary", "sm")} w-24`}
                               >
                                 {verifyingRegId === reg.regId ? (
                                   <LoaderCircle size={13} className="animate-spin" />
@@ -629,7 +626,7 @@ function AdminPage() {
                                 onClick={() => handleReject(reg.regId)}
                                 disabled={rejectingRegId === reg.regId || verifyingRegId === reg.regId}
                                 data-cy="admin-reject"
-                                className="inline-flex w-15 items-center justify-center gap-1 rounded-lg bg-red-50 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
+                                className={`${btn("danger", "sm")} w-24`}
                               >
                                 {rejectingRegId === reg.regId ? (
                                   <LoaderCircle size={14} className="animate-spin" />
@@ -658,7 +655,7 @@ function AdminPage() {
                                   onClick={() => handleReject(reg.regId)}
                                   disabled={rejectingRegId === reg.regId}
                                   data-cy="admin-reject-verified-confirm"
-                                  className="inline-flex w-14 items-center justify-center rounded-lg bg-red-600 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                                  className={`${btn("dangerSolid", "sm")} w-24`}
                                 >
                                   {rejectingRegId === reg.regId ? (
                                     <LoaderCircle size={14} className="animate-spin" />
@@ -671,7 +668,7 @@ function AdminPage() {
                                   onClick={() => rejectVerified.disarm()}
                                   disabled={rejectingRegId === reg.regId}
                                   data-cy="admin-reject-verified-cancel"
-                                  className="inline-flex w-14 items-center justify-center rounded-lg bg-surface-muted py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-primary-tint disabled:opacity-50"
+                                  className={`${btn("neutral", "sm")} w-24`}
                                 >
                                   Cancel
                                 </button>
@@ -689,7 +686,7 @@ function AdminPage() {
                                       rejectVerified.arm(reg.regId);
                                     }}
                                     data-cy="admin-reject-verified"
-                                    className="inline-flex w-14 items-center justify-center rounded-lg bg-red-50 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
+                                    className={`${btn("danger", "sm")} w-24`}
                                   >
                                     Reject
                                   </button>
@@ -721,7 +718,7 @@ function AdminPage() {
                           type="button"
                           onClick={() => history.open(reg.regId)}
                           data-cy={`history-${reg.regId}`}
-                          className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-1.5 text-xs font-semibold text-secondary-ink transition-colors hover:bg-primary-tint"
+                          className={btn("neutral", "sm")}
                         >
                           <History size={14} /> View
                         </button>
@@ -751,7 +748,7 @@ function AdminPage() {
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page <= 0}
                   data-cy="admin-page-prev"
-                  className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-1.5 text-xs font-semibold text-secondary-ink transition-colors hover:bg-primary-tint disabled:cursor-not-allowed disabled:opacity-50"
+                  className={btn("neutral", "sm")}
                 >
                   <ArrowLeft size={14} /> Prev
                 </button>
@@ -760,7 +757,7 @@ function AdminPage() {
                   onClick={() => setPage((p) => Math.min(pageInfo.totalPages - 1, p + 1))}
                   disabled={page >= pageInfo.totalPages - 1}
                   data-cy="admin-page-next"
-                  className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-1.5 text-xs font-semibold text-secondary-ink transition-colors hover:bg-primary-tint disabled:cursor-not-allowed disabled:opacity-50"
+                  className={btn("neutral", "sm")}
                 >
                   Next <ArrowLeft size={14} className="rotate-180" />
                 </button>

@@ -10,6 +10,7 @@ import { useRoleGuard } from "../hooks/useRoleGuard";
 import { FIELD_CONTROL, FIELD_INPUT } from "../lib/formClasses";
 import Field from "../components/ui/Field";
 import { useArmedConfirm } from "../hooks/useArmedConfirm";
+import { btn } from "../lib/buttonClasses";
 
 function DepartmentsPage() {
   // Department writes are ADMIN/PRINCIPAL only; HOD and DEPT_OFFICE are read-only here and are
@@ -240,7 +241,7 @@ function DepartmentsPage() {
             />
           </Field>
           <div className="sm:col-span-2">
-            <PrimaryCta type="submit" disabled={creating} className="gap-2 rounded-xl">
+            <PrimaryCta type="submit" disabled={creating} className="gap-2">
               {creating ? <LoaderCircle size={16} className="animate-spin" /> : <PlusCircle size={16} />}
               {creating ? "Adding..." : "Add Department"}
             </PrimaryCta>
@@ -335,7 +336,7 @@ function DepartmentsPage() {
                               (codeEdits[d.id] || "") === (d.code || "") &&
                               (emailEdits[d.id] || "") === (d.contactEmail || ""))
                           }
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary disabled:opacity-50"
+                          className={btn("navy", "sm")}
                         >
                           {savingId === d.id ? (
                             <LoaderCircle size={14} className="animate-spin" />
@@ -351,7 +352,7 @@ function DepartmentsPage() {
                               data-cy={`dept-delete-confirm-${d.id}`}
                               onClick={() => handleDelete(d)}
                               disabled={deletingId === d.id}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                              className={btn("dangerSolid", "sm")}
                             >
                               {deletingId === d.id ? (
                                 <LoaderCircle size={14} className="animate-spin" />
@@ -365,7 +366,7 @@ function DepartmentsPage() {
                               data-cy={`dept-delete-cancel-${d.id}`}
                               onClick={() => confirmDelete.disarm()}
                               disabled={deletingId === d.id}
-                              className="inline-flex items-center rounded-lg bg-surface-muted px-3 py-2 text-xs font-semibold text-ink transition-colors hover:bg-primary-tint disabled:opacity-50"
+                              className={btn("neutral", "sm")}
                             >
                               Cancel
                             </button>
@@ -380,7 +381,7 @@ function DepartmentsPage() {
                               confirmDelete.arm(d.id);
                             }}
                             aria-label={`Delete ${d.deptName}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
+                            className={btn("danger", "sm")}
                           >
                             <Trash2 size={14} />
                             Delete

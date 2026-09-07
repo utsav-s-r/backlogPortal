@@ -7,7 +7,7 @@ import api, { clearAdminSession } from "../lib/api";
 import AlertBanner from "../components/AlertBanner";
 import { FIELD_INPUT } from "../lib/formClasses";
 import Field from "../components/ui/Field";
-import { BTN_QUIET } from "../lib/buttonClasses";
+import { btn } from "../lib/buttonClasses";
 
 // Self-service account settings for a signed-in admin-type user: password, and — since V4 made
 // usernames renamable — their own username. Nothing forces them here; accounts start on the derived
@@ -153,7 +153,7 @@ function ChangePasswordPage() {
           <PrimaryCta
             type="submit"
             disabled={loading}
-            className="mt-4 gap-2 rounded-lg"
+            className="mt-4 gap-2"
             aria-label="Change password"
           >
             {loading ? (
@@ -215,7 +215,7 @@ function ChangePasswordPage() {
           <PrimaryCta
             type="submit"
             disabled={renaming}
-            className="mt-4 gap-2 rounded-lg"
+            className="mt-4 gap-2"
             aria-label="Change username"
           >
             {renaming ? (
@@ -230,7 +230,7 @@ function ChangePasswordPage() {
         <div className="mt-4 text-center">
           <Link
             to="/admin"
-            className={BTN_QUIET}
+            className={btn()}
           >
             <ArrowLeft size={14} /> Back to dashboard
           </Link>

@@ -49,7 +49,10 @@ describe("Admin verification flow", () => {
     cy.get('[data-cy="admin-counts-error"]').should("contain", "Counts backend is down.");
     cy.contains("Total").parent().should("contain", "—").and("not.contain", "0");
     // the table itself is unaffected
-    cy.contains("1MS22CS001").should("be.visible");
+    // Scoped to the ROW, not the cell: the list is a table inside an overflow-x-auto scroller, so
+    // a <td> can be clipped at a narrow viewport (or on a runner whose font metrics widen the
+    // columns) and Cypress rightly calls it not visible. The <tr> spans the table.
+    cy.contains("tr", "1MS22CS001").should("be.visible");
   });
 
   // A failed exam-cycle fetch left examCycleId empty, which the export read as "every cycle".
@@ -90,7 +93,10 @@ describe("Admin verification flow", () => {
     }).as("export");
 
     cy.visitAsAdmin("/admin");
-    cy.contains("1MS22CS001").should("be.visible");
+    // Scoped to the ROW, not the cell: the list is a table inside an overflow-x-auto scroller, so
+    // a <td> can be clipped at a narrow viewport (or on a runner whose font metrics widen the
+    // columns) and Cypress rightly calls it not visible. The <tr> spans the table.
+    cy.contains("tr", "1MS22CS001").should("be.visible");
     cy.get('[data-cy="admin-scope-warning"]').should("not.exist");
     cy.get('[data-cy="admin-cycles-error"]').should("not.exist");
 

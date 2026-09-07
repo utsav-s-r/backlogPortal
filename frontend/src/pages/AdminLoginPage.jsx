@@ -20,7 +20,7 @@ import { DEPT_PINNED, STAFF_ROLES } from "../lib/roles";
 import { FIELD_INPUT, FIELD_LABEL } from "../lib/formClasses";
 import DepartmentOptions from "../components/ui/DepartmentOptions";
 import SkipLink from "../components/ui/SkipLink";
-import { BTN_QUIET } from "../lib/buttonClasses";
+import { btn } from "../lib/buttonClasses";
 
 // The five designation cards. Titles are load-bearing: several Cypress specs select a card by its
 // exact text, and `role` is what the login request sends. Local `ROLES`, distinct from lib/roles —
@@ -280,7 +280,7 @@ function AdminLoginPage() {
 
             <PrimaryCta
               onClick={handleLogin}
-              className="mt-2 w-full gap-2 rounded-xl"
+              className="mt-2 w-full"
               disabled={loading}
               data-cy="admin-login-submit"
               aria-label="Admin login"
@@ -303,7 +303,7 @@ function AdminLoginPage() {
                 setSelectedRole("");
                 setError("");
               }}
-              className="mt-4 flex w-full items-center justify-center gap-2 text-sm font-medium text-ink hover:text-primary-ink"
+              className={`${btn()} mt-4 w-full`}
             >
               <ArrowLeft size={14} /> Back to role selection
             </button>
@@ -313,7 +313,7 @@ function AdminLoginPage() {
         <div className="mt-4 text-center">
           <Link
             to="/"
-            className={BTN_QUIET}
+            className={btn()}
           >
             <ArrowLeft size={14} /> Back to home
           </Link>

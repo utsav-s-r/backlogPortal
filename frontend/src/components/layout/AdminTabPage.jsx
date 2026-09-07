@@ -6,6 +6,7 @@ import api from "../../lib/api";
 import { reportLoadError } from "../../lib/loadError";
 import { findOwnDepartment } from "../../lib/session";
 import { useRoleGuard } from "../../hooks/useRoleGuard";
+import { btn } from "../../lib/buttonClasses";
 
 // The shell behind an admin section that is one route with tabs — the subject catalog and student
 // management. It owns the role guard, the single /departments fetch, pin resolution, the ?tab=
@@ -133,11 +134,7 @@ function AdminTabPage({
               // No border: selected is a SOLID maroon fill, unselected a neutral fill, hover a
               // different fill. An outline would be the one thing the no-box rule forbids, and
               // "hover adds a border" is exactly the edge-appearance it rules out.
-              className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-                on
-                  ? "bg-primary text-white"
-                  : "bg-surface-muted text-ink hover:bg-primary-tint"
-              }`}
+              className={btn(on ? "primary" : "neutral")}
             >
               <Icon size={15} /> {t.label}
             </button>

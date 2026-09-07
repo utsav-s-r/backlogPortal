@@ -6,6 +6,7 @@ import { formatAcademicYear, recentAcademicYears } from "../../lib/academicYear"
 import AlertBanner from "../../components/AlertBanner";
 import { FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
+import { btn } from "../../lib/buttonClasses";
 
 
 // Add a single subject. Presentational tab: the shell supplies departments and the dept-lock
@@ -221,11 +222,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                   setSubjectType(type);
                   setEligibleDeptIds([]);
                 }}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-                  subjectType === type
-                    ? "bg-primary text-white"
-                    : "bg-surface-muted text-ink hover:bg-primary-tint"
-                }`}
+                className={btn(subjectType === type ? "primary" : "neutral")}
               >
                 {type.charAt(0) + type.slice(1).toLowerCase()}
               </button>
@@ -292,7 +289,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
           <PrimaryCta
             type="submit"
             disabled={loading}
-            className="w-full gap-2 rounded-xl"
+            className="w-full gap-2"
             aria-label="Add new subject"
           >
             {loading ? (

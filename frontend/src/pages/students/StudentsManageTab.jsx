@@ -28,7 +28,7 @@ import { FIELD_INPUT } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
 import Pager from "../../components/ui/Pager";
 import DepartmentOptions from "../../components/ui/DepartmentOptions";
-import { BTN_DANGER_SM, BTN_QUIET, BTN_ROW, BTN_SMALL_WIDE } from "../../lib/buttonClasses";
+import { btn } from "../../lib/buttonClasses";
 
 const PAGE_SIZE = 25;
 
@@ -159,7 +159,7 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
             onClick={() => load(0)}
             disabled={busy}
             data-cy="students-load"
-            className={BTN_QUIET}
+            className={btn()}
           >
             {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />} Load students
           </button>
@@ -358,11 +358,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
                 onClick={() => setShowSems((v) => !v)}
                 data-cy={`student-sems-${student.rollNo}`}
                 aria-expanded={showSems}
-                className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  showSems
-                    ? "bg-primary text-white"
-                    : "bg-surface-muted text-ink hover:bg-primary-tint"
-                }`}
+                className={btn(showSems ? "primary" : "neutral", "sm")}
               >
                 <CalendarClock size={13} /> Semesters
               </button>
@@ -370,7 +366,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
                 type="button"
                 onClick={startEdit}
                 data-cy={`student-edit-${student.rollNo}`}
-                className={BTN_ROW}
+                className={btn("neutral", "sm")}
               >
                 <Pencil size={13} /> Edit
               </button>
@@ -383,7 +379,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
                   setMode("dob");
                 }}
                 data-cy={`student-dob-${student.rollNo}`}
-                className={BTN_ROW}
+                className={btn("neutral", "sm")}
               >
                 <KeyRound size={13} /> Reset DOB
               </button>
@@ -392,7 +388,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
                 onClick={remove}
                 disabled={busy}
                 data-cy={`student-delete-${student.rollNo}`}
-                className={BTN_DANGER_SM}
+                className={btn("danger", "sm")}
               >
                 {busy ? (
                   <LoaderCircle size={13} className="animate-spin" />
@@ -442,14 +438,14 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
             onClick={saveDob}
             disabled={busy}
             data-cy={`student-dob-save-${student.rollNo}`}
-            className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            className={btn("primary")}
           >
             {busy ? <LoaderCircle size={14} className="animate-spin" /> : <Check size={14} />} Save
           </button>
           <button
             type="button"
             onClick={() => setMode("view")}
-            className={BTN_SMALL_WIDE}
+            className={btn()}
           >
             <X size={14} /> Cancel
           </button>
@@ -568,14 +564,14 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
           onClick={save}
           disabled={busy}
           data-cy="student-save"
-          className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          className={btn("primary")}
         >
           {busy ? <LoaderCircle size={14} className="animate-spin" /> : <Check size={14} />} Save
         </button>
         <button
           type="button"
           onClick={() => setMode("view")}
-          className={BTN_SMALL_WIDE}
+          className={btn()}
         >
           <X size={14} /> Cancel
         </button>

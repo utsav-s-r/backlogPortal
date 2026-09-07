@@ -19,6 +19,7 @@ import { FIELD_CONTROL, FIELD_LABEL } from "../lib/formClasses";
 import Field from "../components/ui/Field";
 import ReadOnlyField from "../components/ui/ReadOnlyField";
 import HeaderPill from "../components/ui/HeaderPill";
+import { btn } from "../lib/buttonClasses";
 
 function RegistrationPage() {
   const navigate = useNavigate();
@@ -229,7 +230,7 @@ function RegistrationPage() {
           You need a phone number on your profile before you can register for backlog exams. Please
           add it in your dashboard and come back.
         </p>
-        <PrimaryCta onClick={() => navigate("/student")} className="gap-2 rounded-xl">
+        <PrimaryCta onClick={() => navigate("/student")} className="gap-2">
           Go to Dashboard
         </PrimaryCta>
       </CenteredCard>
@@ -264,7 +265,7 @@ function RegistrationPage() {
           </PrimaryCta>
           <Link
             to="/student"
-            className="inline-flex items-center justify-center rounded-lg bg-surface-muted px-5 py-3 text-sm font-semibold text-secondary-ink transition-colors hover:bg-primary-tint hover:text-primary-ink"
+            className={btn("neutral", "lg")}
           >
             <ArrowLeft size={16} /> Back to Dashboard
           </Link>
@@ -342,7 +343,7 @@ function RegistrationPage() {
                     <button
                       type="button"
                       onClick={() => handleSubjectToggle(subject)}
-                      className="ml-3 shrink-0 rounded-lg bg-red-50 bg-surface-1 px-2 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
+                      className={`${btn("danger", "sm")} ml-3 shrink-0`}
                     >
                       Remove
                     </button>
@@ -482,7 +483,7 @@ function RegistrationPage() {
             type="button"
             onClick={handleSubmit}
             disabled={selectedSubjects.length === 0 || submitting}
-            className="w-full gap-2 rounded-xl disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full gap-2"
             data-cy="reg-submit"
             aria-label="Submit registration"
           >
@@ -534,7 +535,7 @@ function BackLink({ to, label }) {
   return (
     <Link
       to={to}
-      className="inline-flex items-center justify-center gap-2 rounded-lg bg-surface-muted px-5 py-3 text-sm font-semibold text-secondary-ink transition-colors hover:bg-primary-tint hover:text-primary-ink"
+      className={btn("neutral", "lg")}
     >
       <ArrowLeft size={16} /> {label}
     </Link>

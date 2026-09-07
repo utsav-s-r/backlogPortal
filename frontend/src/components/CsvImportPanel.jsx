@@ -5,7 +5,7 @@ import BatchResultTable from "./ui/BatchResultTable";
 import api from "../lib/api";
 import { saveBlob } from "../lib/download";
 import { FIELD_INPUT } from "../lib/formClasses";
-import { BTN_QUIET } from "../lib/buttonClasses";
+import { btn } from "../lib/buttonClasses";
 
 // The shell every CSV importer shares — heading, prose, a controls row ending in Template, the
 // textarea, the error line, Preview/Import, the result table — plus the run itself, since the
@@ -103,7 +103,7 @@ function CsvImportPanel({
         <button
           type="button"
           onClick={downloadTemplate}
-          className="inline-flex items-center gap-2 rounded-lg bg-surface-muted px-3 py-2 text-sm font-semibold transition-colors hover:bg-primary-tint"
+          className={btn()}
           data-cy={`${dataCyPrefix}-template`}
         >
           <Download size={15} /> Template
@@ -130,7 +130,7 @@ function CsvImportPanel({
           onClick={() => run(true)}
           disabled={busy}
           data-cy={`${dataCyPrefix}-preview`}
-          className={BTN_QUIET}
+          className={btn()}
         >
           {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />} Preview
         </button>
@@ -138,7 +138,7 @@ function CsvImportPanel({
           type="button"
           onClick={() => run(false)}
           disabled={busy}
-          className="gap-2 rounded-xl"
+          className="gap-2"
           data-cy={`${dataCyPrefix}-apply`}
         >
           <UploadCloud size={15} /> Import

@@ -8,7 +8,7 @@ import { rememberExpiry } from "../lib/session";
 import { safeRedirect } from "../lib/redirect";
 import AlertBanner from "../components/AlertBanner";
 import { FIELD_INPUT, FIELD_LABEL } from "../lib/formClasses";
-import { BTN_QUIET } from "../lib/buttonClasses";
+import { btn } from "../lib/buttonClasses";
 
 const USN_PATTERN = /^1MS\d{2}[A-Z]{2}\d{3}$/;
 
@@ -135,7 +135,7 @@ function StudentLoginPage() {
 
           <PrimaryCta
             onClick={handleLogin}
-            className="mt-2 w-full gap-2 rounded-xl"
+            className="mt-2 w-full"
             disabled={loading}
             data-cy="student-login-submit"
             aria-label="Student login"
@@ -147,7 +147,7 @@ function StudentLoginPage() {
         <div className="mt-6 text-center">
           <Link
             to="/"
-            className={BTN_QUIET}
+            className={btn()}
           >
             <ArrowLeft size={14} /> Back to home
           </Link>

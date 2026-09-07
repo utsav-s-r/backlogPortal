@@ -27,7 +27,10 @@ describe("Manage Subjects page", () => {
     cy.wait("@getDepartments");
     cy.get('[data-cy="subjects-load"]').click();
     cy.wait("@getSubjects");
-    cy.contains("Data Structures").should("be.visible");
+    // Scoped to the ROW, not the cell: the list is a table inside an overflow-x-auto scroller, so
+    // a <td> can be clipped at a narrow viewport (or on a runner whose font metrics widen the
+    // columns) and Cypress rightly calls it not visible. The <tr> spans the table.
+    cy.contains("tr", "Data Structures").should("be.visible");
   };
 
   it("edits a subject's credits, keeping the locked course code", () => {
@@ -53,7 +56,7 @@ describe("Manage Subjects page", () => {
         eligibleDeptIds: [],
       });
 
-    cy.contains("3 credits").should("be.visible");
+    cy.contains("tr", "3 credits").should("be.visible");
   });
 
   it("blocks deletion of a subject referenced by registrations", () => {
@@ -68,7 +71,7 @@ describe("Manage Subjects page", () => {
     cy.get('[data-cy="subject-delete-10"]').click();
     cy.wait("@deleteSubject");
     cy.get('[data-cy="subject-error-10"]').should("contain", "referenced by existing registrations");
-    cy.contains("Data Structures").should("be.visible"); // still there
+    cy.contains("tr", "Data Structures").should("be.visible"); // still there
   });
 
   it("deletes an unreferenced subject", () => {

@@ -320,7 +320,7 @@ function BulkProgressionTab({ departments }) {
         {history && history.length > 0 && (
           <ul className="flex flex-col gap-2">
             {history.map((b) => (
-              <li key={b.batchId} className="rounded-xl bg-surface-muted">
+              <li key={b.batchId} className="rounded-lg bg-surface-muted">
                 <button
                   type="button"
                   onClick={() => toggleBatch(b.batchId)}

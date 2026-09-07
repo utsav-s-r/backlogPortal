@@ -3,6 +3,7 @@ import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../../lib/api";
 import PrimaryCta from "../ui/PrimaryCta";
+import { btn } from "../../lib/buttonClasses";
 
 export default function HeroSection() {
   // null = still checking; otherwise { open, cycleName?, examMonthYear? }
@@ -97,7 +98,7 @@ export default function HeroSection() {
                 carried was the brand navy — so navy fill, maroon on hover. */}
             <Link
               to="/admin/login"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary"
+              className={btn("navy")}
             >
               <ShieldCheck size={16} /> Admin Access
             </Link>

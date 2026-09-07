@@ -9,6 +9,7 @@ import { ADMIN_ONLY } from "../lib/roles";
 import { useRoleGuard } from "../hooks/useRoleGuard";
 import { FIELD_CONTROL } from "../lib/formClasses";
 import Field from "../components/ui/Field";
+import { btn } from "../lib/buttonClasses";
 
 function ExamCyclePage() {
   // ADMIN only: this page is entirely create/activate/deactivate, and those are the college-wide
@@ -141,7 +142,7 @@ function ExamCyclePage() {
             />
           </Field>
           <div className="sm:col-span-2">
-            <PrimaryCta type="submit" disabled={creating} className="gap-2 rounded-xl">
+            <PrimaryCta type="submit" disabled={creating} className="gap-2">
               {creating ? <LoaderCircle size={16} className="animate-spin" /> : <PlusCircle size={16} />}
               {creating ? "Creating..." : "Create Cycle"}
             </PrimaryCta>
@@ -208,7 +209,7 @@ function ExamCyclePage() {
                               type="button"
                               onClick={() => handleEnd(c.id)}
                               disabled={endingId === c.id}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
+                              className={btn("danger", "sm")}
                               data-cy="cycle-end"
                             >
                               {endingId === c.id ? (
@@ -224,7 +225,7 @@ function ExamCyclePage() {
                             type="button"
                             onClick={() => handleActivate(c.id)}
                             disabled={activatingId === c.id}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary disabled:opacity-50"
+                            className={btn("navy", "sm")}
                             data-cy="cycle-activate"
                           >
                             {activatingId === c.id ? (

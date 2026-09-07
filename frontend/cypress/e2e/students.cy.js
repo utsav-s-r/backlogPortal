@@ -29,7 +29,10 @@ describe("Students page", () => {
     cy.wait("@getDepartments");
     cy.get('[data-cy="students-load"]').click();
     cy.wait("@getStudents");
-    cy.contains("Asha Rao").should("be.visible");
+    // Scoped to the ROW, not the cell: the list is a table inside an overflow-x-auto scroller, so
+    // a <td> can be clipped at a narrow viewport (or on a runner whose font metrics widen the
+    // columns) and Cypress rightly calls it not visible. The <tr> spans the table.
+    cy.contains("tr", "Asha Rao").should("be.visible");
   };
 
   it("edits a student's name and semester", () => {
@@ -51,7 +54,7 @@ describe("Students page", () => {
       currentSemester: 6,
       entrySemester: 1,
     });
-    cy.contains("Asha R").should("be.visible");
+    cy.contains("tr", "Asha R").should("be.visible");
   });
 
   it("views and edits a student's semester timeline from the Manage tab", () => {

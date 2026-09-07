@@ -14,7 +14,7 @@ import { FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
 import Pager from "../../components/ui/Pager";
 import DepartmentOptions from "../../components/ui/DepartmentOptions";
-import { BTN_DANGER_SM, BTN_QUIET, BTN_ROW, BTN_SMALL_WIDE } from "../../lib/buttonClasses";
+import { btn } from "../../lib/buttonClasses";
 
 
 const PAGE_SIZE = 25;
@@ -141,7 +141,7 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
             onClick={() => loadSubjects(0)}
             disabled={busy}
             data-cy="subjects-load"
-            className={BTN_QUIET}
+            className={btn()}
           >
             {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />} Load subjects
           </button>
@@ -294,7 +294,7 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
               type="button"
               onClick={startEdit}
               data-cy={`subject-edit-${subject.id}`}
-              className={BTN_ROW}
+              className={btn("neutral", "sm")}
             >
               <Pencil size={13} /> Edit
             </button>
@@ -303,7 +303,7 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
               onClick={remove}
               disabled={busy}
               data-cy={`subject-delete-${subject.id}`}
-              className={BTN_DANGER_SM}
+              className={btn("danger", "sm")}
             >
               {busy ? <LoaderCircle size={13} className="animate-spin" /> : <Trash2 size={13} />} Delete
             </button>
@@ -404,14 +404,14 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
           onClick={save}
           disabled={busy}
           data-cy="subject-save"
-          className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          className={btn("primary")}
         >
           {busy ? <LoaderCircle size={14} className="animate-spin" /> : <Check size={14} />} Save
         </button>
         <button
           type="button"
           onClick={() => setEditing(false)}
-          className={BTN_SMALL_WIDE}
+          className={btn()}
         >
           <X size={14} /> Cancel
         </button>

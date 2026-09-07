@@ -1,3 +1,4 @@
+import { btn } from "../../lib/buttonClasses";
 // A pill button/link inside a navy top band. ONE style, and only one: a white fill on the navy,
 // a stronger white fill on hover. No border — a control is a fill, never an outline (no-box rule),
 // and its hover state is a different fill, never the appearance of an edge.
@@ -12,9 +13,7 @@
 // Renders a <button> by default; pass `as={Link}` to navigate, the same escape hatch PrimaryCta
 // uses. Focus styling is deliberately absent — the global :focus-visible outline in index.css
 // already covers a/button.
-const BASE =
-  "inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-4 py-2 " +
-  "text-sm font-semibold text-white transition-colors hover:bg-white/30";
+const BASE = btn("onNavy");
 
 function HeaderPill({ children, className = "", as: Component = "button", ...props }) {
   return (
