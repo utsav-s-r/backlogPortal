@@ -6,7 +6,7 @@ import { btn } from "../../lib/buttonClasses";
 // legend and no hover tooltip; an icon needs both.
 //
 // Every caller renders it on a navy ground (the sidebar rail, the student/public top band), so the
-// track's fills are white alphas and the on-state is `bg-cta`. Fixed white-on-navy in both themes,
+// The track fills with the accent when on and sits on `bg-stroke` when off; the thumb is the page
 // exactly like HeaderPill — that is why no [data-theme="dark"] counterpart exists or is needed.
 //
 // `label` is a node, not a boolean, because the collapsed sidebar rail needs the SAME words to come
@@ -14,7 +14,7 @@ import { btn } from "../../lib/buttonClasses";
 // still operable, so nothing in the rail becomes decoration.
 // The default shell is the top band's pill (a fill, a different fill on hover, no border). The
 // sidebar passes its own NAV_ITEM row instead.
-const BAND_PILL = btn("onNavy");
+const BAND_PILL = btn("quiet");
 
 export default function ThemeToggle({
   className = BAND_PILL,
@@ -34,11 +34,11 @@ export default function ThemeToggle({
       {label}
       <span
         className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-          isDark ? "bg-cta" : "bg-white/30"
+          isDark ? "bg-accent" : "bg-stroke"
         }`}
       >
         <span
-          className={`absolute top-0.5 size-4 rounded-full bg-white transition-all ${
+          className={`absolute top-0.5 size-4 rounded-full bg-surface-1 transition-all ${
             isDark ? "left-4.5" : "left-0.5"
           }`}
         />

@@ -10,12 +10,15 @@
  * Own .js module: a non-component export in a .jsx trips react-refresh/only-export-components and
  * takes lint off its known 9 errors.
  */
+// CREATED and ERROR carried the SAME colour until 2026-09-08 — a row that succeeded and a row that
+// failed read identically down the result table, which is the one thing this table exists to tell
+// apart. A skip is neither, so it stays muted rather than taking a third colour.
 const STATUS_STYLES = {
-  CREATED: "text-primary-ink",
-  WOULD_CREATE: "text-primary-ink",
+  CREATED: "text-success",
+  WOULD_CREATE: "text-success",
   SKIPPED_EXISTS: "text-ink-muted",
   WOULD_SKIP: "text-ink-muted",
-  ERROR: "text-red-600",
+  ERROR: "text-alert",
 };
 
 /** Falls back to inherited colour, so an unrecognised status still renders its own text. */

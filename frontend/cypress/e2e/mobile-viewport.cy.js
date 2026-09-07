@@ -197,10 +197,17 @@ describe("Mobile viewport (375x812)", () => {
     // asserting the literal 375 passes locally and fails on the runner for a reason that has
     // nothing to do with the drawer.
     cy.window().then((win) => {
+      // documentElement.client{Width,Height} — the LAYOUT viewport, which is what a full-bleed
+      // fixed element fills. NOT window.inner{Width,Height}: those INCLUDE the scrollbar, so on a
+      // runner with classic scrollbars (Linux CI) innerWidth reads 375 while the drawer is 360.
+      // NOT the cy.viewport() literals either, for the same reason. macOS overlay scrollbars are
+      // 0px wide, so all three agree locally and only CI can tell them apart.
+      const vw = win.document.documentElement.clientWidth;
+      const vh = win.document.documentElement.clientHeight;
       cy.get("aside").then(([el]) => {
         const r = el.getBoundingClientRect();
-        expect(r.width, "drawer width").to.equal(win.innerWidth);
-        expect(r.height, "drawer height").to.equal(win.innerHeight);
+        expect(r.width, "drawer width").to.equal(vw);
+        expect(r.height, "drawer height").to.equal(vh);
         expect(r.top, "drawer top").to.equal(0);
         expect(r.left, "drawer left").to.equal(0);
       });

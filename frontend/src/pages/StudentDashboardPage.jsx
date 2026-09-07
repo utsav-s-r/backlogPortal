@@ -23,8 +23,8 @@ import { FIELD_CONTROL, FIELD_LABEL } from "../lib/formClasses";
 
 function statusBadgeClass(status) {
   if (status === "VERIFIED")
-    return "bg-primary-tint text-primary-ink";
-  if (status === "REJECTED") return "bg-red-50 text-red-600";
+    return "bg-success-tint text-success";
+  if (status === "REJECTED") return "bg-alert-tint text-alert";
   return "bg-surface-muted text-ink";
 }
 
@@ -243,7 +243,7 @@ function StudentDashboardPage() {
                     </div>
                   )}
                   {phoneError ? (
-                    <p className="text-xs text-red-600">{phoneError}</p>
+                    <p className="text-xs text-alert">{phoneError}</p>
                   ) : !profile?.phone ? (
                     <p className="text-xs text-ink-muted">
                       Add your phone number before registering for backlog exams.

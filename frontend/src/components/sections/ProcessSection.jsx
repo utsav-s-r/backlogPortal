@@ -28,10 +28,10 @@ export default function ProcessSection() {
     <section id="how-it-works" className="px-4 py-16 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-3xl">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-ink">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
             How It Works
           </p>
-          <h2 className="mt-2 text-3xl text-primary-ink sm:text-4xl">
+          <h2 className="mt-2 text-3xl text-ink sm:text-4xl">
             From Login to Verification
           </h2>
           <p className="mt-3 max-w-xl text-ink-muted">
@@ -50,15 +50,15 @@ export default function ProcessSection() {
                 {!last && (
                   <span
                     aria-hidden="true"
-                    className="absolute left-[22px] top-12 h-[calc(100%-2.5rem)] w-px bg-stroke"
+                    className="absolute left-[22px] top-12 h-[calc(100%-2.5rem)] w-px bg-surface-muted"
                   />
                 )}
-                <span className="relative z-10 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary text-white shadow-soft">
+                <span className="relative z-10 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent shadow-soft">
                   <Icon size={18} />
                 </span>
                 <div className="pt-1">
                   <h3 className="text-lg font-semibold text-ink">
-                    <span className="mr-2 text-sm font-bold text-primary-ink">
+                    <span className="mr-2 text-sm font-bold text-accent">
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     {step.title}

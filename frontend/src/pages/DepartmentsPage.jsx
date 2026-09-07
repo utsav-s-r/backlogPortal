@@ -289,7 +289,7 @@ function DepartmentsPage() {
                         className={`font-semibold ${FIELD_INPUT}`}
                       />
                       {!d.code && (
-                        <p className="mt-1 text-xs text-red-600">
+                        <p className="mt-1 text-xs text-alert">
                           No code set — students of this branch cannot register.
                         </p>
                       )}
@@ -352,7 +352,7 @@ function DepartmentsPage() {
                               data-cy={`dept-delete-confirm-${d.id}`}
                               onClick={() => handleDelete(d)}
                               disabled={deletingId === d.id}
-                              className={btn("dangerSolid", "sm")}
+                              className={btn("danger", "sm")}
                             >
                               {deletingId === d.id ? (
                                 <LoaderCircle size={14} className="animate-spin" />

@@ -247,7 +247,7 @@ function ManageUsersPage() {
         {notice && (
           <div
             role="status"
-            className="flex items-start justify-between gap-3 rounded-lg bg-primary-tint px-4 py-3 text-sm text-ink"
+            className="flex items-start justify-between gap-3 rounded-lg bg-surface-muted px-4 py-3 text-sm text-ink"
           >
             {notice.renamedFrom ? (
               <p>

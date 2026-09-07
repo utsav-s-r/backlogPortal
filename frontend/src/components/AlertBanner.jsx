@@ -1,24 +1,25 @@
-// The one status banner. Replaced 32 hand-rolled copies (2026-08-16) whose only real variance was
-// spelling: dark mode already collapsed them via the index.css re-tints (both text-red-600 and
-// text-red-700 -> #f87171, all four amber text shades -> #fbbf24), so the sprawl was visible in
-// LIGHT only. Each hand-typed copy was a place a class without a dark re-tint could slip in and
-// paint a bright patch on the dark page, with no build, lint or test failure — Cypress asserts
-// nothing about styles.
+// The one status banner. Replaced 32 hand-rolled copies whose only real variance was spelling.
+// Routing them through here is what stops a one-off tint reaching a page: nothing fails when one
+// does — the build passes, lint passes, and Cypress asserts nothing about styles.
 //
-// Bare inline error text (`text-sm font-medium text-red-600`, no fill — AdminPage row/history
-// errors) is a DIFFERENT pattern and deliberately not routed through here.
+// Bare inline error text (`text-sm font-medium text-alert`, no fill — AdminPage row/history errors)
+// is a DIFFERENT pattern and deliberately not routed through here.
 
 // Tone -> the one class PAIR that tone may use. No border: the tint IS the separation (no-box
 // rule), so a banner is a fill on the page, never an outlined card.
-// Every class has a matching [data-theme="dark"]
-// re-tint in index.css (:229-273); that block is what keeps these light-authored tints legible on
-// the dark page. A new tone needs its re-tints added there in the same edit, or it ships as a
-// bright patch in dark. Shades are the darkest with a re-tint: dark is unchanged by construction
-// (it collapses them anyway) and light gains contrast (red-700 on red-50 is 6.9:1, red-600 4.8:1).
+//
+// Both classes are theme-aware tokens, so there is no [data-theme="dark"] re-tint to keep in sync —
+// that whole mechanism is gone. A new tone therefore needs a token added in index.css, not a rule.
+// Tone -> a tint fill plus its own text colour. The tints are the base colour at low alpha, so a
+// banner can never drift from the status colour it belongs to.
+//
+// error and warning deliberately share a fill: the palette has three colours and none of them means
+// "warning". Distinguishing them would need a fourth (amber), which is a new MEANING, not a new
+// style. If that is ever wanted, move `warning` to bg-accent-tint rather than adding a colour.
 const TONES = {
-  error: "bg-red-50 text-red-700",
-  warning: "bg-amber-50 text-amber-800",
-  success: "bg-green-50 text-green-800",
+  error: "bg-alert-tint text-alert",
+  warning: "bg-alert-tint text-alert",
+  success: "bg-success-tint text-success",
 };
 
 // Two sizes, not a spectrum: `default` is a page-level alert, `compact` an inline note that has to

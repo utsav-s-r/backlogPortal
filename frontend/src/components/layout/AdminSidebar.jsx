@@ -38,13 +38,13 @@ import {
 // Sidebar row: navy ground, so its fills are white alphas — the same pair HeaderPill uses.
 const NAV_ITEM =
   "group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold " +
-  "text-white transition-colors hover:bg-white/15";
+  "text-ink transition-colors hover:bg-surface-1";
 
 // Collapsed, the label becomes the tooltip: same words, beside the icon, NO DELAY. A `title`
 // attribute waits about a second, which is why this is markup and not an attribute.
 const TOOLTIP =
   "pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden -translate-y-1/2 " +
-  "whitespace-nowrap rounded-lg bg-secondary px-2.5 py-1.5 text-xs font-semibold text-white " +
+  "whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-xs font-semibold text-surface-1 " +
   "group-hover:block";
 
 const ROLE_LABELS = {
@@ -106,7 +106,7 @@ function AdminSidebar({ collapsed, openMobile, onToggle, onClose }) {
         to={to}
         onClick={onClose}
         aria-current={current ? "page" : undefined}
-        className={`${rowClass}${current ? "bg-white/20" : ""}`}
+        className={`${rowClass}${current ? "bg-accent-tint" : ""}`}
       >
         <Icon size={18} />
         {label(text)}
@@ -116,7 +116,7 @@ function AdminSidebar({ collapsed, openMobile, onToggle, onClose }) {
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-40 flex-col bg-secondary text-white ${
+      className={`fixed inset-y-0 left-0 z-40 flex-col border-r border-stroke bg-surface-muted text-ink ${
         openMobile ? "flex w-full" : "hidden md:flex"
       } ${rail ? "md:w-[68px]" : "md:w-[260px]"}`}
     >
@@ -138,7 +138,7 @@ function AdminSidebar({ collapsed, openMobile, onToggle, onClose }) {
           onClick={onClose}
           aria-label="Close navigation"
           data-cy="nav-close"
-          className="inline-flex size-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/15 md:hidden"
+          className="inline-flex size-10 items-center justify-center rounded-lg text-ink transition-colors hover:bg-surface-1 md:hidden"
         >
           <X size={18} />
         </button>
@@ -148,7 +148,7 @@ function AdminSidebar({ collapsed, openMobile, onToggle, onClose }) {
         {destinationsFor(adminRole).map(destination)}
 
         {/* a hairline, not a box edge — the one separator the no-box rule allows */}
-        <div className="my-3 h-px bg-white/20" />
+        <div className="my-3 h-px bg-stroke" />
 
         {/* ungated: accounts start on the derived default password, so every admin role needs a way
             here — Manage Users only reaches ADMIN/PRINCIPAL/HOD */}
@@ -178,9 +178,9 @@ function AdminSidebar({ collapsed, openMobile, onToggle, onClose }) {
         {/* Pinned to the bottom, and absent entirely from the rail — it does not shrink to an
             avatar. Department lives here now, where BrandHeader's badge used to be. */}
         {rail ? null : (
-          <div className="px-3 pt-3 text-xs text-white/70">
+          <div className="px-3 pt-3 text-xs text-ink-muted">
             Signed in as
-            <p className="text-sm font-semibold text-white" data-cy="identity-username">
+            <p className="text-sm font-semibold text-ink" data-cy="identity-username">
               {adminUsername}
             </p>
             <p>

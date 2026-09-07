@@ -12,7 +12,7 @@ function NotFoundPage() {
   return (
     <PageLayout containerClassName="max-w-md">
       <div className="py-6 sm:py-8">
-        <p className="mb-2 inline-flex items-center gap-1.5 rounded-lg bg-primary-tint px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
+        <p className="mb-2 inline-flex items-center gap-1.5 rounded-lg bg-accent-tint px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-accent">
           <FileQuestion size={12} /> Page not found
         </p>
         <h1 className="text-3xl font-semibold text-secondary-ink">

@@ -166,7 +166,7 @@ function AdminLoginPage() {
 
       <div id="admin-login-main" className="py-6 sm:py-8">
         <div className="mb-6 text-left">
-          <h1 className="admin-login-heading text-3xl font-semibold text-secondary-ink">
+          <h1 className="text-3xl font-semibold text-secondary-ink">
             {step === 1 ? "Select Designation" : "Staff Login"}
           </h1>
           <p className="mt-2 text-sm text-ink">
@@ -197,13 +197,13 @@ function AdminLoginPage() {
                 key={card.role}
                 onClick={() => handleRoleSelect(card.title, card.role)}
                 data-cy={`role-${card.role.toLowerCase().replace("_", "-")}`}
-                className="flex items-center gap-4 rounded-lg bg-surface-muted p-4 text-left transition-all duration-200 hover:bg-primary-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                className="flex items-center gap-4 rounded-lg bg-surface-muted p-4 text-left transition-all duration-200 hover:bg-accent-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-1 text-primary-ink">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-1 text-accent">
                   <card.Icon size={24} />
                 </div>
                 <div>
-                  <h3 className="admin-login-heading font-semibold text-secondary-ink">{card.title}</h3>
+                  <h3 className="font-semibold text-secondary-ink">{card.title}</h3>
                   <p className="mt-0.5 text-xs text-ink">{card.blurb}</p>
                 </div>
               </button>

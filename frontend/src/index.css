@@ -8,46 +8,54 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /* ---- token vocabulary: read this before adding UI ----
-   ONE theme system, defined only here. `@theme` + `:root` hold the light values,
+   ONE theme system, defined only here. `@theme static` + `:root` hold the light values,
    `[data-theme="dark"]` overrides them; ThemeContext stamps the attribute on <html>. Components
-   never ask which theme they're in — they use the utility and the theme decides. ThemeToggle is
-   the ONLY legitimate useTheme() consumer (it picks the sun/moon icon, not a color).
+   never ask which theme they are in — they use the utility and the theme decides. ThemeToggle is
+   the ONLY legitimate useTheme() consumer (it picks the sun/moon icon, not a colour).
+
+   THREE COLOURS, and only three. Everything else is a neutral.
+     accent   anything you can ACT ON — buttons, active tab, focus ring, the row still waiting
+     success  went through — VERIFIED, CREATED, registrations open
+     alert    went wrong, or undoes something — REJECTED, ERROR, delete, reject, field errors
+   A fourth colour is not a styling decision, it is a new meaning; if you cannot say in one word
+   what it means, it does not belong.
 
    Which utility to reach for (the token behind it is --color-<suffix>):
-     surfaces   bg-surface-1 (page/cards)     bg-surface-muted (subtle fills)
-     text       text-ink                      text-ink-muted (secondary/help text)
-     lines      border-stroke (borders, dividers)
-     focus      ring-focus-ring
-     depth      .shadow-soft (a hand-written class, not a generated utility — see :root)
-     brand      as a FILL   bg-/border-/accent-primary      bg-secondary
-                as TEXT     text-primary-ink                text-secondary-ink
-                bg-cta + text-cta-text — solid CTA fills only, NOT text/borders
-     homepage   --hero-* (raw vars, consumed by inline style — see below)
+     surfaces   bg-surface-1 (the page, and the top band)   bg-surface-muted (one step up:
+                inputs, sidebar, filter panels, secondary buttons, unselected chips)
+     text       text-ink                                    text-ink-muted (labels, help, captions)
+                text-secondary-ink — an ALIAS of text-ink, kept for 37 heading call sites
+     lines      border-stroke — hairlines only: border-t / border-b / border-r
+     colour     bg-accent / text-accent / bg-accent-tint    text-on-accent (label on ANY filled colour)
+                bg-success / text-success / bg-success-tint
+                bg-alert   / text-alert   / bg-alert-tint
+     focus      ring-focus-ring (= the accent)
+     depth      .shadow-soft (hand-written, not generated — see :root)
+     homepage   --hero-text (raw var, read by an inline style — see below)
 
-   Brand fill vs brand text is a real distinction, not a style preference: maroon and navy read
-   fine as fills on the dark page but not as text (1.92 / 1.24 vs the 3.0 floor), so the -ink
-   tokens carry lighter tints in dark while the fills stay branded. Reach for -ink whenever the
-   brand color lands on `text-`.
+   THERE IS NO CHROME COLOUR. The top band is bg-surface-1 with a border-b; the sidebar is
+   bg-surface-muted with a border-r. Nothing is painted to look important. Do not reintroduce a
+   `--color-secondary` fill — the crest supplies identity and reads on the page in both themes
+   (4.45 light, 3.48 dark).
 
-   Three mechanisms live in this file, in order of preference:
-     1. token redefinition — the default; covers everything above
-     2. utility re-tints, `[data-theme="dark"] .bg-amber-50 {…}` — for the light-authored
-        red/amber/green status tints that components use as palette classes
-     3. semantic one-offs — .admin-login-heading
+   -tint tokens are the base colour at low alpha, never a separate hex, so a tint cannot drift from
+   the colour it belongs to. `accent-tint` means selected or pending; the other two are status
+   pills and banners.
 
    Rules:
-   - New UI uses a token utility. Not a raw hex, not a palette class, and not `bg-[var(--x)]` —
-     the arbitrary-value syntax means "one-off, outside the design system", which is the opposite
-     of what a token is. If you need a value that has no utility, add the token to @theme.
-   - Never branch on theme in JS. Inline style={{}} outranks every rule here and so can't be
-     reached by (2)-(3) — that is exactly why --hero-* exists; add a token instead.
-   - Using a light-only palette class (bg-red-50, text-amber-700, …)? Add a matching dark re-tint
-     under (2), or it stays a bright patch on a dark surface.
-   - Solid fills (bg-red-600/700 with white text) are theme-INDEPENDENT by design. --color-cta is
-     NOT: it is the one token that goes BRIGHTER in dark, so the CTA out-contrasts a dark page.
+   - New UI uses a token utility. Not a raw hex, not a Tailwind palette class (bg-red-50,
+     text-red-600 and friends are GONE — they were one class doing six unrelated jobs), and not
+     `bg-[var(--x)]`, which means "outside the design system" and is the opposite of a token.
+     If you need a value with no utility, add the token here.
+   - Never branch on theme in JS. Inline style={{}} outranks every rule in this file, which is
+     exactly why --hero-text exists; add a token rather than a second inline colour.
+   - NEVER add a blanket `body *` colour rule. One was added here once and it silently made every
+     text token inert — utilities still applied, the colour never showed, and nothing failed.
+   - Light and dark values are BOTH required for any colour token. A token defined only under
+     [data-theme="dark"] disappears in light mode with no error anywhere.
    - This file is UNLAYERED on purpose, so it outranks Tailwind's utilities layer regardless of
-     specificity — that's what makes .shadow-soft and (2)-(3) win. Don't wrap it in @layer.
-   - Verify both themes before calling a UI change done. */
+     specificity — that is what makes .shadow-soft win. Don't wrap it in @layer.
+   - Verify BOTH themes before calling a UI change done. Cypress asserts nothing about styles. */
 
 /* ---- utility-generating tokens (light values) ----
    Every --color-* here emits Tailwind utilities named after the suffix: --color-surface-1 gives
@@ -63,56 +71,47 @@
    NEVER `@theme inline`: it bakes literal values into each utility instead of referencing the var,
    which breaks theme switching outright. Same reason --shadow-soft is NOT in here (see :root). */
 @theme static {
-  /* Brand maroon, the dominant accent — FILL PURPOSE ONLY (`border-primary`, `ring-primary`,
-     `bg-primary`, `accent-primary`), plus the global focus-visible outline below. For maroon as
-     TEXT use --color-primary-ink; this token stays branded in both themes. */
-  --color-primary: #91191c;
-  /* Brand navy, second accent — fill purpose (`bg-secondary`), and it seeds --color-stroke /
-     --shadow-soft below. For navy as TEXT use --color-secondary-ink. */
-  --color-secondary: #242a52;
-  /* The brand colors in their TEXT purpose (`text-primary-ink` / `text-secondary-ink`). Split out
-     from the fills 2026-08-10: maroon and navy are legible as fills on a dark surface but nearly
-     invisible as text (1.92 / 1.24 vs the 3.0 floor), and one variable can't be remapped in dark
-     without dragging the fills with it. This used to be patched after the fact by two rules
-     matching the escaped Tailwind class name (`.text-\[var\(--color-primary\)\]`), which would
-     silently revert all 99 call sites to invisible-on-dark if anyone reformatted a class — no
-     build, lint or test failure. Making the token theme-aware instead is what fixed --color-cta. */
-  --color-primary-ink: var(--color-primary);
-  --color-secondary-ink: var(--color-secondary);
-  /* Call-to-action accent, for solid CTA fills — `bg-cta` (Home hero, admin/login primary buttons,
-     PrimaryCta). Never a standalone accent hue: white on the pink this replaced measured 4.33
-     against the 4.5 AA floor. Unlike most tokens this one is BRIGHTER in dark — a CTA has to
-     out-contrast the page, and the page is dark navy there, so brand maroon/navy would dissolve
-     into it (1.92 / 1.24 vs the 3.0 floor). Hence maroon in light, its dark tint in dark. */
-  --color-cta: var(--color-primary);
-  /* CTA label (`text-cta-text`). Always the page surface: white on the maroon fill (light), dark
-     navy on the light fill (dark). Resolves correctly in both themes with no override. */
-  --color-cta-text: var(--color-surface-1);
+  /* ---- surfaces ----
+     The page, and ONE STEP UP from it. `surface-muted` is what makes a control visible: it is the
+     fill separating an input, a filter panel or a secondary button from the page behind it. These
+     two must never resolve to the same value — that reads 1.00:1 and the control disappears, which
+     is exactly what happened when page, panel and chrome were all #201e3c in dark. */
+  --color-surface-1: #fcfbfd;
+  --color-surface-muted: #f0eef6;
+  /* HAIRLINE RULES ONLY — `border-t`/`border-b`/`border-r` between rows, sections and chrome.
+     Never `border border-stroke` on all four sides; `npm run lint:no-box` fails on it. */
+  --color-stroke: #dcd8e7;
 
-  /* The brand accent at low alpha, for "selected"/"active" fills — chosen chips, the active tab,
-     a ticked subject card, a status pill. Added 2026-08-15 to replace 18 hardcoded
-     `bg-[rgba(145,25,28,0.0x)]` values across 11 files: being raw rgba, NO [data-theme="dark"] rule
-     could reach them, so every one painted the LIGHT maroon wash onto the dark navy page. Four
-     near-identical alphas (0.05/0.06/0.08/0.1) collapsed to this one — the differences were not
-     perceptible and a token that comes in four strengths is not a token. The dark value is the salmon,
-     slightly stronger, so it reads at all against the dark surface. It also absorbed the homepage
-     hero's own badge/button tokens (2026-09-07), which the no-box pass made redundant. */
-  --color-primary-tint: rgba(145, 25, 28, 0.08);
+  /* ---- ink ----
+     Body text and the secondary/help shade. Both carry a trace of the dark-mode indigo so the two
+     themes read as one product rather than two. */
+  --color-ink: #1d1b33;
+  --color-ink-muted: #5f5980;
+  /* Alias, not a second colour: 37 call sites spell headings `text-secondary-ink`. Kept so those
+     sites need no edit; it has no independent value and must stay equal to --color-ink. */
+  --color-secondary-ink: var(--color-ink);
 
-  --color-surface-1: #ffffff;
-  --color-surface-muted: #f5f5f5;
-  /* "ink" = a color whose purpose is text. --color-ink is the default body text, --color-ink-muted
-     the secondary/help shade; the brand-as-text pair above follows the same suffix. */
-  --color-ink: #1a1a1a;
-  --color-ink-muted: #4a4a4a;
-  /* HAIRLINE RULES ONLY — `border-t`/`border-b` between table rows and page sections. It is not an
-     outline colour any more: no card, panel or control carries a border, so a `border border-stroke`
-     appearing anywhere is the no-box rule being undone. */
-  --color-stroke: rgba(36, 42, 82, 0.18);
-  /* Keyboard focus indicator — the global :focus-visible outline below plus every
-     `ring-focus-ring`. Its own token because the brand maroon it used to be measures 1.92 against
-     the dark page, under the 3:1 non-text floor; light is unchanged at 8.90. */
-  --color-focus-ring: var(--color-primary);
+  /* ---- the three colours ----
+     ACCENT  anything you can act on: buttons, active tab, focus ring, the row still waiting.
+     SUCCESS went through.        ALERT  went wrong, or undoes something.
+     One name each, with a light and a dark value; the theme picks. Hue separation was measured
+     against the indigo ground, the success green and the alert rose — gold's closest neighbour is
+     50deg, which is why it beats cyan (40) and coral (20, would be read as the alert). */
+  --color-accent: #a15c00;
+  --color-success: #1f6b4d;
+  --color-alert: #b0304e;
+  /* The label on ANY filled colour above. Always the page surface, so it flips with the theme on
+     its own and needs no [data-theme] override. */
+  --color-on-accent: var(--color-surface-1);
+  /* Low-alpha fills: `accent-tint` is selected/pending, the other two are status pills and banners.
+     Alpha rather than three more hexes, so a tint can never drift from the colour it belongs to. */
+  --color-accent-tint: rgba(161, 92, 0, 0.17);
+  --color-success-tint: rgba(31, 107, 77, 0.13);
+  --color-alert-tint: rgba(176, 48, 78, 0.13);
+
+  /* Keyboard focus — the accent, which clears the 3:1 non-text floor against the page in BOTH
+     themes (5.09 light, 8.67 dark), so one value serves both. */
+  --color-focus-ring: var(--color-accent);
 }
 
 :root {
@@ -123,13 +122,12 @@
      instead. Down from 56: the no-box pass deleted every card that used a shadow as an outline.
      The 3 left are PrimaryCta, ProcessSection's step marker, and the history dialog — where the
      shadow says "above the page", which is the one thing it is still for. */
-  --shadow-soft: 0 16px 40px rgba(36, 42, 82, 0.14);
+  --shadow-soft: 0 16px 40px rgba(0, 0, 0, 0.14);
   /* PrimaryCta hover glow — the accent at low alpha. --color-* named but kept OUT of @theme on
      purpose: it's only ever read inside an arbitrary shadow value, so generating bg-/text-/border-
      families for it would be dead CSS. */
-  --color-cta-glow: rgba(145, 25, 28, 0.35);
   /* Text-selection highlight. */
-  --selection-bg: rgba(145, 25, 28, 0.26);
+  --selection-bg: color-mix(in oklab, var(--color-accent) 30%, transparent);
   /* Pure white. Its only direct var() use is the ::selection text color below; component
      surfaces read --color-surface-1 (also #ffffff in light) instead. */
   --color-white: #ffffff;
@@ -139,7 +137,7 @@
      [data-theme="dark"] overrides below and used to be branched on `isDark` in JS. Tokenised so
      HeroSection/HomePage are theme-agnostic like the rest of the app. Values that are brand
      colors reference the existing var rather than repeating the hex. */
-  --hero-text: var(--color-primary);
+  --hero-text: var(--color-ink);
 
   color-scheme: light;
   font-family: "Inter", system-ui, sans-serif;
@@ -151,95 +149,34 @@
 
 /* Unlayered, so it beats @theme's layered :root and the overrides actually take. */
 [data-theme="dark"] {
-  --color-surface-1: #141a35;
-  --color-surface-muted: #1b2246;
-  --color-ink: #e8e8e8;
-  --color-ink-muted: #b8b8b8;
-  --color-stroke: rgba(255, 255, 255, 0.16);
+  /* THE constraint: #201e3c is the dark page. Everything else here is derived from it. */
+  --color-surface-1: #201e3c;
+  /* One step UP, never down — in dark mode a raised surface gets LIGHTER (tonal elevation). This
+     single line is what fixes the old defect where surface-1, surface-muted and the chrome all
+     resolved to #201e3c and every input was invisible at 1.00:1. */
+  --color-surface-muted: #2c2a51;
+  --color-stroke: #45406f;
+
+  /* Off-white, NOT #ffffff: pure white on a dark ground glares. Violet-tinted to match the page. */
+  --color-ink: #eceaf4;
+  --color-ink-muted: #a9a3c6;
+
+  /* Desaturated as well as lightened. An accent that is only lightened for dark mode glows against
+     the ground; dropping saturation ~10-15% keeps the hue recognisable without the neon effect. */
+  --color-accent: #e6b866;
+  --color-success: #74c49f;
+  --color-alert: #ef8098;
+  --color-accent-tint: rgba(230, 184, 102, 0.17);
+  --color-success-tint: rgba(116, 196, 159, 0.13);
+  --color-alert-tint: rgba(239, 128, 152, 0.13);
+
+  /* --color-on-accent, --color-secondary-ink and --color-focus-ring are var() references to tokens
+     redefined above, so they resolve to their dark values here with no override needed. */
+
   --shadow-soft: 0 18px 45px rgba(0, 0, 0, 0.35);
-  /* lavender, 11.12 against the dark page (maroon would be 1.92) */
-  --color-focus-ring: var(--text-on-dark-secondary);
-
-  /* Readable tints for the brand colors, too dark to sit as text on dark surfaces. These feed the
-     *-ink tokens; --color-primary / --color-secondary themselves stay branded as fills. */
-  --text-on-dark-secondary: #c8cff2;
-  --text-on-dark-primary: #f0888b;
-  --color-primary-ink: var(--text-on-dark-primary);
-  --color-secondary-ink: var(--text-on-dark-secondary);
-  /* Salmon, not maroon: the maroon tint is invisible against the dark navy page. */
-  --color-primary-tint: rgba(240, 136, 139, 0.15);
-
-  /* CTA goes LIGHTER here so the button reads as a shape against the dark navy page (7.00 vs the
-     3.0 floor); --color-cta-text follows --color-surface-1 and lands on dark navy, so the label flips
-     automatically. That light-fill/dark-label pairing is also what keeps it from being confused
-     with the destructive red (bg-red-600, solid fill + white label). */
-  --color-cta: var(--text-on-dark-primary);
-  --color-cta-glow: rgba(240, 136, 139, 0.35);
-  --selection-bg: rgba(240, 136, 139, 0.26);
-
-  /* Hero/backdrop dark values — see the light block for why these are tokens. */
-  --hero-text: #ffffff;
+  --hero-text: var(--color-ink);
 
   color-scheme: dark;
-}
-
-/* Admin login: role names and the "Select Designation" heading go plain white in dark mode,
-   overriding --color-secondary-ink's lavender; light mode keeps the navy, legible on the white
-   card. Unlayered, so it beats the layered text utility regardless of source order. */
-[data-theme="dark"] .admin-login-heading {
-  color: #ffffff;
-}
-
-/* Status / callout boxes (red = error, amber = warning, green = success — ONE green family; the
-   parallel emerald-* set was merged into green 2026-08-10, don't reintroduce it)
-   are authored as light tints with dark text for the light theme. On the dark
-   surfaces those bright patches with dark text read wrong, so remap them to
-   translucent tints with lighter text. Solid badge/button fills
-   (bg-red-600/700, which carry white text) are intentionally left untouched. */
-[data-theme="dark"] .bg-red-50 {
-  background-color: rgba(239, 68, 68, 0.12);
-}
-[data-theme="dark"] .bg-red-100 {
-  background-color: rgba(239, 68, 68, 0.2);
-}
-[data-theme="dark"] .bg-amber-50 {
-  background-color: rgba(245, 158, 11, 0.12);
-}
-[data-theme="dark"] .bg-amber-100 {
-  background-color: rgba(245, 158, 11, 0.2);
-}
-[data-theme="dark"] .bg-green-50 {
-  background-color: rgba(34, 197, 94, 0.12);
-}
-
-[data-theme="dark"] .border-red-200 {
-  border-color: rgba(248, 113, 113, 0.35);
-}
-[data-theme="dark"] .border-amber-200 {
-  border-color: rgba(251, 191, 36, 0.3);
-}
-[data-theme="dark"] .border-amber-300 {
-  border-color: rgba(251, 191, 36, 0.38);
-}
-[data-theme="dark"] .border-green-200 {
-  border-color: rgba(74, 222, 128, 0.3);
-}
-
-[data-theme="dark"] .text-red-600,
-[data-theme="dark"] .text-red-700 {
-  color: #f87171;
-}
-/* -900 dropped 2026-08-16: AlertBanner standardised warning text on -800, leaving no -900 user. */
-[data-theme="dark"] .text-amber-600,
-[data-theme="dark"] .text-amber-700,
-[data-theme="dark"] .text-amber-800 {
-  color: #fbbf24;
-}
-/* -700 is the link-hover shade inside success banners; it needs a dark value too, or the hover
-   would drop to a dark green on a dark surface. */
-[data-theme="dark"] .text-green-700,
-[data-theme="dark"] .text-green-800 {
-  color: #4ade80;
 }
 
 * {

@@ -13,7 +13,7 @@ const CARDS = [
   { key: "total", label: "Total", Icon: Users, valueClass: "text-secondary-ink" },
   { key: "submitted", label: "Pending", Icon: CircleDashed, valueClass: "text-secondary-ink" },
   { key: "verified", label: "Verified", Icon: Shield, valueClass: "text-secondary-ink" },
-  { key: "rejected", label: "Rejected", Icon: XCircle, valueClass: "text-red-600" },
+  { key: "rejected", label: "Rejected", Icon: XCircle, valueClass: "text-alert" },
 ];
 
 /**

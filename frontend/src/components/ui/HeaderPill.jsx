@@ -6,14 +6,14 @@ import { btn } from "../../lib/buttonClasses";
 // The `outline`/`filled` variant pair is gone: the only callers that asked for `filled` were
 // AdminPage's six section pills, which the sidebar replaced.
 //
-// White-on-navy is fixed, not theme-aware: this only ever renders inside a `bg-secondary` band,
-// which is navy in both themes. That is why there are no `[data-theme="dark"]` counterparts to
-// these classes and why none are needed.
+// Uses the `quiet` tone: no fill until hovered. It renders inside the top band and the rail, which
+// are now the page and one step up from it rather than a navy slab — a filled pill there would
+// compete with the page's own primary action.
 //
 // Renders a <button> by default; pass `as={Link}` to navigate, the same escape hatch PrimaryCta
 // uses. Focus styling is deliberately absent — the global :focus-visible outline in index.css
 // already covers a/button.
-const BASE = btn("onNavy");
+const BASE = btn("quiet");
 
 function HeaderPill({ children, className = "", as: Component = "button", ...props }) {
   return (

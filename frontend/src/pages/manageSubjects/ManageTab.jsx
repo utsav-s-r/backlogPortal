@@ -84,7 +84,7 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
           year-binding key, so moving an offering would re-point every backlog resolving through it.
         </p>
         {deptLocked && adminDepartment && (
-          <p className="mb-4 text-xs font-semibold text-primary-ink">
+          <p className="mb-4 text-xs font-semibold text-ink-muted">
             Scoped to {adminDepartment}
           </p>
         )}
@@ -130,7 +130,7 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
         </div>
 
         {error && (
-          <p className="mt-3 text-sm text-red-600" role="alert" data-cy="subjects-error">
+          <p className="mt-3 text-sm text-alert" role="alert" data-cy="subjects-error">
             {error}
           </p>
         )}
@@ -273,7 +273,7 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
         <td className="px-4 py-3 font-semibold text-ink">
           {subject.subjectName}
           {error && (
-            <p className="mt-1 text-xs text-red-600" role="alert" data-cy={`subject-error-${subject.id}`}>
+            <p className="mt-1 text-xs text-alert" role="alert" data-cy={`subject-error-${subject.id}`}>
               {error}
             </p>
           )}
@@ -383,7 +383,7 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
                   type="checkbox"
                   checked={eligible.includes(d.id)}
                   onChange={() => toggleEligible(d.id)}
-                  className="h-4 w-4 accent-primary"
+                  className="h-4 w-4 accent-accent"
                 />
                 {d.deptName}
               </label>
@@ -393,7 +393,7 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
       )}
 
       {error && (
-        <p className="mt-3 text-sm text-red-600" role="alert" data-cy="subject-edit-error">
+        <p className="mt-3 text-sm text-alert" role="alert" data-cy="subject-edit-error">
           {error}
         </p>
       )}

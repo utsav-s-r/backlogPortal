@@ -85,7 +85,7 @@ function TermRow({ semester, academicYear, future, onSave, busy }) {
             data-cy={`prog-term-year-${semester}`}
           />
           {isMissing && (
-            <span className="text-xs font-semibold text-amber-700" data-cy={`prog-term-missing-${semester}`}>
+            <span className="text-xs font-semibold text-alert" data-cy={`prog-term-missing-${semester}`}>
               not set
             </span>
           )}

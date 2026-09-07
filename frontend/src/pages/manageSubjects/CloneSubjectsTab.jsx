@@ -148,7 +148,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
           skipped, so it's safe to re-run.
         </p>
         {deptLocked && adminDepartment && (
-          <p className="mb-4 text-xs font-semibold text-primary-ink">
+          <p className="mb-4 text-xs font-semibold text-ink-muted">
             Scoped to {adminDepartment}
           </p>
         )}
@@ -220,7 +220,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
         </div>
 
         {error && (
-          <p className="mt-3 text-sm text-red-600" role="alert" data-cy="clone-error">
+          <p className="mt-3 text-sm text-alert" role="alert" data-cy="clone-error">
             {error}
           </p>
         )}

@@ -248,15 +248,15 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                     key={dept.id}
                     className={`flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-colors ${
                       checked
-                        ? "bg-primary-tint"
-                        : "bg-surface-muted hover:bg-primary-tint"
+                        ? "bg-accent-tint"
+                        : "bg-surface-muted hover:bg-accent-tint"
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={checked}
                       onChange={() => toggleEligibleDept(dept.id)}
-                      className="h-4 w-4 accent-primary"
+                      className="h-4 w-4 accent-accent"
                     />
                     <span className="text-sm text-ink">
                       {dept.deptName}

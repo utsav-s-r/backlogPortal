@@ -201,7 +201,7 @@ function FilterPanel({
         </button>
         {filtersDirty && (
           <span
-            className="text-xs font-semibold text-amber-600"
+            className="text-xs font-semibold text-accent"
             data-cy="admin-filters-dirty"
           >
             Unapplied changes — click Apply

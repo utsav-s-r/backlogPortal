@@ -118,7 +118,7 @@ function RegistrationHistoryDialog({ events, loading, error, onClose }) {
               <LoaderCircle size={16} className="animate-spin" /> Loading history...
             </p>
           ) : error ? (
-            <p className="text-sm font-medium text-red-600" role="alert" data-cy="admin-history-error">
+            <p className="text-sm font-medium text-alert" role="alert" data-cy="admin-history-error">
               {error}
             </p>
           ) : events.length === 0 ? (

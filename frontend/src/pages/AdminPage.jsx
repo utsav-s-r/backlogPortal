@@ -533,7 +533,7 @@ function AdminPage() {
                         disabled={pageIds.length === 0}
                         aria-label="Select all rows on this page"
                         data-cy="admin-select-page"
-                        className="h-4 w-4 accent-primary"
+                        className="h-4 w-4 accent-accent"
                       />
                     </th>
                     <th className="px-4 py-3">USN</th>
@@ -561,7 +561,7 @@ function AdminPage() {
                           onChange={() => toggleRow(reg.regId)}
                           aria-label={`Select registration for ${reg.rollNo}`}
                           data-cy={`admin-select-${reg.regId}`}
-                          className="h-4 w-4 accent-primary"
+                          className="h-4 w-4 accent-accent"
                         />
                       </td>
                       <td className="px-4 py-3 text-ink">
@@ -638,7 +638,7 @@ function AdminPage() {
                             </div>
                             {rowErrors[reg.regId] && (
                               <p
-                                className="text-sm font-medium text-red-600"
+                                className="text-sm font-medium text-alert"
                                 role="alert"
                                 data-cy="admin-action-error"
                               >
@@ -655,7 +655,7 @@ function AdminPage() {
                                   onClick={() => handleReject(reg.regId)}
                                   disabled={rejectingRegId === reg.regId}
                                   data-cy="admin-reject-verified-confirm"
-                                  className={`${btn("dangerSolid", "sm")} w-24`}
+                                  className={`${btn("danger", "sm")} w-24`}
                                 >
                                   {rejectingRegId === reg.regId ? (
                                     <LoaderCircle size={14} className="animate-spin" />
@@ -675,7 +675,7 @@ function AdminPage() {
                               </div>
                             ) : (
                               <div className="flex flex-col items-start gap-1">
-                                <span className="text-sm font-semibold text-primary-ink">
+                                <span className="text-sm font-semibold text-success">
                                   Verified
                                 </span>
                                 {adminRole !== ROLE.PRINCIPAL ? (
@@ -695,7 +695,7 @@ function AdminPage() {
                             )}
                             {rowErrors[reg.regId] && (
                               <p
-                                className="text-sm font-medium text-red-600"
+                                className="text-sm font-medium text-alert"
                                 role="alert"
                                 data-cy="admin-action-error"
                               >
@@ -704,7 +704,7 @@ function AdminPage() {
                             )}
                           </div>
                         ) : reg.status === "REJECTED" ? (
-                          <span className="text-sm font-semibold text-red-600">
+                          <span className="text-sm font-semibold text-alert">
                             Rejected
                           </span>
                         ) : (

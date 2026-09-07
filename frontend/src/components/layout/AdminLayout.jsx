@@ -32,7 +32,7 @@ function AdminLayout({ children }) {
             onClick={() => setOpenMobile(true)}
             aria-label="Open navigation"
             data-cy="nav-open"
-            className="inline-flex size-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/15 md:hidden"
+            className="inline-flex size-10 items-center justify-center rounded-lg text-ink transition-colors hover:bg-surface-muted md:hidden"
           >
             <Menu size={18} />
           </button>

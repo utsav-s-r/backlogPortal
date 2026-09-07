@@ -303,7 +303,7 @@ function RegistrationPage() {
               <ReadOnlyField label="Phone" value={profile.phone} />
             </div>
             {profileError ? (
-              <p className="mt-2 text-xs text-red-600">{profileError}</p>
+              <p className="mt-2 text-xs text-alert">{profileError}</p>
             ) : null}
           </section>
 
@@ -318,7 +318,7 @@ function RegistrationPage() {
                 {selectedSubjects.map((subject) => (
                   <div
                     key={`sel-${subject.id}`}
-                    className="flex items-center justify-between rounded-lg bg-primary-tint p-3"
+                    className="flex items-center justify-between rounded-lg bg-accent-tint p-3"
                   >
                     {/* min-w-0: flex items default to min-width:auto, so without it the 4-fact meta
                         line overflowed the card and squeezed Remove on mobile. */}
@@ -384,7 +384,7 @@ function RegistrationPage() {
                   ))}
                 </select>
                 {eligibleSemesters.length === 0 ? (
-                  <p className="mt-1 text-xs text-red-600">
+                  <p className="mt-1 text-xs text-alert">
                     Your current semester isn't set up yet. Please contact the department office.
                   </p>
                 ) : null}
@@ -425,7 +425,7 @@ function RegistrationPage() {
                       key={subject.id}
                       className={`rounded-lg p-3 transition-transform duration-200 motion-safe:hover:translate-y-[-2px] ${
                         isSelected
-                          ? "bg-primary-tint opacity-60"
+                          ? "bg-accent-tint opacity-60"
                           : "bg-surface-muted"
                       }`}
                     >
@@ -435,7 +435,7 @@ function RegistrationPage() {
                           id={`subject-${subject.id}`}
                           checked={isSelected}
                           onChange={() => handleSubjectToggle(subject)}
-                          className="h-4 w-4 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                          className="h-4 w-4 accent-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                         />
                         {/* Stacks under sm; shrink-0/right-align/truncate are sm+ only. Horizontal,
                             the meta's shrink-0 claimed the long deptName's width and the name, the
@@ -515,12 +515,12 @@ function CenteredCard({ icon, eyebrow, title, children }) {
     >
       <div className="py-6 sm:py-8">
         {eyebrow ? (
-          <p className="mb-2 inline-flex rounded-lg bg-primary-tint px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
+          <p className="mb-2 inline-flex rounded-lg bg-accent-tint px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-accent">
             {eyebrow}
           </p>
         ) : null}
         {icon ? (
-          <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-surface-muted text-primary-ink">
+          <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-surface-muted text-accent">
             {icon}
           </span>
         ) : null}

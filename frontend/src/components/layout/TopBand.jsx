@@ -4,16 +4,19 @@ import logo from "../../assets/MSRIT.png";
 // because the two used to be different shapes (a rounded navy card on the public pages, a band on
 // the admin ones) and that difference was visible when moving between them.
 //
-// FULL-BLEED IS LOAD-BEARING, not a style choice: the logo PNG is a white-knockout asset — its
-// "Ramaiah Institute of Technology" wordmark is baked in as white on transparent — so it only reads
-// on a dark ground. A floating card would work too, but the band is what the design settled on and
-// either way the logo may never sit on a light surface.
+// THE BAND HAS NO CHROME COLOUR: it is the page (`bg-surface-1`) with a `border-b` under it. The
+// crest's red shield reads on that ground in both themes (4.45 light, 3.48 dark), so a coloured
+// slab behind it was only adding weight.
+//
+// ⚠ The logo PNG still carries a WHITE-KNOCKOUT wordmark, which needs a dark ground. On this light
+// band the shield shows and the wordmark does not. The asset must be re-exported with dark text
+// (owner said they would handle the logo); until then, treat the wordmark as missing, not broken.
 //
 // `children` is the left group: the sidebar's hamburger on admin pages, the Dark Mode toggle plus
 // any page action on the public ones. The logo stays right in both.
 function TopBand({ children = null }) {
   return (
-    <div className="flex items-center justify-between gap-3 bg-secondary px-4 py-3 sm:px-6">
+    <div className="flex items-center justify-between gap-3 border-b border-stroke bg-surface-1 px-4 py-3 sm:px-6">
       {/* Always rendered, even when empty: it is what holds the logo against the right edge. */}
       <div className="flex flex-wrap items-center gap-2">{children}</div>
       <img src={logo} alt="Ramaiah Institute of Technology" className="h-10 w-auto" />

@@ -47,7 +47,7 @@ export default function HeroSection() {
             <span
               className={`inline-flex self-center items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] ${
                 regStatus.open
-                  ? "bg-primary-tint text-primary-ink"
+                  ? "bg-success-tint text-success"
                   : "bg-surface-muted text-secondary-ink"
               }`}
             >

@@ -119,7 +119,7 @@ function CsvImportPanel({
       />
 
       {error && (
-        <p className="mt-3 text-sm text-red-600" role="alert" data-cy={`${dataCyPrefix}-error`}>
+        <p className="mt-3 text-sm text-alert" role="alert" data-cy={`${dataCyPrefix}-error`}>
           {error}
         </p>
       )}

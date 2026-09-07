@@ -14,9 +14,10 @@ import { btn } from "../../lib/buttonClasses";
 // one row at two different sizes, which is exactly what the button system exists to stop. `md` is
 // the default because the common case is an inline form action; the near-empty pages (404, the
 // error boundary) stack it with other `lg` buttons and pass size="lg".
+// No glow: it was a second shade existing only for this halo. shadow-soft plus the press feedback
+// still separate it, and the accent fill is the only saturated thing on a resting page anyway.
 const DECOR = [
   "shadow-soft transition-[box-shadow,transform] duration-200",
-  "hover:shadow-[0_10px_30px_var(--color-cta-glow)]",
   // press feedback
   "active:scale-[0.98]",
 ].join(" ");

@@ -350,7 +350,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
         </div>
 
         {error && (
-          <p className="mt-3 text-sm text-red-600" role="alert" data-cy="claim-error">
+          <p className="mt-3 text-sm text-alert" role="alert" data-cy="claim-error">
             {error}
           </p>
         )}
@@ -368,7 +368,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
             {batchRows(results)
               .filter((r) => r.status === "ERROR")
               .map((r) => (
-                <p key={r.rollNo} className="mt-1 text-xs text-red-600">
+                <p key={r.rollNo} className="mt-1 text-xs text-alert">
                   {r.rollNo}: {r.message}
                 </p>
               ))}
@@ -417,7 +417,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
                             <td className="px-4 py-2.5">{s.currentSemester}</td>
                             <td className="px-4 py-2.5">
                               {s.mine ? (
-                                <span className="rounded-full bg-primary-tint px-2.5 py-0.5 text-xs font-semibold text-primary-ink">
+                                <span className="rounded-full bg-accent-tint px-2.5 py-0.5 text-xs font-semibold text-ink">
                                   {isProctor ? "Yours" : "This proctor's"}
                                 </span>
                               ) : s.proctored ? (

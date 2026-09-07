@@ -189,7 +189,7 @@ function ExamCyclePage() {
                     <td className="px-4 py-3">
                       <span className="font-semibold text-ink">{c.name}</span>
                       {c.active && (
-                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary-tint px-2.5 py-0.5 text-[11px] font-semibold text-primary-ink">
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-success-tint px-2.5 py-0.5 text-[11px] font-semibold text-success">
                           <CheckCircle2 size={12} /> Active
                         </span>
                       )}
@@ -202,7 +202,7 @@ function ExamCyclePage() {
                       <div className="flex items-center justify-end gap-3 whitespace-nowrap">
                         {c.active ? (
                           <>
-                            <span className="text-xs font-semibold text-primary-ink">
+                            <span className="text-xs font-semibold text-success">
                               Accepting registrations
                             </span>
                             <button

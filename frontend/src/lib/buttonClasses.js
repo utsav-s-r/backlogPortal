@@ -33,24 +33,23 @@ const SIZES = {
   lg: "px-5 py-3 text-sm",
 };
 
-/** Colour carries the meaning, so a control keeps the colour it already had: a red-texted delete
- *  becomes a red fill, a navy one stays navy. Flattening a coloured control to `neutral` loses
- *  information and is the same defect as dropping the control. */
+/** Colour carries the meaning: `accent` is the thing to press, `danger` the thing that destroys.
+ *  Flattening a coloured control to `neutral` loses information and is the same defect as dropping
+ *  the control. Hover is always a DIFFERENT FILL, never the appearance of an edge. */
 const TONES = {
-  neutral: "bg-surface-muted text-ink hover:bg-primary-tint",
-  /** THE emphasized tone — there is exactly one, and every emphasized action uses it. There were
-   *  three (`cta`, `primary`, `navy`): `primary` resolved to the SAME maroon as `cta` in light, and
-   *  `navy` put a second accent colour next to it, so one row could show a navy button beside a
-   *  maroon one for no reason a reader could infer. `--color-cta` is the survivor because it is the
-   *  only theme-aware one — it goes BRIGHTER in dark, where the maroon is nearly invisible against
-   *  the navy page. */
-  accent: "bg-cta text-cta-text hover:bg-primary",
-  danger: "bg-red-50 text-red-600 hover:bg-red-100",
-  /** Confirming a destructive action — solid, because it is the point of no return. */
-  dangerSolid: "bg-red-600 text-white hover:bg-red-700",
-  /** On the navy top band, where the ground is dark in BOTH themes, so these are white alphas and
-   *  need no [data-theme="dark"] counterpart. */
-  onNavy: "bg-white/20 text-white hover:bg-white/30",
+  /** The workhorse. Hover lifts to the accent at low alpha — the same tint that marks a selected
+   *  row, so "you can press this" and "this is chosen" read as one family. */
+  neutral: "bg-surface-muted text-ink hover:bg-accent-tint",
+  /** THE emphasized tone, and the one saturated thing on a resting page. `text-on-accent` resolves
+   *  to the page surface, so the label flips with the theme by itself — never hardcode it white. */
+  accent: "bg-accent text-on-accent hover:opacity-90",
+  /** Destructive. A FILL, not red text: a delete must not be mistakable for an error message, which
+   *  is what happened while both were `text-red-600`. */
+  danger: "bg-alert text-on-accent hover:opacity-90",
+  /** No fill until hovered — for a control in the top band or the rail, where a filled pill would
+   *  compete with the page's own primary action. Renamed from `onNavy` when the chrome colour was
+   *  removed: there is no navy ground any more, so white alphas had nothing to sit on. */
+  quiet: "text-ink hover:bg-surface-muted",
 };
 
 /**

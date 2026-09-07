@@ -90,7 +90,7 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
     <>
       <section className="py-5 sm:py-6">
         {deptLocked && adminDepartment && (
-          <p className="mb-4 text-xs font-semibold text-primary-ink">
+          <p className="mb-4 text-xs font-semibold text-ink-muted">
             Scoped to {adminDepartment}
           </p>
         )}
@@ -148,7 +148,7 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
         </div>
 
         {error && (
-          <p className="mt-3 text-sm text-red-600" role="alert" data-cy="students-error">
+          <p className="mt-3 text-sm text-alert" role="alert" data-cy="students-error">
             {error}
           </p>
         )}
@@ -334,11 +334,11 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
           <td className="px-4 py-3 font-semibold text-ink">
             {student.name}
             {notice && (
-              <p className="mt-1 text-xs font-semibold text-primary-ink">{notice}</p>
+              <p className="mt-1 text-xs font-semibold text-success">{notice}</p>
             )}
             {error && (
               <p
-                className="mt-1 text-xs text-red-600"
+                className="mt-1 text-xs text-alert"
                 role="alert"
                 data-cy={`student-error-${student.rollNo}`}
               >
@@ -451,7 +451,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
           </button>
         </div>
         {error && (
-          <p className="mt-2 text-xs text-red-600" role="alert">
+          <p className="mt-2 text-xs text-alert" role="alert">
             {error}
           </p>
         )}
@@ -553,7 +553,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
       )}
 
       {error && (
-        <p className="mt-3 text-sm text-red-600" role="alert" data-cy="student-edit-error">
+        <p className="mt-3 text-sm text-alert" role="alert" data-cy="student-edit-error">
           {error}
         </p>
       )}
@@ -650,7 +650,7 @@ function StudentSemesters({ rollNo }) {
         <SemesterTimeline student={data} onSaveYear={saveYear} busy={busy} />
       ) : null}
       {error && (
-        <p className="mt-2 text-xs text-red-600" role="alert">
+        <p className="mt-2 text-xs text-alert" role="alert">
           {error}
         </p>
       )}
