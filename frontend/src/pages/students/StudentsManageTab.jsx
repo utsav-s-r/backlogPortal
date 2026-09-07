@@ -358,7 +358,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
                 onClick={() => setShowSems((v) => !v)}
                 data-cy={`student-sems-${student.rollNo}`}
                 aria-expanded={showSems}
-                className={btn(showSems ? "primary" : "neutral", "sm")}
+                className={btn(showSems ? "accent" : "neutral", "sm")}
               >
                 <CalendarClock size={13} /> Semesters
               </button>
@@ -438,7 +438,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
             onClick={saveDob}
             disabled={busy}
             data-cy={`student-dob-save-${student.rollNo}`}
-            className={btn("primary")}
+            className={btn("accent")}
           >
             {busy ? <LoaderCircle size={14} className="animate-spin" /> : <Check size={14} />} Save
           </button>
@@ -564,7 +564,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
           onClick={save}
           disabled={busy}
           data-cy="student-save"
-          className={btn("primary")}
+          className={btn("accent")}
         >
           {busy ? <LoaderCircle size={14} className="animate-spin" /> : <Check size={14} />} Save
         </button>

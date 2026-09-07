@@ -38,11 +38,13 @@ const SIZES = {
  *  information and is the same defect as dropping the control. */
 const TONES = {
   neutral: "bg-surface-muted text-ink hover:bg-primary-tint",
-  /** The accent. --color-cta is the ONE token that goes brighter in dark, so this reads as the
-   *  loudest thing on the page in both themes. Reserve it for the page's single main action. */
-  cta: "bg-cta text-cta-text hover:bg-primary",
-  primary: "bg-primary text-white hover:bg-cta",
-  navy: "bg-secondary text-white hover:bg-primary",
+  /** THE emphasized tone — there is exactly one, and every emphasized action uses it. There were
+   *  three (`cta`, `primary`, `navy`): `primary` resolved to the SAME maroon as `cta` in light, and
+   *  `navy` put a second accent colour next to it, so one row could show a navy button beside a
+   *  maroon one for no reason a reader could infer. `--color-cta` is the survivor because it is the
+   *  only theme-aware one — it goes BRIGHTER in dark, where the maroon is nearly invisible against
+   *  the navy page. */
+  accent: "bg-cta text-cta-text hover:bg-primary",
   danger: "bg-red-50 text-red-600 hover:bg-red-100",
   /** Confirming a destructive action — solid, because it is the point of no return. */
   dangerSolid: "bg-red-600 text-white hover:bg-red-700",

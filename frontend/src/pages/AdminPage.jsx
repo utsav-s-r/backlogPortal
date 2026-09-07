@@ -385,7 +385,7 @@ function AdminPage() {
           </p>
           <Link
             to="/admin/login"
-            className={btn("cta", "lg")}
+            className={btn("accent", "lg")}
           >
             Go to Admin Login
           </Link>
@@ -419,7 +419,7 @@ function AdminPage() {
                     setPage(0); // switching status tab restarts at the first page
                     setFilter(f);
                   }}
-                  className={`${btn(filter === f ? "primary" : "neutral")} tracking-[0.06em]`}
+                  className={`${btn(filter === f ? "accent" : "neutral")} tracking-[0.06em]`}
                   data-cy={`admin-filter-${f.toLowerCase()}`}
                 >
                   {f}
@@ -443,7 +443,7 @@ function AdminPage() {
                 onClick={handleExportPdf}
                 disabled={isExporting}
                 data-cy="admin-export-pdf"
-                className={btn("navy")}
+                className={btn("accent")}
               >
                 {isExporting ? (
                   <LoaderCircle size={14} className="animate-spin" />
@@ -612,7 +612,7 @@ function AdminPage() {
                                 onClick={() => handleVerify(reg.regId)}
                                 disabled={verifyingRegId === reg.regId || rejectingRegId === reg.regId}
                                 data-cy="admin-verify"
-                                className={`${btn("primary", "sm")} w-24`}
+                                className={`${btn("accent", "sm")} w-24`}
                               >
                                 {verifyingRegId === reg.regId ? (
                                   <LoaderCircle size={13} className="animate-spin" />

@@ -222,7 +222,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                   setSubjectType(type);
                   setEligibleDeptIds([]);
                 }}
-                className={btn(subjectType === type ? "primary" : "neutral")}
+                className={btn(subjectType === type ? "accent" : "neutral")}
               >
                 {type.charAt(0) + type.slice(1).toLowerCase()}
               </button>

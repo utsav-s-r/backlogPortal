@@ -204,7 +204,7 @@ function StudentDashboardPage() {
                         type="button"
                         onClick={savePhone}
                         disabled={savingPhone}
-                        className={btn("primary")}
+                        className={btn("accent")}
                         data-cy="phone-save"
                       >
                         {savingPhone ? (

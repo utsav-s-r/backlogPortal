@@ -98,7 +98,7 @@ export default function HeroSection() {
                 carried was the brand navy — so navy fill, maroon on hover. */}
             <Link
               to="/admin/login"
-              className={btn("navy")}
+              className={btn("accent")}
             >
               <ShieldCheck size={16} /> Admin Access
             </Link>

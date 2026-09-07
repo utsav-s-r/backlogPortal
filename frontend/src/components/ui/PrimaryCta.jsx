@@ -9,8 +9,12 @@ import { btn } from "../../lib/buttonClasses";
 // size as everything beside it — it was rounded-full while every other button was rounded-lg, which
 // read as two different button families on one page. What still makes it the primary action is the
 // glow and the press feedback, which nothing else has.
-const BASE = [
-  btn("cta", "lg"),
+// SIZE MUST MATCH WHATEVER SITS BESIDE IT. This was hardcoded to "lg" while its neighbours were
+// "md", so "Apply filters" rendered 44px tall next to a 36px "Clear all filters" — two buttons in
+// one row at two different sizes, which is exactly what the button system exists to stop. `md` is
+// the default because the common case is an inline form action; the near-empty pages (404, the
+// error boundary) stack it with other `lg` buttons and pass size="lg".
+const DECOR = [
   "shadow-soft transition-[box-shadow,transform] duration-200",
   "hover:shadow-[0_10px_30px_var(--color-cta-glow)]",
   // press feedback
@@ -20,13 +24,14 @@ const BASE = [
 export default function PrimaryCta({
   children,
   className,
+  size = "md",
   as: Component = "button",
   type = "button",
   ...props
 }) {
   return (
     <Component
-      className={[BASE, className].filter(Boolean).join(" ")}
+      className={[btn("accent", size), DECOR, className].filter(Boolean).join(" ")}
       {...(Component === "button" ? { type } : {})}
       {...props}
     >

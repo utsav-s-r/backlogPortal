@@ -210,7 +210,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
                   type="button"
                   onClick={() => toggleSem(s)}
                   data-cy={`clone-sem-${s}`}
-                  className={btn(on ? "primary" : "neutral", "sm")}
+                  className={btn(on ? "accent" : "neutral", "sm")}
                 >
                   {s}
                 </button>

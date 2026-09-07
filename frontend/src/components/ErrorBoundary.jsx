@@ -41,7 +41,7 @@ class ErrorBoundary extends Component {
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className={btn("cta", "lg")}
+              className={btn("accent", "lg")}
               data-cy="error-boundary-reload"
             >
               Reload page

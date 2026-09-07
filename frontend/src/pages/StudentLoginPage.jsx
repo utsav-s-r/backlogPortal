@@ -147,7 +147,7 @@ function StudentLoginPage() {
         <div className="mt-6 text-center">
           <Link
             to="/"
-            className={btn()}
+            className={`${btn()} w-full`}
           >
             <ArrowLeft size={14} /> Back to home
           </Link>

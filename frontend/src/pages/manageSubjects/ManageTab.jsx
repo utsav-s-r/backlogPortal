@@ -404,7 +404,7 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
           onClick={save}
           disabled={busy}
           data-cy="subject-save"
-          className={btn("primary")}
+          className={btn("accent")}
         >
           {busy ? <LoaderCircle size={14} className="animate-spin" /> : <Check size={14} />} Save
         </button>

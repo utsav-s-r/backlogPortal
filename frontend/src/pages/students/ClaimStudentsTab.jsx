@@ -343,7 +343,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
             onClick={claim}
             disabled={busy || selected.size === 0}
             data-cy="claim-submit"
-            className={btn("primary")}
+            className={btn("accent")}
           >
             <Check size={15} /> Claim selected ({selected.size})
           </button>

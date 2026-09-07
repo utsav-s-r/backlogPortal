@@ -336,7 +336,7 @@ function DepartmentsPage() {
                               (codeEdits[d.id] || "") === (d.code || "") &&
                               (emailEdits[d.id] || "") === (d.contactEmail || ""))
                           }
-                          className={btn("navy", "sm")}
+                          className={btn("accent", "sm")}
                         >
                           {savingId === d.id ? (
                             <LoaderCircle size={14} className="animate-spin" />

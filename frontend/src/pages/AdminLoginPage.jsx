@@ -313,7 +313,7 @@ function AdminLoginPage() {
         <div className="mt-4 text-center">
           <Link
             to="/"
-            className={btn()}
+            className={`${btn()} w-full`}
           >
             <ArrowLeft size={14} /> Back to home
           </Link>

@@ -23,7 +23,7 @@ function NotFoundPage() {
         </p>
 
         <div className="mt-6 flex flex-col gap-2">
-          <PrimaryCta as={Link} to="/" className="w-full" data-cy="not-found-home">
+          <PrimaryCta as={Link} to="/" size="lg" className="w-full" data-cy="not-found-home">
             Go to home
           </PrimaryCta>
           <Link

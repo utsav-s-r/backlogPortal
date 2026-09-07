@@ -225,7 +225,7 @@ function ExamCyclePage() {
                             type="button"
                             onClick={() => handleActivate(c.id)}
                             disabled={activatingId === c.id}
-                            className={btn("navy", "sm")}
+                            className={btn("accent", "sm")}
                             data-cy="cycle-activate"
                           >
                             {activatingId === c.id ? (

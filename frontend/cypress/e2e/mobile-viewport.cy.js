@@ -191,13 +191,19 @@ describe("Mobile viewport (375x812)", () => {
 
     cy.get('[data-cy="nav-open"]').click();
 
-    // full-screen means BOTH dimensions — a partial panel with a scrim was explicitly rejected
-    cy.get("aside").then(([el]) => {
-      const r = el.getBoundingClientRect();
-      expect(r.width, "drawer width").to.equal(375);
-      expect(r.height, "drawer height").to.equal(812);
-      expect(r.top, "drawer top").to.equal(0);
-      expect(r.left, "drawer left").to.equal(0);
+    // Full-screen means BOTH dimensions — a partial panel with a scrim was explicitly rejected.
+    // Measured against the LAYOUT VIEWPORT, never against the cy.viewport() numbers: a classic
+    // scrollbar (Linux CI) takes 15px off the width that macOS's overlay scrollbars do not, so
+    // asserting the literal 375 passes locally and fails on the runner for a reason that has
+    // nothing to do with the drawer.
+    cy.window().then((win) => {
+      cy.get("aside").then(([el]) => {
+        const r = el.getBoundingClientRect();
+        expect(r.width, "drawer width").to.equal(win.innerWidth);
+        expect(r.height, "drawer height").to.equal(win.innerHeight);
+        expect(r.top, "drawer top").to.equal(0);
+        expect(r.left, "drawer left").to.equal(0);
+      });
     });
 
     // every destination an ADMIN gets, plus the utilities, all reachable in the open drawer

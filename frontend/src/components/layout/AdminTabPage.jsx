@@ -134,7 +134,7 @@ function AdminTabPage({
               // No border: selected is a SOLID maroon fill, unselected a neutral fill, hover a
               // different fill. An outline would be the one thing the no-box rule forbids, and
               // "hover adds a border" is exactly the edge-appearance it rules out.
-              className={btn(on ? "primary" : "neutral")}
+              className={btn(on ? "accent" : "neutral")}
             >
               <Icon size={15} /> {t.label}
             </button>
