@@ -33,7 +33,7 @@
      1. token redefinition — the default; covers everything above
      2. utility re-tints, `[data-theme="dark"] .bg-amber-50 {…}` — for the light-authored
         red/amber/green status tints that components use as palette classes
-     3. semantic one-offs — .admin-login-heading, .login-back-link
+     3. semantic one-offs — .admin-login-heading
 
    Rules:
    - New UI uses a token utility. Not a raw hex, not a palette class, and not `bg-[var(--x)]` —
@@ -94,9 +94,9 @@
      `bg-[rgba(145,25,28,0.0x)]` values across 11 files: being raw rgba, NO [data-theme="dark"] rule
      could reach them, so every one painted the LIGHT maroon wash onto the dark navy page. Four
      near-identical alphas (0.05/0.06/0.08/0.1) collapsed to this one — the differences were not
-     perceptible and a token that comes in four strengths is not a token. The dark value follows
-     --hero-badge-open-bg, which already solved this exact tint: the salmon, slightly stronger, so
-     it reads at all against the dark surface. */
+     perceptible and a token that comes in four strengths is not a token. The dark value is the salmon,
+     slightly stronger, so it reads at all against the dark surface. It also absorbed the homepage
+     hero's own badge/button tokens (2026-09-07), which the no-box pass made redundant. */
   --color-primary-tint: rgba(145, 25, 28, 0.08);
 
   --color-surface-1: #ffffff;
@@ -105,6 +105,9 @@
      the secondary/help shade; the brand-as-text pair above follows the same suffix. */
   --color-ink: #1a1a1a;
   --color-ink-muted: #4a4a4a;
+  /* HAIRLINE RULES ONLY — `border-t`/`border-b` between table rows and page sections. It is not an
+     outline colour any more: no card, panel or control carries a border, so a `border border-stroke`
+     appearing anywhere is the no-box rule being undone. */
   --color-stroke: rgba(36, 42, 82, 0.18);
   /* Keyboard focus indicator — the global :focus-visible outline below plus every
      `ring-focus-ring`. Its own token because the brand maroon it used to be measures 1.92 against
@@ -116,7 +119,10 @@
   /* Depth. Deliberately NOT in @theme: Tailwind decomposes a shadow token at build time (for the
      `shadow-red-500/50` color-modifier feature), compiling `.shadow-soft` to a baked-in literal
      rather than a var() reference — which would leave the [data-theme="dark"] override below dead
-     across all 56 usages, with nothing failing. Kept as the hand-written unlayered class instead. */
+     across all 3 remaining usages, with nothing failing. Kept as the hand-written unlayered class
+     instead. Down from 56: the no-box pass deleted every card that used a shadow as an outline.
+     The 3 left are PrimaryCta, ProcessSection's step marker, and the history dialog — where the
+     shadow says "above the page", which is the one thing it is still for. */
   --shadow-soft: 0 16px 40px rgba(36, 42, 82, 0.14);
   /* PrimaryCta hover glow — the accent at low alpha. --color-* named but kept OUT of @theme on
      purpose: it's only ever read inside an arbitrary shadow value, so generating bg-/text-/border-
@@ -134,15 +140,6 @@
      HeroSection/HomePage are theme-agnostic like the rest of the app. Values that are brand
      colors reference the existing var rather than repeating the hex. */
   --hero-text: var(--color-primary);
-  --hero-badge-open-bg: rgba(145, 25, 28, 0.08);
-  --hero-badge-open-border: rgba(145, 25, 28, 0.3);
-  --hero-badge-open-text: var(--color-primary);
-  --hero-badge-closed-bg: rgba(36, 42, 82, 0.06);
-  --hero-badge-closed-border: rgba(36, 42, 82, 0.25);
-  --hero-badge-closed-text: var(--color-secondary);
-  --hero-btn-bg: transparent;
-  --hero-btn-border: var(--color-secondary);
-  --hero-btn-text: var(--color-secondary);
 
   color-scheme: light;
   font-family: "Inter", system-ui, sans-serif;
@@ -169,8 +166,7 @@
   --text-on-dark-primary: #f0888b;
   --color-primary-ink: var(--text-on-dark-primary);
   --color-secondary-ink: var(--text-on-dark-secondary);
-  /* Salmon, not maroon: the maroon tint is invisible against the dark navy page. Matches
-     --hero-badge-open-bg's dark value. */
+  /* Salmon, not maroon: the maroon tint is invisible against the dark navy page. */
   --color-primary-tint: rgba(240, 136, 139, 0.15);
 
   /* CTA goes LIGHTER here so the button reads as a shape against the dark navy page (7.00 vs the
@@ -183,15 +179,6 @@
 
   /* Hero/backdrop dark values — see the light block for why these are tokens. */
   --hero-text: #ffffff;
-  --hero-badge-open-bg: rgba(240, 136, 139, 0.15);
-  --hero-badge-open-border: rgba(240, 136, 139, 0.4);
-  --hero-badge-open-text: #f472a0;
-  --hero-badge-closed-bg: rgba(255, 255, 255, 0.08);
-  --hero-badge-closed-border: rgba(255, 255, 255, 0.25);
-  --hero-badge-closed-text: rgba(255, 255, 255, 0.75);
-  --hero-btn-bg: rgba(255, 255, 255, 0.06);
-  --hero-btn-border: rgba(255, 255, 255, 0.55);
-  --hero-btn-text: #ffffff;
 
   color-scheme: dark;
 }
@@ -200,12 +187,6 @@
    overriding --color-secondary-ink's lavender; light mode keeps the navy, legible on the white
    card. Unlayered, so it beats the layered text utility regardless of source order. */
 [data-theme="dark"] .admin-login-heading {
-  color: #ffffff;
-}
-
-/* Login "Back to home" link: white in dark mode; light mode keeps the navy, legible on the
-   white card. */
-[data-theme="dark"] .login-back-link {
   color: #ffffff;
 }
 

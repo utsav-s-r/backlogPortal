@@ -107,7 +107,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
 
   return (
     <div
-      className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-8"
+      className="py-5 sm:py-8"
     >
       <h1 className="mb-2 text-2xl font-semibold text-secondary-ink sm:text-3xl">
         Add New Subject
@@ -221,10 +221,10 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                   setSubjectType(type);
                   setEligibleDeptIds([]);
                 }}
-                className={`rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
+                className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
                   subjectType === type
-                    ? "border-primary bg-primary-tint text-primary-ink"
-                    : "border-stroke bg-surface-muted text-ink hover:border-primary"
+                    ? "bg-primary text-white"
+                    : "bg-surface-muted text-ink hover:bg-primary-tint"
                 }`}
               >
                 {type.charAt(0) + type.slice(1).toLowerCase()}
@@ -249,10 +249,10 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                 return (
                   <label
                     key={dept.id}
-                    className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
+                    className={`flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-colors ${
                       checked
-                        ? "border-primary/40 bg-primary-tint"
-                        : "border-stroke bg-surface-muted hover:border-primary/40"
+                        ? "bg-primary-tint"
+                        : "bg-surface-muted hover:bg-primary-tint"
                     }`}
                   >
                     <input

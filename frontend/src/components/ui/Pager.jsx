@@ -23,7 +23,7 @@ function Pager({ pageInfo, busy, onGo, noun, dataCy = noun, className = "" }) {
   return (
     <div
       className={[
-        "flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm",
+        "flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-muted px-4 py-3 text-sm",
         className,
       ]
         .filter(Boolean)
@@ -39,7 +39,7 @@ function Pager({ pageInfo, busy, onGo, noun, dataCy = noun, className = "" }) {
           onClick={() => onGo(number - 1)}
           disabled={busy || number <= 0}
           data-cy={`${dataCy}-prev`}
-          className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-primary-tint disabled:opacity-40"
         >
           <ChevronLeft size={13} /> Prev
         </button>
@@ -48,7 +48,7 @@ function Pager({ pageInfo, busy, onGo, noun, dataCy = noun, className = "" }) {
           onClick={() => onGo(number + 1)}
           disabled={busy || number >= totalPages - 1}
           data-cy={`${dataCy}-next`}
-          className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-primary-tint disabled:opacity-40"
         >
           Next <ChevronRight size={13} />
         </button>

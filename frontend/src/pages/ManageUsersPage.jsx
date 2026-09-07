@@ -9,7 +9,6 @@ import {
   X,
 } from "lucide-react";
 import AlertBanner from "../components/AlertBanner";
-import { Link } from "react-router-dom";
 import AdminPageShell from "../components/layout/AdminPageShell";
 import PrimaryCta from "../components/ui/PrimaryCta";
 import api from "../lib/api";
@@ -19,7 +18,6 @@ import { DEPT_PINNED, ROLE, USER_MANAGEMENT_ROLES } from "../lib/roles";
 import { useRoleGuard } from "../hooks/useRoleGuard";
 import { FIELD_INPUT } from "../lib/formClasses";
 import Field from "../components/ui/Field";
-import HeaderPill from "../components/ui/HeaderPill";
 
 // Roles each actor may create. The server enforces the same rules; this only shapes the UI. Kept
 // as an explicit ladder rather than assembled from lib/roles' subsets — it is page policy keyed by
@@ -208,15 +206,7 @@ function ManageUsersPage() {
 
 
   return (
-    <AdminPageShell
-      containerClassName="max-w-5xl pb-8"
-      actions={
-        // size={14} matches AdminPage's My Password pill
-        <HeaderPill as={Link} to="/admin/change-password">
-          <KeyRound size={14} className="mr-0.5" /> My Password
-        </HeaderPill>
-      }
-    >
+    <AdminPageShell containerClassName="max-w-5xl pb-8">
 
       <div
         className="space-y-6"
@@ -256,7 +246,7 @@ function ManageUsersPage() {
         {notice && (
           <div
             role="status"
-            className="flex items-start justify-between gap-3 rounded-xl border border-stroke bg-primary-tint px-4 py-3 text-sm text-ink"
+            className="flex items-start justify-between gap-3 rounded-lg bg-primary-tint px-4 py-3 text-sm text-ink"
           >
             {notice.renamedFrom ? (
               <p>
@@ -285,10 +275,19 @@ function ManageUsersPage() {
         )}
 
         {/* Create user */}
-        <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-secondary-ink">
+        <section className="py-5 sm:py-6">
+          <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-secondary-ink">
             <UserPlus size={18} /> Create New User
           </h2>
+          {/* The derived default, stated where the account is made. The dismissible notice below
+              reports it for ONE created account; this says it up front for every one. */}
+          <p className="mb-4 text-sm text-ink-muted">
+            A new account starts on the derived default password,{" "}
+            <code className="rounded bg-surface-muted px-1 py-0.5 font-mono text-xs">
+              username4321
+            </code>
+            .
+          </p>
           <form
             onSubmit={handleCreate}
             className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end"
@@ -360,7 +359,7 @@ function ManageUsersPage() {
         </section>
 
         {/* User list */}
-        <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
+        <section className="py-5 sm:py-6">
           <h2 className="mb-4 text-lg font-semibold text-secondary-ink">
             Existing Users
           </h2>
@@ -415,7 +414,7 @@ function ManageUsersPage() {
                               type="button"
                               onClick={() => handleReset(u.username)}
                               disabled={busy}
-                              className="inline-flex items-center gap-1 rounded-lg border border-stroke px-2.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-primary hover:text-primary-ink disabled:opacity-50"
+                              className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-2.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-primary-tint hover:text-primary-ink disabled:opacity-50"
                             >
                               {busy ? (
                                 <LoaderCircle size={13} className="animate-spin" />
@@ -429,7 +428,7 @@ function ManageUsersPage() {
                                 type="button"
                                 onClick={() => handleRename(u.username)}
                                 disabled={busy}
-                                className="inline-flex items-center gap-1 rounded-lg border border-stroke px-2.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-primary hover:text-primary-ink disabled:opacity-50"
+                                className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-2.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-primary-tint hover:text-primary-ink disabled:opacity-50"
                               >
                                 <PencilLine size={13} /> Rename
                               </button>
@@ -438,7 +437,7 @@ function ManageUsersPage() {
                               type="button"
                               onClick={() => handleDelete(u.username)}
                               disabled={busy}
-                              className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                              className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
                             >
                               <Trash2 size={13} /> Delete
                             </button>

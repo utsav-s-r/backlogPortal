@@ -30,7 +30,7 @@ function buildTimelineRows(student) {
 // parses, persists, and feeds back a refreshed student.
 export function SemesterTimeline({ student, onSaveYear, busy }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-stroke">
+    <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead className="bg-surface-muted text-xs uppercase tracking-[0.08em] text-ink-muted">
           <tr>
@@ -96,7 +96,7 @@ function TermRow({ semester, academicYear, future, onSave, busy }) {
           onClick={() => onSave(semester, year)}
           disabled={busy || !year.trim() || year === original}
           data-cy={`prog-term-save-${semester}`}
-          className="rounded-md border border-stroke bg-surface-1 px-3 py-1 text-xs font-semibold transition-colors hover:border-primary disabled:opacity-50"
+          className="rounded-md bg-surface-muted px-3 py-1 text-xs font-semibold transition-colors hover:bg-primary-tint disabled:opacity-50"
         >
           Save
         </button>

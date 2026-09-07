@@ -1,17 +1,18 @@
 import { useState } from "react";
 import { ArrowLeft, LoaderCircle, Lock, UserPen } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import BrandHeader from "../components/layout/BrandHeader";
+import AdminLayout from "../components/layout/AdminLayout";
 import PrimaryCta from "../components/ui/PrimaryCta";
 import api, { clearAdminSession } from "../lib/api";
 import AlertBanner from "../components/AlertBanner";
 import { FIELD_INPUT } from "../lib/formClasses";
 import Field from "../components/ui/Field";
+import { BTN_QUIET } from "../lib/buttonClasses";
 
 // Self-service account settings for a signed-in admin-type user: password, and — since V4 made
 // usernames renamable — their own username. Nothing forces them here; accounts start on the derived
 // default (username + "4321") and stay on it until they choose otherwise, so every role reaches
-// this from the dashboard header.
+// this from the sidebar's "My password" row.
 function ChangePasswordPage() {
   const navigate = useNavigate();
 
@@ -91,12 +92,9 @@ function ChangePasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-1 px-4 py-10 sm:px-6 lg:px-8">
-      <div
-        className="mx-auto w-full max-w-md rounded-3xl border border-stroke bg-surface-1 p-6 shadow-soft sm:p-8"
-      >
+    <AdminLayout>
+      <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-6 text-left">
-          <BrandHeader className="mb-4" />
           <h1 className="text-3xl font-semibold text-secondary-ink">Account Settings</h1>
           <p className="mt-2 text-sm text-ink">
             Update your own sign-in details. Role and department are set by an administrator and
@@ -106,7 +104,8 @@ function ChangePasswordPage() {
 
         <h2 className="mb-4 text-xl font-semibold text-secondary-ink">Change Password</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Field label="Current Password" htmlFor="current-password" labelClassName="text-ink">
             <input
               id="current-password"
@@ -143,8 +142,10 @@ function ChangePasswordPage() {
             />
           </Field>
 
+          </div>
+
           {error && (
-            <AlertBanner tone="error" role="alert">
+            <AlertBanner tone="error" role="alert" className="mt-4">
               {error}
             </AlertBanner>
           )}
@@ -152,7 +153,7 @@ function ChangePasswordPage() {
           <PrimaryCta
             type="submit"
             disabled={loading}
-            className="mt-2 w-full gap-2 rounded-xl"
+            className="mt-4 gap-2 rounded-lg"
             aria-label="Change password"
           >
             {loading ? (
@@ -177,7 +178,8 @@ function ChangePasswordPage() {
           </p>
         </div>
 
-        <form onSubmit={handleRename} className="space-y-4">
+        <form onSubmit={handleRename}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="New Username" htmlFor="new-username" labelClassName="text-ink">
             <input
               id="new-username"
@@ -202,8 +204,10 @@ function ChangePasswordPage() {
             />
           </Field>
 
+          </div>
+
           {renameError && (
-            <AlertBanner tone="error" role="alert">
+            <AlertBanner tone="error" role="alert" className="mt-4">
               {renameError}
             </AlertBanner>
           )}
@@ -211,7 +215,7 @@ function ChangePasswordPage() {
           <PrimaryCta
             type="submit"
             disabled={renaming}
-            className="mt-2 w-full gap-2 rounded-xl"
+            className="mt-4 gap-2 rounded-lg"
             aria-label="Change username"
           >
             {renaming ? (
@@ -226,13 +230,13 @@ function ChangePasswordPage() {
         <div className="mt-4 text-center">
           <Link
             to="/admin"
-            className="inline-flex items-center gap-1 text-sm font-medium text-secondary-ink underline-offset-4 hover:underline"
+            className={BTN_QUIET}
           >
             <ArrowLeft size={14} /> Back to dashboard
           </Link>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }
 

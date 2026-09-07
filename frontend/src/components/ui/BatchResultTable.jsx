@@ -28,7 +28,7 @@ function BatchResultTable({ result, verb, dataCy, idLabel, idKey }) {
         {result.dryRun ? "Preview" : verb} — {result.created} created, {result.skipped} skipped,{" "}
         {result.errors} error(s)
       </p>
-      <div className="max-h-72 overflow-auto rounded-xl border border-stroke">
+      <div className="max-h-72 overflow-auto">
         <table className="w-full text-left text-sm">
           <thead className="sticky top-0 bg-surface-muted text-xs uppercase tracking-[0.08em] text-ink-muted">
             <tr>

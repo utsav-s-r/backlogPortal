@@ -133,7 +133,10 @@ function BulkProgressionTab({ departments }) {
     setBusy(false);
   };
 
-  const card = "rounded-2xl border border-stroke bg-surface-1 p-4 shadow-soft";
+  // A REPEATED list item, so spacing alone does not separate it — consecutive rows just run
+  // together. The hairline is the no-box rule's third mechanism and the one that fits a list;
+  // `first:border-t-0` keeps a rule off the top of the list, where there is nothing to divide.
+  const card = "border-t border-stroke py-4 first:border-t-0";
 
   return (
     <div className="flex flex-col gap-4">
@@ -234,7 +237,7 @@ function BulkProgressionTab({ departments }) {
               <p className={`mb-2 ${FIELD_LABEL} text-ink-muted`}>
                 Needs your attention ({preview.notPromoted.length})
               </p>
-              <div className="max-h-64 overflow-y-auto rounded-xl border border-stroke">
+              <div className="max-h-64 overflow-y-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-surface-muted text-xs uppercase tracking-[0.08em] text-ink-muted">
                     <tr>
@@ -317,7 +320,7 @@ function BulkProgressionTab({ departments }) {
         {history && history.length > 0 && (
           <ul className="flex flex-col gap-2">
             {history.map((b) => (
-              <li key={b.batchId} className="rounded-xl border border-stroke">
+              <li key={b.batchId} className="rounded-xl bg-surface-muted">
                 <button
                   type="button"
                   onClick={() => toggleBatch(b.batchId)}

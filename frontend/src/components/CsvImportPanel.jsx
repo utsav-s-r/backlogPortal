@@ -5,6 +5,7 @@ import BatchResultTable from "./ui/BatchResultTable";
 import api from "../lib/api";
 import { saveBlob } from "../lib/download";
 import { FIELD_INPUT } from "../lib/formClasses";
+import { BTN_QUIET } from "../lib/buttonClasses";
 
 // The shell every CSV importer shares — heading, prose, a controls row ending in Template, the
 // textarea, the error line, Preview/Import, the result table — plus the run itself, since the
@@ -91,7 +92,7 @@ function CsvImportPanel({
   const downloadTemplate = () => saveBlob(templateText, templateFilename, "text/csv");
 
   return (
-    <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
+    <section className="py-5 sm:py-6">
       <h2 className="mb-1 inline-flex items-center gap-2 text-lg font-semibold text-secondary-ink">
         <UploadCloud size={18} /> {title}
       </h2>
@@ -102,7 +103,7 @@ function CsvImportPanel({
         <button
           type="button"
           onClick={downloadTemplate}
-          className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-3 py-2 text-sm font-semibold transition-colors hover:border-primary"
+          className="inline-flex items-center gap-2 rounded-lg bg-surface-muted px-3 py-2 text-sm font-semibold transition-colors hover:bg-primary-tint"
           data-cy={`${dataCyPrefix}-template`}
         >
           <Download size={15} /> Template
@@ -129,7 +130,7 @@ function CsvImportPanel({
           onClick={() => run(true)}
           disabled={busy}
           data-cy={`${dataCyPrefix}-preview`}
-          className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-2 text-sm font-semibold transition-colors hover:border-primary disabled:opacity-60"
+          className={BTN_QUIET}
         >
           {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />} Preview
         </button>

@@ -117,7 +117,10 @@ describe("Students page", () => {
     cy.get('[data-cy="student-delete-1MS22CS001"]').click();
     cy.wait("@deleteStudent");
     cy.get('[data-cy="student-error-1MS22CS001"]').should("contain", "cannot be deleted");
-    cy.contains("Asha Rao").should("be.visible"); // still there
+    // Scoped to the ROW: the manage list is a table inside an overflow-x-auto scroller, so an
+    // individual <td> can be clipped at this viewport and Cypress rightly calls it not visible.
+    // The <tr> spans the table, which is what "the row survived the failed delete" actually means.
+    cy.contains("tr", "Asha Rao").should("be.visible"); // still there
   });
 
   it("deletes an unreferenced student", () => {

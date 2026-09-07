@@ -7,7 +7,7 @@ import { reportLoadError } from "../lib/loadError";
 import AlertBanner from "../components/AlertBanner";
 import { UNRESTRICTED } from "../lib/roles";
 import { useRoleGuard } from "../hooks/useRoleGuard";
-import { FIELD_CONTROL } from "../lib/formClasses";
+import { FIELD_CONTROL, FIELD_INPUT } from "../lib/formClasses";
 import Field from "../components/ui/Field";
 import { useArmedConfirm } from "../hooks/useArmedConfirm";
 
@@ -177,9 +177,12 @@ function DepartmentsPage() {
   if (!allowed) return null;
 
   return (
-    <AdminPageShell
-      containerClassName="max-w-3xl"
-    >
+    <AdminPageShell containerClassName="max-w-5xl">
+      <h1 className="text-2xl font-semibold text-secondary-ink">Departments</h1>
+      <p className="mb-6 mt-1 text-sm text-ink-muted">
+        Add departments and keep their codes and contact addresses current. A department that is
+        still referenced by a subject, a staff account or a student cannot be deleted.
+      </p>
 
       {error && (
         <AlertBanner
@@ -197,7 +200,7 @@ function DepartmentsPage() {
         </AlertBanner>
       )}
 
-      <section className="mb-6 rounded-2xl border border-stroke bg-surface-1 p-5 shadow-soft">
+      <section className="mb-6 py-5">
         <h3 className="mb-1 inline-flex items-center gap-2 text-lg font-semibold text-secondary-ink">
           <PlusCircle size={18} /> New Department
         </h3>
@@ -245,7 +248,7 @@ function DepartmentsPage() {
         </form>
       </section>
 
-      <section className="rounded-2xl border border-stroke bg-surface-1 p-5 shadow-soft">
+      <section className="py-5">
         <h3 className="mb-4 inline-flex items-center gap-2 text-lg font-semibold text-secondary-ink">
           <Building2 size={18} /> Departments
         </h3>
@@ -256,120 +259,140 @@ function DepartmentsPage() {
         ) : departments.length === 0 ? (
           <p className="text-sm text-ink-muted">No departments yet. Add one above.</p>
         ) : (
-          <ul className="space-y-3">
-            {departments.map((d) => (
-              <li
-                key={d.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stroke bg-surface-muted px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <input
-                    type="text"
-                    data-cy={`dept-name-input-${d.id}`}
-                    value={nameEdits[d.id] ?? ""}
-                    onChange={(e) =>
-                      setNameEdits((prev) => ({ ...prev, [d.id]: e.target.value }))
-                    }
-                    placeholder="Computer Science & Engineering"
-                    aria-label={`Name for ${d.deptName}`}
-                    className={`w-64 font-semibold ${FIELD_CONTROL}`}
-                  />
-                  {!d.code && (
-                    <p className="mt-1 text-xs text-red-600">No code set — students of this branch cannot register.</p>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="email"
-                    data-cy={`dept-email-input-${d.id}`}
-                    value={emailEdits[d.id] ?? ""}
-                    onChange={(e) =>
-                      setEmailEdits((prev) => ({ ...prev, [d.id]: e.target.value }))
-                    }
-                    placeholder="cse@msrit.edu"
-                    aria-label={`Contact email for ${d.deptName}`}
-                    className={`w-48 ${FIELD_CONTROL}`}
-                  />
-                  <input
-                    type="text"
-                    data-cy={`dept-code-input-${d.id}`}
-                    value={codeEdits[d.id] ?? ""}
-                    onChange={(e) =>
-                      setCodeEdits((prev) => ({
-                        ...prev,
-                        [d.id]: e.target.value.toUpperCase().slice(0, 2),
-                      }))
-                    }
-                    placeholder="CS"
-                    maxLength={2}
-                    aria-label={`Code for ${d.deptName}`}
-                    className={`w-16 text-center uppercase ${FIELD_CONTROL}`}
-                  />
-                  <button
-                    type="button"
-                    data-cy={`dept-save-${d.id}`}
-                    onClick={() => handleSaveRow(d)}
-                    disabled={
-                      savingId === d.id ||
-                      ((nameEdits[d.id] || "") === (d.deptName || "") &&
-                        (codeEdits[d.id] || "") === (d.code || "") &&
-                        (emailEdits[d.id] || "") === (d.contactEmail || ""))
-                    }
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary disabled:opacity-50"
-                  >
-                    {savingId === d.id ? (
-                      <LoaderCircle size={14} className="animate-spin" />
-                    ) : (
-                      <Save size={14} />
-                    )}
-                    Save
-                  </button>
-                  {confirmDelete.isArmed(d.id) ? (
-                    <>
-                      <button
-                        type="button"
-                        data-cy={`dept-delete-confirm-${d.id}`}
-                        onClick={() => handleDelete(d)}
-                        disabled={deletingId === d.id}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-                      >
-                        {deletingId === d.id ? (
-                          <LoaderCircle size={14} className="animate-spin" />
+          // A table, not stacked rows: name / code / email are three editable fields per
+          // department, and columns line them up so a missing code is visible down the column
+          // rather than buried in a row. Row separators are rules — no wrapper box.
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-stroke text-xs uppercase tracking-[0.08em] text-ink-muted">
+                  <th className="px-4 py-3 font-semibold">Name</th>
+                  <th className="px-4 py-3 font-semibold">Code</th>
+                  <th className="px-4 py-3 font-semibold">Contact email</th>
+                  <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {departments.map((d) => (
+                  <tr key={d.id} className="border-t border-stroke align-top">
+                    <td className="px-4 py-3">
+                      <input
+                        type="text"
+                        data-cy={`dept-name-input-${d.id}`}
+                        value={nameEdits[d.id] ?? ""}
+                        onChange={(e) =>
+                          setNameEdits((prev) => ({ ...prev, [d.id]: e.target.value }))
+                        }
+                        placeholder="Computer Science & Engineering"
+                        aria-label={`Name for ${d.deptName}`}
+                        className={`font-semibold ${FIELD_INPUT}`}
+                      />
+                      {!d.code && (
+                        <p className="mt-1 text-xs text-red-600">
+                          No code set — students of this branch cannot register.
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <input
+                        type="text"
+                        data-cy={`dept-code-input-${d.id}`}
+                        value={codeEdits[d.id] ?? ""}
+                        onChange={(e) =>
+                          setCodeEdits((prev) => ({
+                            ...prev,
+                            [d.id]: e.target.value.toUpperCase().slice(0, 2),
+                          }))
+                        }
+                        placeholder="CS"
+                        maxLength={2}
+                        aria-label={`Code for ${d.deptName}`}
+                        className={`w-16 text-center uppercase ${FIELD_CONTROL}`}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <input
+                        type="email"
+                        data-cy={`dept-email-input-${d.id}`}
+                        value={emailEdits[d.id] ?? ""}
+                        onChange={(e) =>
+                          setEmailEdits((prev) => ({ ...prev, [d.id]: e.target.value }))
+                        }
+                        placeholder="cse@msrit.edu"
+                        aria-label={`Contact email for ${d.deptName}`}
+                        className={FIELD_INPUT}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          data-cy={`dept-save-${d.id}`}
+                          onClick={() => handleSaveRow(d)}
+                          disabled={
+                            savingId === d.id ||
+                            ((nameEdits[d.id] || "") === (d.deptName || "") &&
+                              (codeEdits[d.id] || "") === (d.code || "") &&
+                              (emailEdits[d.id] || "") === (d.contactEmail || ""))
+                          }
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary disabled:opacity-50"
+                        >
+                          {savingId === d.id ? (
+                            <LoaderCircle size={14} className="animate-spin" />
+                          ) : (
+                            <Save size={14} />
+                          )}
+                          Save
+                        </button>
+                        {confirmDelete.isArmed(d.id) ? (
+                          <>
+                            <button
+                              type="button"
+                              data-cy={`dept-delete-confirm-${d.id}`}
+                              onClick={() => handleDelete(d)}
+                              disabled={deletingId === d.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                            >
+                              {deletingId === d.id ? (
+                                <LoaderCircle size={14} className="animate-spin" />
+                              ) : (
+                                <Trash2 size={14} />
+                              )}
+                              Confirm
+                            </button>
+                            <button
+                              type="button"
+                              data-cy={`dept-delete-cancel-${d.id}`}
+                              onClick={() => confirmDelete.disarm()}
+                              disabled={deletingId === d.id}
+                              className="inline-flex items-center rounded-lg bg-surface-muted px-3 py-2 text-xs font-semibold text-ink transition-colors hover:bg-primary-tint disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                          </>
                         ) : (
-                          <Trash2 size={14} />
+                          <button
+                            type="button"
+                            data-cy={`dept-delete-${d.id}`}
+                            onClick={() => {
+                              setError("");
+                              setSuccess("");
+                              confirmDelete.arm(d.id);
+                            }}
+                            aria-label={`Delete ${d.deptName}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
+                          >
+                            <Trash2 size={14} />
+                            Delete
+                          </button>
                         )}
-                        Confirm
-                      </button>
-                      <button
-                        type="button"
-                        data-cy={`dept-delete-cancel-${d.id}`}
-                        onClick={() => confirmDelete.disarm()}
-                        disabled={deletingId === d.id}
-                        className="inline-flex items-center rounded-lg border border-stroke px-3 py-2 text-xs font-semibold text-ink transition-colors hover:bg-surface-1 disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      data-cy={`dept-delete-${d.id}`}
-                      onClick={() => {
-                        setError("");
-                        setSuccess("");
-                        confirmDelete.arm(d.id);
-                      }}
-                      aria-label={`Delete ${d.deptName}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50"
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </AdminPageShell>

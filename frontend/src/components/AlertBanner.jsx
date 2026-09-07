@@ -8,15 +8,17 @@
 // Bare inline error text (`text-sm font-medium text-red-600`, no fill — AdminPage row/history
 // errors) is a DIFFERENT pattern and deliberately not routed through here.
 
-// Tone -> the one class triple that tone may use. Every class has a matching [data-theme="dark"]
+// Tone -> the one class PAIR that tone may use. No border: the tint IS the separation (no-box
+// rule), so a banner is a fill on the page, never an outlined card.
+// Every class has a matching [data-theme="dark"]
 // re-tint in index.css (:229-273); that block is what keeps these light-authored tints legible on
 // the dark page. A new tone needs its re-tints added there in the same edit, or it ships as a
 // bright patch in dark. Shades are the darkest with a re-tint: dark is unchanged by construction
 // (it collapses them anyway) and light gains contrast (red-700 on red-50 is 6.9:1, red-600 4.8:1).
 const TONES = {
-  error: "border-red-200 bg-red-50 text-red-700",
-  warning: "border-amber-200 bg-amber-50 text-amber-800",
-  success: "border-green-200 bg-green-50 text-green-800",
+  error: "bg-red-50 text-red-700",
+  warning: "bg-amber-50 text-amber-800",
+  success: "bg-green-50 text-green-800",
 };
 
 // Two sizes, not a spectrum: `default` is a page-level alert, `compact` an inline note that has to
@@ -38,7 +40,7 @@ function AlertBanner({
   ...rest
 }) {
   const classes = [
-    "rounded-xl border",
+    "rounded-lg",
     SIZES[compact ? "compact" : "default"],
     TONES[tone],
     icon ? "flex items-start gap-3" : "",

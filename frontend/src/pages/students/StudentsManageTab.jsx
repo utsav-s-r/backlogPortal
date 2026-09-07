@@ -28,6 +28,7 @@ import { FIELD_INPUT } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
 import Pager from "../../components/ui/Pager";
 import DepartmentOptions from "../../components/ui/DepartmentOptions";
+import { BTN_DANGER_SM, BTN_QUIET, BTN_ROW, BTN_SMALL_WIDE } from "../../lib/buttonClasses";
 
 const PAGE_SIZE = 25;
 
@@ -87,7 +88,7 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
 
   return (
     <>
-      <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
+      <section className="py-5 sm:py-6">
         {deptLocked && adminDepartment && (
           <p className="mb-4 text-xs font-semibold text-primary-ink">
             Scoped to {adminDepartment}
@@ -158,7 +159,7 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
             onClick={() => load(0)}
             disabled={busy}
             data-cy="students-load"
-            className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-2 text-sm font-semibold transition-colors hover:border-primary disabled:opacity-60"
+            className={BTN_QUIET}
           >
             {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />} Load students
           </button>
@@ -169,22 +170,40 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
         <section className="mt-6 flex flex-col gap-3">
           {students.length === 0 ? (
             <p
-              className="rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm"
+              className="rounded-lg bg-surface-muted px-4 py-3 text-sm"
               data-cy="students-empty"
             >
               No students match these filters.
             </p>
           ) : (
             <>
-              {students.map((student) => (
-                <StudentRow
-                  key={student.rollNo}
-                  student={student}
-                  proctorMode={proctorMode}
-                  onUpdated={onUpdated}
-                  onRemoved={onRemoved}
-                />
-              ))}
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-stroke text-xs uppercase tracking-[0.08em] text-ink-muted">
+                      <th className="px-4 py-3 font-semibold">USN</th>
+                      <th className="px-4 py-3 font-semibold">Name</th>
+                      <th className="px-4 py-3 font-semibold">Dept</th>
+                      <th className="px-4 py-3 font-semibold">Sem</th>
+                      <th className="px-4 py-3 font-semibold">Entry</th>
+                      <th className="px-4 py-3 font-semibold">Email</th>
+                      <th className="px-4 py-3 font-semibold">Phone</th>
+                      <th className="px-4 py-3 font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {students.map((student) => (
+                      <StudentRow
+                        key={student.rollNo}
+                        student={student}
+                        proctorMode={proctorMode}
+                        onUpdated={onUpdated}
+                        onRemoved={onRemoved}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <Pager pageInfo={pageInfo} busy={busy} onGo={load} noun="students" />
             </>
           )}
@@ -292,7 +311,9 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
     }
   };
 
-  const card = "rounded-2xl border border-stroke bg-surface-1 p-4 shadow-soft";
+  // A REPEATED list item, so spacing alone does not separate it — consecutive rows just run
+  // together. The hairline is the no-box rule's third mechanism and the one that fits a list;
+  // `first:border-t-0` keeps a rule off the top of the list, where there is nothing to divide.
   // students sit in even semesters and join at odd ones — two different lists, not one.
   // Legacy rows predate the parity rule, so a stored invalid value joins its list rather than
   // rendering as a blank select that submits something the admin never saw.
@@ -307,87 +328,101 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
 
   if (mode === "view") {
     return (
-      <div className={card}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-semibold text-ink">
-              {student.name}{" "}
-              <span className="font-mono text-xs text-ink-muted">{student.rollNo}</span>
-            </p>
-            <p className="text-xs text-ink-muted">
-              {student.branch || "—"} · Sem {student.currentSemester}
-              {student.entrySemester > 1 ? ` · entry sem ${student.entrySemester}` : ""}
-              {student.email ? ` · ${student.email}` : ""}
-              {student.phone ? ` · ${student.phone}` : ""}
-            </p>
-            {notice && <p className="mt-1.5 text-xs font-semibold text-primary-ink">{notice}</p>}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setShowSems((v) => !v)}
-              data-cy={`student-sems-${student.rollNo}`}
-              aria-expanded={showSems}
-              className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                showSems
-                  ? "border-primary text-primary-ink"
-                  : "border-stroke hover:border-primary"
-              }`}
-            >
-              <CalendarClock size={13} /> Semesters
-            </button>
-            <button
-              type="button"
-              onClick={startEdit}
-              data-cy={`student-edit-${student.rollNo}`}
-              className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary"
-            >
-              <Pencil size={13} /> Edit
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setDob("");
-                setError("");
-                setNotice("");
-                setMode("dob");
-              }}
-              data-cy={`student-dob-${student.rollNo}`}
-              className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary"
-            >
-              <KeyRound size={13} /> Reset DOB
-            </button>
-            <button
-              type="button"
-              onClick={remove}
-              disabled={busy}
-              data-cy={`student-delete-${student.rollNo}`}
-              className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
-            >
-              {busy ? (
-                <LoaderCircle size={13} className="animate-spin" />
-              ) : proctorMode ? (
-                <UserMinus size={13} />
-              ) : (
-                <Trash2 size={13} />
-              )}{" "}
-              {proctorMode ? "Remove" : "Delete"}
-            </button>
-          </div>
-        </div>
-        {error && (
-          <p className="mt-2 text-xs text-red-600" role="alert" data-cy={`student-error-${student.rollNo}`}>
-            {error}
-          </p>
+      <>
+        <tr className="border-t border-stroke align-top transition-colors hover:bg-surface-muted">
+          <td className="px-4 py-3 font-mono text-xs font-semibold text-ink">{student.rollNo}</td>
+          <td className="px-4 py-3 font-semibold text-ink">
+            {student.name}
+            {notice && (
+              <p className="mt-1 text-xs font-semibold text-primary-ink">{notice}</p>
+            )}
+            {error && (
+              <p
+                className="mt-1 text-xs text-red-600"
+                role="alert"
+                data-cy={`student-error-${student.rollNo}`}
+              >
+                {error}
+              </p>
+            )}
+          </td>
+          <td className="px-4 py-3">{student.branch || "\u2014"}</td>
+          <td className="px-4 py-3">{student.currentSemester}</td>
+          <td className="px-4 py-3">{student.entrySemester}</td>
+          <td className="px-4 py-3 text-ink-muted">{student.email || "\u2014"}</td>
+          <td className="px-4 py-3 text-ink-muted">{student.phone || "\u2014"}</td>
+          <td className="px-4 py-3">
+            <div className="flex gap-1.5 whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() => setShowSems((v) => !v)}
+                data-cy={`student-sems-${student.rollNo}`}
+                aria-expanded={showSems}
+                className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  showSems
+                    ? "bg-primary text-white"
+                    : "bg-surface-muted text-ink hover:bg-primary-tint"
+                }`}
+              >
+                <CalendarClock size={13} /> Semesters
+              </button>
+              <button
+                type="button"
+                onClick={startEdit}
+                data-cy={`student-edit-${student.rollNo}`}
+                className={BTN_ROW}
+              >
+                <Pencil size={13} /> Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDob("");
+                  setError("");
+                  setNotice("");
+                  setMode("dob");
+                }}
+                data-cy={`student-dob-${student.rollNo}`}
+                className={BTN_ROW}
+              >
+                <KeyRound size={13} /> Reset DOB
+              </button>
+              <button
+                type="button"
+                onClick={remove}
+                disabled={busy}
+                data-cy={`student-delete-${student.rollNo}`}
+                className={BTN_DANGER_SM}
+              >
+                {busy ? (
+                  <LoaderCircle size={13} className="animate-spin" />
+                ) : proctorMode ? (
+                  <UserMinus size={13} />
+                ) : (
+                  <Trash2 size={13} />
+                )}{" "}
+                {proctorMode ? "Remove" : "Delete"}
+              </button>
+            </div>
+          </td>
+        </tr>
+        {/* The timeline is its own full-width row: it is a panel about the student above it, not a
+            value belonging to any one column. */}
+        {showSems && (
+          <tr className="border-t border-stroke">
+            <td colSpan={8} className="px-4 pb-4">
+              <StudentSemesters rollNo={student.rollNo} />
+            </td>
+          </tr>
         )}
-        {showSems && <StudentSemesters rollNo={student.rollNo} />}
-      </div>
+      </>
     );
   }
 
   if (mode === "dob") {
     return (
-      <div className={card}>
+      <tr className="border-t border-stroke">
+        <td colSpan={8} className="px-4 py-4">
         <p className="mb-2 text-sm font-semibold">
           Reset date of birth — {student.name} ({student.rollNo})
         </p>
@@ -414,7 +449,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
           <button
             type="button"
             onClick={() => setMode("view")}
-            className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-2 text-sm font-semibold transition-colors hover:border-primary"
+            className={BTN_SMALL_WIDE}
           >
             <X size={14} /> Cancel
           </button>
@@ -424,13 +459,15 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
             {error}
           </p>
         )}
-      </div>
+        </td>
+      </tr>
     );
   }
 
   // edit mode
   return (
-    <div className={card}>
+    <tr className="border-t border-stroke">
+      <td colSpan={8} className="px-4 py-4">
       <p className="mb-3 text-sm font-semibold">
         Edit {student.rollNo}{" "}
         <span className="text-xs font-normal text-ink-muted">
@@ -538,12 +575,13 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
         <button
           type="button"
           onClick={() => setMode("view")}
-          className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-2 text-sm font-semibold transition-colors hover:border-primary"
+          className={BTN_SMALL_WIDE}
         >
           <X size={14} /> Cancel
         </button>
-      </div>
-    </div>
+        </div>
+      </td>
+    </tr>
   );
 }
 

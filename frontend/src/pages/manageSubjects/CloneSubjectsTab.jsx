@@ -14,6 +14,7 @@ import Field from "../../components/ui/Field";
 import { ALL_SEMESTERS } from "../../lib/semesters";
 import { batchStatusClass } from "../../lib/batchStatus";
 import DepartmentOptions from "../../components/ui/DepartmentOptions";
+import { BTN_QUIET } from "../../lib/buttonClasses";
 
 // Clone a department's subjects into the next academic year. Presentational tab: the shell
 // supplies departments and the dept-lock context.
@@ -137,7 +138,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
 
   return (
     <>
-      <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
+      <section className="py-5 sm:py-6">
         <h1 className="mb-1 inline-flex items-center gap-2 text-xl font-semibold text-secondary-ink">
           <Copy size={18} /> Clone subjects to a new year
         </h1>
@@ -195,10 +196,10 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
                 value only. Those name where a STUDENT joined and sits; these are SUBJECT semesters
                 being cloned. Swapping them in asserts a rule that does not apply here. */}
             <span className={FIELD_LABEL}>Semesters</span>
-            <button type="button" onClick={() => setSemesters([...ALL_SEMESTERS])} className="text-xs font-semibold text-primary-ink hover:underline">All</button>
-            <button type="button" onClick={() => setSemesters([1, 3, 5, 7])} className="text-xs font-semibold text-primary-ink hover:underline">Odd</button>
-            <button type="button" onClick={() => setSemesters([2, 4, 6, 8])} className="text-xs font-semibold text-primary-ink hover:underline">Even</button>
-            <button type="button" onClick={() => setSemesters([])} className="text-xs font-semibold text-ink-muted hover:underline">None</button>
+            <button type="button" onClick={() => setSemesters([...ALL_SEMESTERS])} className="rounded-lg bg-surface-muted px-2.5 py-1 text-xs font-semibold text-primary-ink transition-colors hover:bg-primary-tint">All</button>
+            <button type="button" onClick={() => setSemesters([1, 3, 5, 7])} className="rounded-lg bg-surface-muted px-2.5 py-1 text-xs font-semibold text-primary-ink transition-colors hover:bg-primary-tint">Odd</button>
+            <button type="button" onClick={() => setSemesters([2, 4, 6, 8])} className="rounded-lg bg-surface-muted px-2.5 py-1 text-xs font-semibold text-primary-ink transition-colors hover:bg-primary-tint">Even</button>
+            <button type="button" onClick={() => setSemesters([])} className="rounded-lg bg-surface-muted px-2.5 py-1 text-xs font-semibold text-ink-muted transition-colors hover:bg-primary-tint">None</button>
           </div>
           <div className="flex flex-wrap gap-2">
             {ALL_SEMESTERS.map((s) => {
@@ -209,10 +210,10 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
                   type="button"
                   onClick={() => toggleSem(s)}
                   data-cy={`clone-sem-${s}`}
-                  className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                  className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
                     on
-                      ? "border-primary bg-primary-tint text-primary-ink"
-                      : "border-stroke bg-surface-muted text-ink"
+                      ? "bg-primary text-white"
+                      : "bg-surface-muted text-ink hover:bg-primary-tint"
                   }`}
                 >
                   {s}
@@ -234,7 +235,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
             onClick={runPreview}
             disabled={busy}
             data-cy="clone-preview"
-            className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-2 text-sm font-semibold transition-colors hover:border-primary disabled:opacity-60"
+            className={BTN_QUIET}
           >
             {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />} Preview
           </button>
@@ -242,7 +243,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
       </section>
 
       {rows && (
-        <section className="mt-6 rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
+        <section className="mt-6 py-5 sm:py-6">
           <h2 className="mb-1 text-lg font-semibold text-secondary-ink">
             Draft for {formatAcademicYear(previewYears?.target)}
           </h2>
@@ -252,12 +253,12 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
           </p>
 
           {rows.length === 0 ? (
-            <p className="rounded-xl border border-stroke bg-surface-muted px-4 py-3 text-sm">
+            <p className="rounded-lg bg-surface-muted px-4 py-3 text-sm">
               No subjects found for {formatAcademicYear(previewYears?.source)} in the selected
               department and semesters.
             </p>
           ) : (
-            <div className="overflow-auto rounded-xl border border-stroke">
+            <div className="overflow-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-surface-muted text-xs uppercase tracking-[0.08em] text-ink-muted">
                   <tr>
@@ -317,7 +318,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
                         <button
                           type="button"
                           onClick={() => toggleRemove(r._key)}
-                          className="inline-flex items-center gap-1 rounded-md border border-stroke px-2 py-1 text-xs font-semibold text-ink transition-colors hover:border-primary"
+                          className="inline-flex items-center gap-1 rounded-md bg-surface-muted px-2 py-1 text-xs font-semibold text-ink transition-colors hover:bg-primary-tint"
                           data-cy={`clone-row-remove-${r.semester}`}
                         >
                           <Trash2 size={13} /> {r.removed ? "Undo" : "Remove"}
@@ -346,7 +347,7 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
           )}
 
           {result && (
-            <div className="mt-4 rounded-xl border border-stroke bg-surface-muted px-4 py-3 text-sm" data-cy="clone-result">
+            <div className="mt-4 rounded-lg bg-surface-muted px-4 py-3 text-sm" data-cy="clone-result">
               Done — {result.created} created, {result.skipped} skipped, {result.errors} error(s).
             </div>
           )}

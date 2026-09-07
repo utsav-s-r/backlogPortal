@@ -92,7 +92,7 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
 
   return (
     <div
-      className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-8"
+      className="py-5 sm:py-8"
     >
       <h2 className="mb-2 text-xl font-semibold text-secondary-ink">Add a student</h2>
       <p className="mb-6 text-sm text-ink-muted">

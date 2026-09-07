@@ -1,4 +1,5 @@
-import StickyNav from "../components/layout/StickyNav";
+import TopBand from "../components/layout/TopBand";
+import ThemeToggle from "../components/ui/ThemeToggle";
 import HeroSection from "../components/sections/HeroSection";
 import ProcessSection from "../components/sections/ProcessSection";
 import SkipLink from "../components/ui/SkipLink";
@@ -10,7 +11,11 @@ function HomePage() {
     // sits on the same flat surface as the rest of the app.
     <div className="min-h-screen bg-surface-1 text-ink">
       <SkipLink href="#main-content">Skip to main content</SkipLink>
-      <StickyNav />
+      {/* TopBand directly, not PageLayout: the hero and process sections are full-bleed and own
+          their own padding, so the layout's centred max-w container would box them in. */}
+      <TopBand>
+        <ThemeToggle />
+      </TopBand>
 
       <main id="main-content">
         <HeroSection />

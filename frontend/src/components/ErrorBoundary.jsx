@@ -1,4 +1,5 @@
 import { Component } from "react";
+import { BTN_QUIET_LG } from "../lib/buttonClasses";
 
 // The app's last line of defence. React only supports error boundaries as CLASS components — there
 // is no hook equivalent — and react-error-boundary is deliberately not a dependency, so this is
@@ -27,7 +28,7 @@ class ErrorBoundary extends Component {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface-1 px-4 py-10 text-ink sm:px-6 lg:px-8">
         <div
-          className="w-full max-w-md rounded-3xl border border-stroke bg-surface-1 p-6 shadow-soft sm:p-8"
+          className="w-full max-w-md py-6 sm:py-8"
           role="alert"
           data-cy="error-boundary"
         >
@@ -48,7 +49,7 @@ class ErrorBoundary extends Component {
             {/* A plain anchor, not <Link>: the router may be the thing that just threw. */}
             <a
               href="/"
-              className="inline-flex items-center justify-center rounded-xl border border-stroke bg-surface-muted px-5 py-3 text-sm font-semibold text-ink transition-colors hover:border-primary"
+              className={BTN_QUIET_LG}
               data-cy="error-boundary-home"
             >
               Go to home

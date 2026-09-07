@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import AlertBanner from "../components/AlertBanner";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import BrandHeader from "../components/layout/BrandHeader";
+import PageLayout from "../components/layout/PageLayout";
 import PrimaryCta from "../components/ui/PrimaryCta";
 import api, { getAdminToken, logoutAdmin } from "../lib/api";
 import { rememberExpiry } from "../lib/session";
@@ -20,6 +20,7 @@ import { DEPT_PINNED, STAFF_ROLES } from "../lib/roles";
 import { FIELD_INPUT, FIELD_LABEL } from "../lib/formClasses";
 import DepartmentOptions from "../components/ui/DepartmentOptions";
 import SkipLink from "../components/ui/SkipLink";
+import { BTN_QUIET } from "../lib/buttonClasses";
 
 // The five designation cards. Titles are load-bearing: several Cypress specs select a card by its
 // exact text, and `role` is what the login request sends. Local `ROLES`, distinct from lib/roles —
@@ -160,15 +161,11 @@ function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-1 px-4 py-10 sm:px-6 lg:px-8">
+    <PageLayout containerClassName="max-w-md">
       <SkipLink href="#admin-login-main">Skip to admin login</SkipLink>
 
-      <div
-        id="admin-login-main"
-        className="mx-auto w-full max-w-md rounded-3xl border border-stroke bg-surface-1 p-6 shadow-soft sm:p-8"
-      >
+      <div id="admin-login-main" className="py-6 sm:py-8">
         <div className="mb-6 text-left">
-          <BrandHeader className="mb-4" />
           <h1 className="admin-login-heading text-3xl font-semibold text-secondary-ink">
             {step === 1 ? "Select Designation" : "Staff Login"}
           </h1>
@@ -200,9 +197,9 @@ function AdminLoginPage() {
                 key={card.role}
                 onClick={() => handleRoleSelect(card.title, card.role)}
                 data-cy={`role-${card.role.toLowerCase().replace("_", "-")}`}
-                className="flex items-center gap-4 rounded-2xl border border-stroke bg-surface-muted p-4 text-left transition-all duration-200 hover:border-primary hover:bg-primary-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                className="flex items-center gap-4 rounded-lg bg-surface-muted p-4 text-left transition-all duration-200 hover:bg-primary-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-1 text-primary-ink shadow-sm">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-1 text-primary-ink">
                   <card.Icon size={24} />
                 </div>
                 <div>
@@ -316,13 +313,13 @@ function AdminLoginPage() {
         <div className="mt-4 text-center">
           <Link
             to="/"
-            className="login-back-link inline-flex items-center gap-1 text-sm font-medium text-secondary-ink underline-offset-4 hover:underline"
+            className={BTN_QUIET}
           >
             <ArrowLeft size={14} /> Back to home
           </Link>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }
 

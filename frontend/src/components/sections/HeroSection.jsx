@@ -40,28 +40,15 @@ export default function HeroSection() {
             textAlign: "center",
           }}
         >
+          {/* open/closed is data, not theme: each state is one FILL, and the token behind it
+              carries its own dark re-tint. No border — the fill is the badge. */}
           {regStatus !== null && (
             <span
-              style={{
-                display: "inline-flex",
-                alignSelf: "center",
-                borderRadius: "9999px",
-                padding: "6px 16px",
-                fontSize: "11px",
-                fontWeight: 600,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                // open/closed is data, not theme — the theme half lives in the tokens
-                background: regStatus.open
-                  ? "var(--hero-badge-open-bg)"
-                  : "var(--hero-badge-closed-bg)",
-                border: regStatus.open
-                  ? "1px solid var(--hero-badge-open-border)"
-                  : "1px solid var(--hero-badge-closed-border)",
-                color: regStatus.open
-                  ? "var(--hero-badge-open-text)"
-                  : "var(--hero-badge-closed-text)",
-              }}
+              className={`inline-flex self-center items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] ${
+                regStatus.open
+                  ? "bg-primary-tint text-primary-ink"
+                  : "bg-surface-muted text-secondary-ink"
+              }`}
             >
               {regStatus.open
                 ? `${regStatus.cycleName ? `${regStatus.cycleName} — ` : ""}Registrations Open`
@@ -106,22 +93,11 @@ export default function HeroSection() {
             <PrimaryCta as={Link} to="/register" className="gap-2">
               Start Registration <ArrowRight size={16} />
             </PrimaryCta>
+            {/* Was a 2px outline. The button rule makes it a FILL, and the colour it already
+                carried was the brand navy — so navy fill, maroon on hover. */}
             <Link
               to="/admin/login"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                borderRadius: "9999px",
-                border: "2px solid var(--hero-btn-border)",
-                padding: "10px 20px",
-                fontSize: "14px",
-                fontWeight: 600,
-                color: "var(--hero-btn-text)",
-                background: "var(--hero-btn-bg)",
-                transition: "all 0.2s",
-                textDecoration: "none",
-              }}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary"
             >
               <ShieldCheck size={16} /> Admin Access
             </Link>

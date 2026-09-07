@@ -12,9 +12,9 @@ import {
 } from "lucide-react";
 import AlertBanner from "../components/AlertBanner";
 import { Link, useNavigate } from "react-router-dom";
-import BrandHeader from "../components/layout/BrandHeader";
+import PageLayout from "../components/layout/PageLayout";
+import { BTN_ROW } from "../lib/buttonClasses";
 import PrimaryCta from "../components/ui/PrimaryCta";
-import ThemeToggle from "../components/ui/ThemeToggle";
 import api, { logoutStudent } from "../lib/api";
 import { saveBlob, readBlobErrorMessage } from "../lib/download";
 import ReadOnlyField from "../components/ui/ReadOnlyField";
@@ -23,9 +23,9 @@ import { FIELD_CONTROL, FIELD_LABEL } from "../lib/formClasses";
 
 function statusBadgeClass(status) {
   if (status === "VERIFIED")
-    return "border-primary/30 bg-primary-tint text-primary-ink";
-  if (status === "REJECTED") return "border-red-200 bg-red-50 text-red-600";
-  return "border-stroke bg-surface-muted text-ink";
+    return "bg-primary-tint text-primary-ink";
+  if (status === "REJECTED") return "bg-red-50 text-red-600";
+  return "bg-surface-muted text-ink";
 }
 
 function StudentDashboardPage() {
@@ -140,20 +140,20 @@ function StudentDashboardPage() {
     : "";
 
   return (
-    <div className="min-h-screen bg-surface-1 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-4xl">
-        <BrandHeader className="mb-6">
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <HeaderPill as={Link} to="/">
-              <ArrowLeft size={15} /> Home
-            </HeaderPill>
-            <HeaderPill onClick={handleLogout}>
-              <LogOut size={15} /> Log out
-            </HeaderPill>
-          </div>
-        </BrandHeader>
-
+    <PageLayout
+      containerClassName="max-w-4xl"
+      actions={
+        <>
+          <HeaderPill as={Link} to="/">
+            <ArrowLeft size={15} /> Home
+          </HeaderPill>
+          <HeaderPill onClick={handleLogout}>
+            <LogOut size={15} /> Log out
+          </HeaderPill>
+        </>
+      }
+    >
+      <div>
         {loading ? (
           <p className="inline-flex items-center gap-2 text-sm text-ink-muted">
             <LoaderCircle size={18} className="animate-spin" /> Loading your dashboard...
@@ -166,7 +166,7 @@ function StudentDashboardPage() {
           <>
             {/* Profile */}
             <section
-              className="mb-6 rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6"
+              className="mb-6 py-5 sm:py-6"
             >
               <h1 className="mb-1 text-2xl font-semibold text-secondary-ink">
                 {profile?.name || "Student"}
@@ -217,7 +217,7 @@ function StudentDashboardPage() {
                       <button
                         type="button"
                         onClick={() => setEditingPhone(false)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-2 text-sm font-semibold text-ink"
+                        className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-2 text-sm font-semibold text-ink"
                       >
                         <X size={14} /> Cancel
                       </button>
@@ -235,7 +235,7 @@ function StudentDashboardPage() {
                       <button
                         type="button"
                         onClick={startEditPhone}
-                        className="inline-flex items-center gap-1 text-sm font-semibold text-primary-ink hover:underline"
+                        className={BTN_ROW}
                         data-cy="phone-edit"
                       >
                         <Pencil size={13} /> {profile?.phone ? "Edit" : "Add phone"}
@@ -265,13 +265,13 @@ function StudentDashboardPage() {
 
             {/* Submissions */}
             <section
-              className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6"
+              className="py-5 sm:py-6"
             >
               <h2 className="mb-4 text-xl font-semibold text-ink">
                 Your Submissions
               </h2>
               {registrations.length === 0 ? (
-                <p className="rounded-xl border border-stroke bg-surface-muted px-4 py-3 text-sm text-ink">
+                <p className="rounded-lg bg-surface-muted px-4 py-3 text-sm text-ink">
                   You have no registrations yet.
                 </p>
               ) : (
@@ -279,12 +279,12 @@ function StudentDashboardPage() {
                   {registrations.map((reg) => (
                     <li
                       key={reg.regId}
-                      className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-stroke bg-surface-muted p-4 sm:flex-row sm:items-start"
+                      className="flex flex-col items-start justify-between gap-3 rounded-lg bg-surface-muted p-4 sm:flex-row sm:items-start"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="mb-1 flex items-center gap-2">
                           <span
-                            className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusBadgeClass(
+                            className={`inline-flex rounded-lg px-2.5 py-0.5 text-xs font-semibold ${statusBadgeClass(
                               reg.status,
                             )}`}
                           >
@@ -318,7 +318,7 @@ function StudentDashboardPage() {
                         type="button"
                         onClick={() => downloadPdf(reg.regId)}
                         disabled={downloadingId === reg.regId}
-                        className="inline-flex shrink-0 items-center gap-2 self-stretch justify-center rounded-xl border border-stroke bg-surface-1 px-4 py-2 text-sm font-semibold text-secondary-ink transition-colors hover:border-primary hover:text-primary-ink disabled:opacity-60 sm:self-start sm:justify-start"
+                        className="inline-flex shrink-0 items-center gap-2 self-stretch justify-center rounded-xl bg-surface-muted px-4 py-2 text-sm font-semibold text-secondary-ink transition-colors hover:bg-primary-tint hover:text-primary-ink disabled:opacity-60 sm:self-start sm:justify-start"
                         data-cy="download-pdf"
                       >
                         {downloadingId === reg.regId ? (
@@ -336,7 +336,7 @@ function StudentDashboardPage() {
           </>
         )}
       </div>
-    </div>
+    </PageLayout>
   );
 }
 

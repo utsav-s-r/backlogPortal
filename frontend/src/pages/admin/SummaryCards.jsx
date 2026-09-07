@@ -28,16 +28,13 @@ function SummaryCards({ counts, error }) {
 
   return (
     <>
-      <section className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <section className="mb-6 grid grid-cols-2 gap-6 sm:grid-cols-4">
         {/* `card.Icon`, not a destructured `Icon`: eslint-plugin-react is not enabled, so JSX use
             of a destructured component reads as an unused variable and takes lint off its known 9.
             AdminLoginPage's role cards do the same for the same reason. */}
         {CARDS.map((card) => (
-          <div
-            key={card.key}
-            className="rounded-2xl border border-stroke bg-surface-1 p-4 shadow-soft"
-          >
-            <p className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.1em] text-ink">
+          <div key={card.key}>
+            <p className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.1em] text-ink-muted">
               <card.Icon size={13} /> {card.label}
             </p>
             <p className={`mt-1 text-3xl font-semibold ${card.valueClass}`}>

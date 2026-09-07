@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import AlertBanner from "../components/AlertBanner";
 import { Link, useNavigate } from "react-router-dom";
-import BrandHeader from "../components/layout/BrandHeader";
+import PageLayout from "../components/layout/PageLayout";
 import PrimaryCta from "../components/ui/PrimaryCta";
 import api from "../lib/api";
 import { formatAcademicYear } from "../lib/academicYear";
@@ -264,7 +264,7 @@ function RegistrationPage() {
           </PrimaryCta>
           <Link
             to="/student"
-            className="inline-flex items-center justify-center rounded-full border border-stroke bg-surface-1 px-5 py-3 text-sm font-semibold text-secondary-ink transition-colors hover:border-primary hover:text-primary-ink"
+            className="inline-flex items-center justify-center rounded-lg bg-surface-muted px-5 py-3 text-sm font-semibold text-secondary-ink transition-colors hover:bg-primary-tint hover:text-primary-ink"
           >
             <ArrowLeft size={16} /> Back to Dashboard
           </Link>
@@ -275,22 +275,22 @@ function RegistrationPage() {
 
   // ---- main subject-selection form ----
   return (
-    <div className="min-h-screen bg-surface-1 text-ink">
-      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <BrandHeader className="mb-6">
-          <HeaderPill as={Link} to="/student"
-            aria-label="Back to dashboard">
-            <ArrowLeft size={15} /> Dashboard
-          </HeaderPill>
-        </BrandHeader>
-
+    <PageLayout
+      containerClassName="max-w-6xl"
+      actions={
+        <HeaderPill as={Link} to="/student" aria-label="Back to dashboard">
+          <ArrowLeft size={15} /> Dashboard
+        </HeaderPill>
+      }
+    >
+      <div>
         <div
-          className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-8"
+          className="py-5 sm:py-8"
         >
           {/* locked identity summary */}
           <section className="mb-6">
             <h2 className="mb-3 text-xl font-semibold text-ink">Registering as</h2>
-            <div className="grid grid-cols-1 gap-3 rounded-2xl border border-stroke bg-surface-muted p-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 rounded-lg bg-surface-muted p-4 sm:grid-cols-2">
               <ReadOnlyField label="Name" value={profile.name} />
               <ReadOnlyField label="USN" value={profile.rollNo} />
               <ReadOnlyField label="Email" value={profile.email} />
@@ -309,7 +309,7 @@ function RegistrationPage() {
           <section className="mb-6 border-t border-stroke pt-6">
             <h2 className="mb-4 text-xl font-semibold text-ink">Selected Subjects</h2>
             {selectedSubjects.length === 0 ? (
-              <p className="mb-6 rounded-xl border border-stroke bg-surface-muted px-4 py-3 text-sm">
+              <p className="mb-6 rounded-lg bg-surface-muted px-4 py-3 text-sm">
                 No subjects selected yet. Please search and add subjects below.
               </p>
             ) : (
@@ -317,7 +317,7 @@ function RegistrationPage() {
                 {selectedSubjects.map((subject) => (
                   <div
                     key={`sel-${subject.id}`}
-                    className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary-tint p-3 shadow-sm"
+                    className="flex items-center justify-between rounded-lg bg-primary-tint p-3"
                   >
                     {/* min-w-0: flex items default to min-width:auto, so without it the 4-fact meta
                         line overflowed the card and squeezed Remove on mobile. */}
@@ -342,7 +342,7 @@ function RegistrationPage() {
                     <button
                       type="button"
                       onClick={() => handleSubjectToggle(subject)}
-                      className="ml-3 shrink-0 rounded-md border border-stroke bg-surface-1 px-2 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50"
+                      className="ml-3 shrink-0 rounded-lg bg-red-50 bg-surface-1 px-2 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
                     >
                       Remove
                     </button>
@@ -352,7 +352,7 @@ function RegistrationPage() {
             )}
 
             {selectedSubjects.length > 0 && (
-              <div className="mb-6 flex items-center justify-between rounded-xl border border-stroke bg-surface-muted px-4 py-3 text-sm">
+              <div className="mb-6 flex items-center justify-between rounded-lg bg-surface-muted px-4 py-3 text-sm">
                 <span className="font-semibold text-ink">
                   {selectedSubjects.length}{" "}
                   {selectedSubjects.length === 1 ? "subject" : "subjects"} selected
@@ -392,7 +392,7 @@ function RegistrationPage() {
                 <span className={`${FIELD_LABEL} text-ink`}>
                   Academic Year
                 </span>
-                <div className="flex h-[42px] items-center rounded-xl border border-stroke bg-surface-muted px-3.5 text-sm text-ink">
+                <div className="flex h-[42px] items-center rounded-lg bg-surface-muted px-3.5 text-sm text-ink">
                   {resolvedAcademicYear
                     ? formatAcademicYear(resolvedAcademicYear)
                     : "Set automatically from your record"}
@@ -404,13 +404,13 @@ function RegistrationPage() {
             </div>
 
             {loadingSubjects ? (
-              <p className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-3 text-sm">
+              <p className="inline-flex items-center gap-2 rounded-lg bg-surface-muted px-4 py-3 text-sm">
                 <LoaderCircle size={16} className="animate-spin" /> Loading subjects...
               </p>
             ) : subjectsError ? (
               <AlertBanner tone="error">{subjectsError}</AlertBanner>
             ) : subjects.length === 0 ? (
-              <p className="rounded-xl border border-stroke bg-surface-muted px-4 py-3 text-sm">
+              <p className="rounded-lg bg-surface-muted px-4 py-3 text-sm">
                 {searchSemester
                   ? "No subjects found for the selected semester."
                   : "Select a semester to find subjects."}
@@ -422,10 +422,10 @@ function RegistrationPage() {
                   return (
                     <div
                       key={subject.id}
-                      className={`rounded-xl border p-3 transition-transform duration-200 motion-safe:hover:translate-y-[-2px] ${
+                      className={`rounded-lg p-3 transition-transform duration-200 motion-safe:hover:translate-y-[-2px] ${
                         isSelected
-                          ? "border-primary/45 bg-primary-tint opacity-60"
-                          : "border-stroke bg-surface-muted"
+                          ? "bg-primary-tint opacity-60"
+                          : "bg-surface-muted"
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -498,26 +498,23 @@ function RegistrationPage() {
           </PrimaryCta>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }
 
 function CenteredCard({ icon, eyebrow, title, children }) {
   return (
-    <div className="min-h-screen bg-surface-1 px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mx-auto mb-6 w-full max-w-2xl">
-        <BrandHeader>
-          <HeaderPill as={Link} to="/student"
-            aria-label="Back to dashboard">
-            <ArrowLeft size={15} /> Dashboard
-          </HeaderPill>
-        </BrandHeader>
-      </div>
-      <div
-        className="mx-auto w-full max-w-2xl rounded-3xl border border-stroke bg-surface-1 p-6 shadow-soft sm:p-8"
-      >
+    <PageLayout
+      containerClassName="max-w-2xl"
+      actions={
+        <HeaderPill as={Link} to="/student" aria-label="Back to dashboard">
+          <ArrowLeft size={15} /> Dashboard
+        </HeaderPill>
+      }
+    >
+      <div className="py-6 sm:py-8">
         {eyebrow ? (
-          <p className="mb-2 inline-flex rounded-full border border-primary/30 bg-surface-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
+          <p className="mb-2 inline-flex rounded-lg bg-primary-tint px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
             {eyebrow}
           </p>
         ) : null}
@@ -529,7 +526,7 @@ function CenteredCard({ icon, eyebrow, title, children }) {
         <h2 className="mb-3 text-3xl font-semibold text-secondary-ink">{title}</h2>
         {children}
       </div>
-    </div>
+    </PageLayout>
   );
 }
 
@@ -537,7 +534,7 @@ function BackLink({ to, label }) {
   return (
     <Link
       to={to}
-      className="inline-flex items-center justify-center gap-2 rounded-full border border-stroke bg-surface-1 px-5 py-3 text-sm font-semibold text-secondary-ink transition-colors hover:border-primary hover:text-primary-ink"
+      className="inline-flex items-center justify-center gap-2 rounded-lg bg-surface-muted px-5 py-3 text-sm font-semibold text-secondary-ink transition-colors hover:bg-primary-tint hover:text-primary-ink"
     >
       <ArrowLeft size={16} /> {label}
     </Link>

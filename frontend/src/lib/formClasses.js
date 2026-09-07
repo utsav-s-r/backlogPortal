@@ -14,9 +14,11 @@
  * react-refresh/only-export-components and takes lint off its known 9 errors.
  */
 
-/** The shell: border, padding, type scale, focus ring, placeholder and disabled treatment. */
+/** The shell: fill, padding, type scale, focus ring, placeholder and disabled treatment.
+ *  NO BORDER — a control is separated from the page by a FILL in a different colour, never an
+ *  outline. `bg-surface-muted` against the page's `bg-surface-1` is that fill, in both themes. */
 export const FIELD_CONTROL =
-  "rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none " +
+  "rounded-lg bg-surface-muted px-3.5 py-2.5 text-sm text-ink outline-none " +
   "transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 " +
   "focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60";
 

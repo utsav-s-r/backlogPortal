@@ -102,9 +102,12 @@ function ExamCyclePage() {
   if (!allowed) return null;
 
   return (
-    <AdminPageShell
-      containerClassName="max-w-3xl"
-    >
+    <AdminPageShell containerClassName="max-w-4xl">
+      <h1 className="text-2xl font-semibold text-secondary-ink">Exam cycles</h1>
+      <p className="mb-6 mt-1 text-sm text-ink-muted">
+        One cycle at a time is active, and that is the college-wide switch for student registration.
+        Admin only.
+      </p>
 
       {error && (
         <AlertBanner tone="error" className="mb-4">
@@ -112,7 +115,7 @@ function ExamCyclePage() {
         </AlertBanner>
       )}
 
-      <section className="mb-6 rounded-2xl border border-stroke bg-surface-1 p-5 shadow-soft">
+      <section className="mb-6 py-5">
         <h3 className="mb-4 inline-flex items-center gap-2 text-lg font-semibold text-secondary-ink">
           <PlusCircle size={18} /> New Exam Cycle
         </h3>
@@ -146,10 +149,18 @@ function ExamCyclePage() {
         </form>
       </section>
 
-      <section className="rounded-2xl border border-stroke bg-surface-1 p-5 shadow-soft">
+      <section className="py-5">
         <h3 className="mb-4 inline-flex items-center gap-2 text-lg font-semibold text-secondary-ink">
           <CalendarRange size={18} /> Exam Cycles
         </h3>
+        {/* No active cycle is the college-wide "registration is closed" state. It was only
+            inferable before, from the absence of an Active pill somewhere down the list. */}
+        {!loading && cycles.length > 0 && !cycles.some((c) => c.active) && (
+          <AlertBanner tone="warning" role="status" className="mb-4" data-cy="cycles-none-active">
+            No cycle is active, so <strong className="font-semibold">registration is closed</strong>.
+            Activating a cycle opens it college-wide.
+          </AlertBanner>
+        )}
         {loading ? (
           <p className="inline-flex items-center gap-2 text-sm">
             <LoaderCircle size={16} className="animate-spin" /> Loading...
@@ -159,62 +170,78 @@ function ExamCyclePage() {
             No exam cycles yet. Create one above — registrations stay closed until a cycle is active.
           </p>
         ) : (
-          <ul className="space-y-3">
-            {cycles.map((c) => (
-              <li
-                key={c.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stroke bg-surface-muted px-4 py-3"
-              >
-                <div>
-                  <p className="font-semibold text-ink">
-                    {c.name}
-                    {c.active && (
-                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary-tint px-2.5 py-0.5 text-[11px] font-semibold text-primary-ink">
-                        <CheckCircle2 size={12} /> Active
-                      </span>
-                    )}
-                  </p>
-                  {c.examMonthYear && (
-                    <p className="text-xs text-ink-muted">{c.examMonthYear}</p>
-                  )}
-                </div>
-                {c.active ? (
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-semibold text-primary-ink">Accepting registrations</span>
-                    <button
-                      type="button"
-                      onClick={() => handleEnd(c.id)}
-                      disabled={endingId === c.id}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
-                      data-cy="cycle-end"
-                    >
-                      {endingId === c.id ? (
-                        <LoaderCircle size={14} className="animate-spin" />
-                      ) : (
-                        <CircleSlash size={14} />
+          // A table, not stacked rows: four facts per cycle line up as columns, and the row
+          // separators are rules — no wrapper box.
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-stroke text-xs uppercase tracking-[0.08em] text-ink-muted">
+                  <th className="px-4 py-3 font-semibold">Cycle</th>
+                  <th className="px-4 py-3 font-semibold">Exam month / year</th>
+                  <th className="px-4 py-3 font-semibold">Created</th>
+                  <th className="px-4 py-3 text-right font-semibold">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cycles.map((c) => (
+                  <tr key={c.id} className="border-t border-stroke transition-colors hover:bg-surface-muted">
+                    <td className="px-4 py-3">
+                      <span className="font-semibold text-ink">{c.name}</span>
+                      {c.active && (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary-tint px-2.5 py-0.5 text-[11px] font-semibold text-primary-ink">
+                          <CheckCircle2 size={12} /> Active
+                        </span>
                       )}
-                      End cycle
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleActivate(c.id)}
-                    disabled={activatingId === c.id}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary disabled:opacity-50"
-                    data-cy="cycle-activate"
-                  >
-                    {activatingId === c.id ? (
-                      <LoaderCircle size={14} className="animate-spin" />
-                    ) : (
-                      <CheckCircle2 size={14} />
-                    )}
-                    Activate
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
+                    </td>
+                    <td className="px-4 py-3">{c.examMonthYear || "\u2014"}</td>
+                    <td className="px-4 py-3 text-ink-muted">
+                      {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "\u2014"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-3 whitespace-nowrap">
+                        {c.active ? (
+                          <>
+                            <span className="text-xs font-semibold text-primary-ink">
+                              Accepting registrations
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleEnd(c.id)}
+                              disabled={endingId === c.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
+                              data-cy="cycle-end"
+                            >
+                              {endingId === c.id ? (
+                                <LoaderCircle size={14} className="animate-spin" />
+                              ) : (
+                                <CircleSlash size={14} />
+                              )}
+                              End cycle
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleActivate(c.id)}
+                            disabled={activatingId === c.id}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary disabled:opacity-50"
+                            data-cy="cycle-activate"
+                          >
+                            {activatingId === c.id ? (
+                              <LoaderCircle size={14} className="animate-spin" />
+                            ) : (
+                              <CheckCircle2 size={14} />
+                            )}
+                            Activate
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </AdminPageShell>

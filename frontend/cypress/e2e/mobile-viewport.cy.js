@@ -21,8 +21,10 @@ describe("Mobile viewport (375x812)", () => {
     cy.intercept("GET", "/api/registration-status", { open: false }).as("regStatus");
     cy.visit("/");
     cy.contains("Register for your backlog exam").should("be.visible");
-    // the brand logo and the theme toggle share the sticky header row
-    cy.get('button[aria-label="Toggle theme"]').should("be.visible");
+    // the brand logo and the theme toggle share the sticky header row. The toggle is the WORDS
+    // "Dark Mode" next to a switch, so its accessible name is "Dark Mode" — there is no icon to
+    // label, which is the whole point of the design.
+    cy.get('button[aria-label="Dark Mode"]').should("be.visible");
     expectNoHorizontalScroll();
   });
 
@@ -155,7 +157,11 @@ describe("Mobile viewport (375x812)", () => {
     expectNoHorizontalScroll();
   });
 
-  it("admin header nav wraps so every button stays reachable", () => {
+  // Admin navigation is a full-screen drawer at this width, not a wrapping row of header pills:
+  // closed it must not be reachable at all, opened it must cover the screen and offer every
+  // destination. Asserting the drawer is CLOSED first is what keeps this honest — without it the
+  // test would pass on a drawer that never opened, since the rail's rows exist either way.
+  it("admin nav drawer opens full-screen and offers every destination", () => {
     cy.intercept("POST", "/api/auth/login", {
       statusCode: 200,
       body: { message: "Login success", role: "ADMIN", token: "admin-jwt-token" },
@@ -180,10 +186,33 @@ describe("Mobile viewport (375x812)", () => {
     cy.wait("@adminLogin");
     cy.wait("@getRegistrations");
 
-    // all nav buttons visible — the row wraps instead of clipping
-    ["Exam Cycles", "Subjects", "Departments", "Users", "Students", "Logout"].forEach(
-      (label) => cy.contains(label).should("be.visible"),
-    );
+    // closed: the rail is display:none below md, so nothing in it is reachable
+    cy.contains("a", "Exam cycles").should("not.be.visible");
+
+    cy.get('[data-cy="nav-open"]').click();
+
+    // full-screen means BOTH dimensions — a partial panel with a scrim was explicitly rejected
+    cy.get("aside").then(([el]) => {
+      const r = el.getBoundingClientRect();
+      expect(r.width, "drawer width").to.equal(375);
+      expect(r.height, "drawer height").to.equal(812);
+      expect(r.top, "drawer top").to.equal(0);
+      expect(r.left, "drawer left").to.equal(0);
+    });
+
+    // every destination an ADMIN gets, plus the utilities, all reachable in the open drawer
+    [
+      "Registrations",
+      "Students",
+      "Subjects",
+      "Exam cycles",
+      "Departments",
+      "Users",
+      "My password",
+      "Home",
+      "Log out",
+    ].forEach((label) => cy.contains(label).should("be.visible"));
+
     expectNoHorizontalScroll();
   });
 });

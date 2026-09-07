@@ -51,7 +51,7 @@ function FilterPanel({
   const electiveSubjects = allSubjects.filter((s) => s.subjectType === "ELECTIVE");
 
   return (
-    <section className="mb-6 rounded-2xl border border-stroke bg-surface-1 p-4 shadow-soft">
+    <section className="mb-6">
       <h3 className="mb-3 text-lg font-semibold text-secondary-ink">
         Filters
       </h3>
@@ -181,7 +181,7 @@ function FilterPanel({
         </Field>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-stroke pt-4">
+      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-stroke pt-4">
         <PrimaryCta
           type="button"
           onClick={applyFilters}
@@ -194,7 +194,7 @@ function FilterPanel({
           type="button"
           onClick={clearFilters}
           data-cy="admin-filters-clear"
-          className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-2 text-sm font-semibold transition-colors hover:border-primary"
+          className="inline-flex items-center gap-2 rounded-lg bg-surface-muted px-4 py-2 text-sm font-semibold transition-colors hover:bg-primary-tint"
         >
           <X size={15} /> Clear all filters
         </button>

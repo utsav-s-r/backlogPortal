@@ -15,6 +15,7 @@ import { ROLE } from "../../lib/roles";
 import { FIELD_INPUT } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
 import Pager from "../../components/ui/Pager";
+import { BTN_DANGER_SM, BTN_QUIET } from "../../lib/buttonClasses";
 
 
 const PAGE_SIZE = 25;
@@ -164,7 +165,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
   return (
     <div className="flex flex-col gap-6">
       {/* ---- current assignments ---- */}
-      <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
+      <section className="py-5 sm:py-6">
         <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-secondary-ink">
           <Users size={18} /> {isProctor ? "Students under your supervision" : "Assigned students"}
         </h2>
@@ -209,7 +210,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
           onClick={loadAssigned}
           disabled={assignedBusy || !targetChosen}
           data-cy="assigned-load"
-          className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-2 text-sm font-semibold transition-colors hover:border-primary disabled:opacity-60"
+          className={BTN_QUIET}
         >
           {assignedBusy ? <LoaderCircle size={15} className="animate-spin" /> : <Users size={15} />}
           Load assigned students
@@ -219,13 +220,13 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
           <div className="mt-4">
             {assigned.length === 0 ? (
               <p
-                className="rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm"
+                className="rounded-lg bg-surface-muted px-4 py-3 text-sm"
                 data-cy="assigned-empty"
               >
                 No students assigned yet — use the picker below to claim some.
               </p>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-stroke">
+              <div className="overflow-x-auto">
                 <table className="min-w-full border-collapse text-left text-sm" data-cy="assigned-list">
                   <thead>
                     <tr className="bg-surface-muted text-xs uppercase tracking-[0.08em]">
@@ -251,7 +252,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
                             onClick={() => removeAssignment(s.rollNo)}
                             disabled={removingRoll === s.rollNo}
                             data-cy={`assigned-remove-${s.rollNo}`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+                            className={BTN_DANGER_SM}
                           >
                             {removingRoll === s.rollNo ? (
                               <LoaderCircle size={13} className="animate-spin" />
@@ -272,7 +273,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
       </section>
 
       {/* ---- claim picker ---- */}
-      <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
+      <section className="py-5 sm:py-6">
         <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-secondary-ink">
           <UserCheck size={18} /> Claim students
         </h2>
@@ -332,7 +333,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
             }}
             disabled={busy || !targetChosen}
             data-cy="claim-load"
-            className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-2 text-sm font-semibold transition-colors hover:border-primary disabled:opacity-60"
+            className={BTN_QUIET}
           >
             {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />}
             Find students
@@ -356,7 +357,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
 
         {results && (
           <div
-            className="mt-4 rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm"
+            className="mt-4 rounded-lg bg-surface-muted px-4 py-3 text-sm"
             data-cy="claim-results"
           >
             <p className="font-semibold">
@@ -378,14 +379,14 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
           <div className="mt-4">
             {rows.length === 0 ? (
               <p
-                className="rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm"
+                className="rounded-lg bg-surface-muted px-4 py-3 text-sm"
                 data-cy="claim-empty"
               >
                 No students match these filters.
               </p>
             ) : (
               <>
-                <div className="overflow-x-auto rounded-2xl border border-stroke">
+                <div className="overflow-x-auto">
                   <table className="min-w-full border-collapse text-left text-sm">
                     <thead>
                       <tr className="bg-surface-muted text-xs uppercase tracking-[0.08em]">

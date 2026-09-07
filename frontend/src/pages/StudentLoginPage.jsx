@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, LogIn, LoaderCircle } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import BrandHeader from "../components/layout/BrandHeader";
+import PageLayout from "../components/layout/PageLayout";
 import PrimaryCta from "../components/ui/PrimaryCta";
 import api, { getStudentToken } from "../lib/api";
 import { rememberExpiry } from "../lib/session";
 import { safeRedirect } from "../lib/redirect";
 import AlertBanner from "../components/AlertBanner";
 import { FIELD_INPUT, FIELD_LABEL } from "../lib/formClasses";
+import { BTN_QUIET } from "../lib/buttonClasses";
 
 const USN_PATTERN = /^1MS\d{2}[A-Z]{2}\d{3}$/;
 
@@ -70,12 +71,9 @@ function StudentLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-1 px-4 py-10 sm:px-6 lg:px-8">
-      <div
-        className="mx-auto w-full max-w-md rounded-3xl border border-stroke bg-surface-1 p-6 shadow-soft sm:p-8"
-      >
+    <PageLayout containerClassName="max-w-md">
+      <div className="py-6 sm:py-8">
         <div className="mb-6 text-left">
-          <BrandHeader className="mb-4" />
           <h1 className="text-3xl font-semibold text-secondary-ink">Sign in</h1>
           <p className="mt-2 text-sm text-ink">
             Log in with your USN and date of birth to register for backlog exams and download your forms.
@@ -149,13 +147,13 @@ function StudentLoginPage() {
         <div className="mt-6 text-center">
           <Link
             to="/"
-            className="login-back-link inline-flex items-center gap-1 text-sm font-medium text-secondary-ink underline-offset-4 hover:underline"
+            className={BTN_QUIET}
           >
             <ArrowLeft size={14} /> Back to home
           </Link>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }
 

@@ -2,33 +2,18 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ArrowLeft,
   BadgeCheck,
-  BookOpen,
-  Building2,
-  CalendarRange,
   Download,
   History,
-  IdCard,
-  KeyRound,
   LoaderCircle,
-  LogOut,
-  Users,
   X,
   XCircle,
 } from "lucide-react";
 import AlertBanner from "../components/AlertBanner";
-import { Link, useNavigate } from "react-router-dom";
-import BrandHeader from "../components/layout/BrandHeader";
-import ThemeToggle from "../components/ui/ThemeToggle";
-import api, { logoutAdmin } from "../lib/api";
+import { Link } from "react-router-dom";
+import AdminLayout from "../components/layout/AdminLayout";
+import api from "../lib/api";
 import { saveBlob, readBlobErrorMessage } from "../lib/download";
-import {
-  ROLE,
-  STAFF_ROLES,
-  SUBJECT_ROLES,
-  UNRESTRICTED,
-  USER_MANAGEMENT_ROLES,
-} from "../lib/roles";
-import HeaderPill from "../components/ui/HeaderPill";
+import { ROLE } from "../lib/roles";
 import { useArmedConfirm } from "../hooks/useArmedConfirm";
 import SummaryCards from "./admin/SummaryCards";
 import RegistrationHistoryDialog from "./admin/RegistrationHistoryDialog";
@@ -37,7 +22,6 @@ import { outcomeBadgeClass } from "./admin/outcomeBadge";
 import { useRegistrationFilters } from "./admin/useRegistrationFilters";
 import FilterPanel from "./admin/FilterPanel";
 import SkipLink from "../components/ui/SkipLink";
-import HeaderBadge from "../components/ui/HeaderBadge";
 
 const PAGE_SIZE = 25;
 
@@ -50,8 +34,6 @@ function splitSubjectToken(token) {
 
 function AdminPage() {
   const adminRole = sessionStorage.getItem("adminRole") || "";
-  const adminDepartment = sessionStorage.getItem("adminDepartment") || "";
-  const navigate = useNavigate();
   // Spelled as an INLINE literal of ROLE members, not `STAFF_ROLES.includes(adminRole)`, even
   // though that is the same set: this const feeds hook dependency arrays below, and react-hooks'
   // preserve-manual-memoization rule then errors ("Existing memoization could not be preserved")
@@ -393,7 +375,7 @@ function AdminPage() {
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-surface-1 px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mx-auto w-full max-w-2xl rounded-3xl border border-stroke bg-surface-1 p-8 text-center shadow-soft">
+        <div className="mx-auto w-full max-w-2xl py-8 text-center">
           <h1 className="mb-2 text-3xl font-semibold text-secondary-ink">
             Access Denied
           </h1>
@@ -412,67 +394,10 @@ function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-1 px-4 py-8 text-ink sm:px-6 lg:px-8">
+    <AdminLayout>
       <SkipLink href="#admin-main">Skip to admin table</SkipLink>
 
-      <div id="admin-main" className="mx-auto w-full max-w-7xl">
-        <BrandHeader
-          className="mb-6"
-          badge={
-            adminDepartment && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                <HeaderBadge>{adminDepartment}</HeaderBadge>
-              </div>
-            )
-          }
-        >
-          <div className="flex flex-wrap gap-2">
-            {adminRole === ROLE.ADMIN && (
-              <HeaderPill as={Link} variant="filled" to="/admin/exam-cycles">
-                <CalendarRange size={14} /> Exam Cycles
-              </HeaderPill>
-            )}
-            {SUBJECT_ROLES.includes(adminRole) && (
-              <HeaderPill as={Link} variant="filled" to="/admin/manage-subjects">
-                <BookOpen size={14} /> Subjects
-              </HeaderPill>
-            )}
-            {UNRESTRICTED.includes(adminRole) && (
-              <HeaderPill as={Link} variant="filled" to="/admin/departments">
-                <Building2 size={14} /> Departments
-              </HeaderPill>
-            )}
-            {USER_MANAGEMENT_ROLES.includes(adminRole) && (
-              <HeaderPill as={Link} variant="filled" to="/admin/users">
-                <Users size={14} /> Users
-              </HeaderPill>
-            )}
-            {STAFF_ROLES.includes(adminRole) && (
-              <HeaderPill as={Link} variant="filled" to="/admin/students">
-                <IdCard size={14} /> {adminRole === ROLE.PROCTOR ? "My Students" : "Students"}
-              </HeaderPill>
-            )}
-            {/* ungated: accounts start on the derived default password, so every admin role needs
-                a way here — Manage Users only reaches ADMIN/PRINCIPAL/HOD */}
-            <HeaderPill as={Link} to="/admin/change-password">
-              <KeyRound size={14} /> My Password
-            </HeaderPill>
-            <ThemeToggle />
-            <HeaderPill as={Link} to="/">
-              <ArrowLeft size={14} /> Home
-            </HeaderPill>
-            <button
-              type="button"
-              onClick={async () => {
-                await logoutAdmin(); // expire the httpOnly cookie, then clear local state
-                navigate("/admin/login");
-              }}
-              className="inline-flex items-center gap-1 rounded-full bg-cta px-4 py-2 text-sm font-semibold text-cta-text"
-            >
-              <LogOut size={14} /> Logout
-            </button>
-          </div>
-        </BrandHeader>
+      <div id="admin-main" className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
 
         <SummaryCards counts={counts} error={countsError} />
 
@@ -482,7 +407,7 @@ function AdminPage() {
           {...filters.panel}
         />
 
-        <section className="rounded-3xl border border-stroke bg-surface-1 p-4 shadow-soft sm:p-6">
+        <section>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap gap-2">
               {["ALL", "SUBMITTED", "VERIFIED", "REJECTED"].map((f) => (
@@ -493,10 +418,10 @@ function AdminPage() {
                     setPage(0); // switching status tab restarts at the first page
                     setFilter(f);
                   }}
-                  className={`rounded-full border px-4 py-2 text-xs font-semibold tracking-[0.06em] transition-transform duration-200 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface-1 ${
+                  className={`rounded-lg px-4 py-2 text-xs font-semibold tracking-[0.06em] transition-transform duration-200 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface-1 ${
                     filter === f
-                      ? "border-primary bg-primary text-white"
-                      : "border-stroke bg-surface-1 text-secondary-ink"
+                      ? "bg-primary text-white"
+                      : "bg-surface-muted text-ink hover:bg-primary-tint"
                   }`}
                   data-cy={`admin-filter-${f.toLowerCase()}`}
                 >
@@ -511,7 +436,7 @@ function AdminPage() {
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
                   data-cy="admin-selection-clear"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-stroke bg-surface-muted px-3 py-2 text-xs font-semibold text-secondary-ink transition-colors hover:border-primary"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-surface-muted px-3 py-2 text-xs font-semibold text-secondary-ink transition-colors hover:bg-primary-tint"
                 >
                   <X size={13} /> Clear {selectedIds.size} selected
                 </button>
@@ -521,7 +446,7 @@ function AdminPage() {
                 onClick={handleExportPdf}
                 disabled={isExporting}
                 data-cy="admin-export-pdf"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-secondary px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary disabled:opacity-50"
               >
                 {isExporting ? (
                   <LoaderCircle size={14} className="animate-spin" />
@@ -581,15 +506,28 @@ function AdminPage() {
           )}
 
           {loading ? (
-            <p className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-3 text-sm">
+            <p className="inline-flex items-center gap-2 rounded-lg bg-surface-muted px-4 py-3 text-sm">
               <LoaderCircle size={16} className="animate-spin" /> Loading
               registrations...
             </p>
+          ) : registrations.length === 0 ? (
+            // Says the query came back empty. Without it the page renders a column header over
+            // nothing, which reads as a broken fetch — and the de-boxing removed the wrapper that
+            // used to make an empty table look like an empty box. Wording mirrors the export-scope
+            // line above so the two never disagree about what is being looked at.
+            <p
+              className="rounded-lg bg-surface-muted px-4 py-3 text-sm text-ink"
+              data-cy="admin-empty"
+            >
+              {`No ${
+                filter === "ALL" ? "" : `${filter.toLowerCase()} `
+              }registrations match the current filters.`}
+            </p>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-stroke">
+            <div className="overflow-x-auto">
               <table className="min-w-full border-collapse text-left text-sm">
                 <thead>
-                  <tr className="bg-surface-muted text-xs uppercase tracking-[0.08em] text-ink">
+                  <tr className="border-b border-stroke text-xs uppercase tracking-[0.08em] text-ink-muted">
                     <th className="px-4 py-3">
                       <input
                         type="checkbox"
@@ -691,7 +629,7 @@ function AdminPage() {
                                 onClick={() => handleReject(reg.regId)}
                                 disabled={rejectingRegId === reg.regId || verifyingRegId === reg.regId}
                                 data-cy="admin-reject"
-                                className="inline-flex w-15 items-center justify-center gap-1 rounded-lg border border-red-200 bg-red-50 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
+                                className="inline-flex w-15 items-center justify-center gap-1 rounded-lg bg-red-50 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
                               >
                                 {rejectingRegId === reg.regId ? (
                                   <LoaderCircle size={14} className="animate-spin" />
@@ -733,7 +671,7 @@ function AdminPage() {
                                   onClick={() => rejectVerified.disarm()}
                                   disabled={rejectingRegId === reg.regId}
                                   data-cy="admin-reject-verified-cancel"
-                                  className="inline-flex w-14 items-center justify-center rounded-lg border border-stroke py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-surface-muted disabled:opacity-50"
+                                  className="inline-flex w-14 items-center justify-center rounded-lg bg-surface-muted py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-primary-tint disabled:opacity-50"
                                 >
                                   Cancel
                                 </button>
@@ -751,7 +689,7 @@ function AdminPage() {
                                       rejectVerified.arm(reg.regId);
                                     }}
                                     data-cy="admin-reject-verified"
-                                    className="inline-flex w-14 items-center justify-center rounded-lg border border-red-200 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50"
+                                    className="inline-flex w-14 items-center justify-center rounded-lg bg-red-50 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
                                   >
                                     Reject
                                   </button>
@@ -783,7 +721,7 @@ function AdminPage() {
                           type="button"
                           onClick={() => history.open(reg.regId)}
                           data-cy={`history-${reg.regId}`}
-                          className="inline-flex items-center gap-1 rounded-lg border border-stroke bg-surface-1 px-3 py-1.5 text-xs font-semibold text-secondary-ink transition-colors hover:bg-surface-muted"
+                          className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-1.5 text-xs font-semibold text-secondary-ink transition-colors hover:bg-primary-tint"
                         >
                           <History size={14} /> View
                         </button>
@@ -813,7 +751,7 @@ function AdminPage() {
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page <= 0}
                   data-cy="admin-page-prev"
-                  className="inline-flex items-center gap-1 rounded-lg border border-stroke bg-surface-1 px-3 py-1.5 text-xs font-semibold text-secondary-ink transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-1.5 text-xs font-semibold text-secondary-ink transition-colors hover:bg-primary-tint disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <ArrowLeft size={14} /> Prev
                 </button>
@@ -822,7 +760,7 @@ function AdminPage() {
                   onClick={() => setPage((p) => Math.min(pageInfo.totalPages - 1, p + 1))}
                   disabled={page >= pageInfo.totalPages - 1}
                   data-cy="admin-page-next"
-                  className="inline-flex items-center gap-1 rounded-lg border border-stroke bg-surface-1 px-3 py-1.5 text-xs font-semibold text-secondary-ink transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-1.5 text-xs font-semibold text-secondary-ink transition-colors hover:bg-primary-tint disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Next <ArrowLeft size={14} className="rotate-180" />
                 </button>
@@ -840,7 +778,7 @@ function AdminPage() {
           onClose={history.close}
         />
       )}
-    </div>
+    </AdminLayout>
   );
 }
 

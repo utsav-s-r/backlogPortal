@@ -62,7 +62,11 @@ describe("Proctor role", () => {
 
     cy.visitAsAdmin("/admin", PROCTOR_SESSION);
     cy.contains("My Students").should("be.visible");
-    cy.contains("Exam Cycles").should("not.exist");
+    // anchor-scoped, and the label is spelled EXACTLY as the sidebar spells it. cy.contains is
+    // case-sensitive: the old "Exam Cycles" (capital C) stopped matching when navigation moved to
+    // the sidebar, so this passed whether or not a proctor could see the link — a scope assertion
+    // that had quietly stopped asserting scope.
+    cy.contains("a", "Exam cycles").should("not.exist");
     // anchor-scoped: the dashboard legitimately contains "Subjects" elsewhere, e.g. the
     // "All Subjects" filter
     cy.contains("a", "Subjects").should("not.exist");

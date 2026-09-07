@@ -65,7 +65,9 @@ describe("Exam cycles — the registration switch", () => {
     cy.wait("@list");
   };
 
-  const row = (name) => cy.contains("li", name);
+  // Scoped to the ROW, so an assertion cannot accidentally match another cycle's controls. The
+  // cycle list became a <table> when the page was relaid out; "tr" is the same guarantee "li" was.
+  const row = (name) => cy.contains("tr", name);
 
   it("lists cycles, marking exactly the active one", () => {
     stubExamCycles([JUNE, DEC]);

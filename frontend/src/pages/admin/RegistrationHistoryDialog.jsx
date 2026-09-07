@@ -83,7 +83,7 @@ function RegistrationHistoryDialog({ events, loading, error, onClose }) {
         /* Capped, not a plain box: the event list is unbounded, and an overflowing item in an
            `items-center` FIXED overlay is clipped at BOTH ends with no scrollbar. `svh` (not
            vh/dvh) is the smallest viewport, so it fits whatever the mobile URL bar is doing. */
-        className="flex max-h-[90svh] w-full max-w-lg flex-col rounded-2xl border border-stroke bg-surface-1 p-6 shadow-soft"
+        className="flex max-h-[90svh] w-full max-w-lg flex-col rounded-2xl bg-surface-1 p-6 shadow-soft"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -128,7 +128,7 @@ function RegistrationHistoryDialog({ events, loading, error, onClose }) {
               {events.map((ev, i) => (
                 <li
                   key={i}
-                  className="flex items-start gap-3 rounded-xl border border-stroke bg-surface-muted px-3 py-2.5"
+                  className="flex items-start gap-3 rounded-lg bg-surface-muted px-3 py-2.5"
                 >
                   <span
                     className={`mt-0.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${outcomeBadgeClass(

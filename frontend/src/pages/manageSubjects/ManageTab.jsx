@@ -14,6 +14,7 @@ import { FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
 import Pager from "../../components/ui/Pager";
 import DepartmentOptions from "../../components/ui/DepartmentOptions";
+import { BTN_DANGER_SM, BTN_QUIET, BTN_ROW, BTN_SMALL_WIDE } from "../../lib/buttonClasses";
 
 
 const PAGE_SIZE = 25;
@@ -74,7 +75,7 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
 
   return (
     <>
-      <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
+      <section className="py-5 sm:py-6">
         <h1 className="mb-1 inline-flex items-center gap-2 text-xl font-semibold text-secondary-ink">
           <BookOpen size={18} /> Manage subjects
         </h1>
@@ -140,7 +141,7 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
             onClick={() => loadSubjects(0)}
             disabled={busy}
             data-cy="subjects-load"
-            className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-2 text-sm font-semibold transition-colors hover:border-primary disabled:opacity-60"
+            className={BTN_QUIET}
           >
             {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />} Load subjects
           </button>
@@ -151,22 +152,40 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
         <section className="mt-6 flex flex-col gap-3">
           {subjects.length === 0 ? (
             <p
-              className="rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm"
+              className="rounded-lg bg-surface-muted px-4 py-3 text-sm"
               data-cy="subjects-empty"
             >
               No subjects match these filters.
             </p>
           ) : (
             <>
-              {subjects.map((subject) => (
-                <SubjectRow
-                  key={subject.id}
-                  subject={subject}
-                  departments={departments}
-                  onUpdated={onUpdated}
-                  onRemoved={onRemoved}
-                />
-              ))}
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-stroke text-xs uppercase tracking-[0.08em] text-ink-muted">
+                      <th className="px-4 py-3 font-semibold">Subject</th>
+                      <th className="px-4 py-3 font-semibold">Code</th>
+                      <th className="px-4 py-3 font-semibold">Sem</th>
+                      <th className="px-4 py-3 font-semibold">Credits</th>
+                      <th className="px-4 py-3 font-semibold">Type</th>
+                      <th className="px-4 py-3 font-semibold">Year</th>
+                      <th className="px-4 py-3 font-semibold">Eligible</th>
+                      <th className="px-4 py-3 font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subjects.map((subject) => (
+                      <SubjectRow
+                        key={subject.id}
+                        subject={subject}
+                        departments={departments}
+                        onUpdated={onUpdated}
+                        onRemoved={onRemoved}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <Pager pageInfo={pageInfo} busy={busy} onGo={loadSubjects} noun="subjects" />
             </>
           )}
@@ -248,31 +267,34 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
     }
   };
 
-  const card =
-    "rounded-2xl border border-stroke bg-surface-1 p-4 shadow-soft";
-
   if (!editing) {
     return (
-      <div className={card}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-semibold text-ink">{subject.subjectName}</p>
-            <p className="text-xs text-ink-muted">
-              {subject.courseCode} · Sem {subject.semester} · {subject.credits} credits ·{" "}
-              {subject.subjectType} · {formatAcademicYear(subject.academicYearOffered)}
+      <tr className="border-t border-stroke align-top transition-colors hover:bg-surface-muted">
+        <td className="px-4 py-3 font-semibold text-ink">
+          {subject.subjectName}
+          {error && (
+            <p className="mt-1 text-xs text-red-600" role="alert" data-cy={`subject-error-${subject.id}`}>
+              {error}
             </p>
-            {subject.subjectType === "ELECTIVE" && (subject.eligibleDepartments || []).length > 0 && (
-              <p className="mt-1 text-xs text-ink-muted">
-                Eligible: {(subject.eligibleDepartments || []).map((d) => d.deptName).join(", ")}
-              </p>
-            )}
-          </div>
-          <div className="flex shrink-0 gap-2">
+          )}
+        </td>
+        <td className="px-4 py-3">{subject.courseCode}</td>
+        <td className="px-4 py-3">{subject.semester}</td>
+        <td className="px-4 py-3">{subject.credits} credits</td>
+        <td className="px-4 py-3">{subject.subjectType}</td>
+        <td className="px-4 py-3">{formatAcademicYear(subject.academicYearOffered)}</td>
+        <td className="px-4 py-3 text-ink-muted">
+          {(subject.eligibleDepartments || []).length > 0
+            ? (subject.eligibleDepartments || []).map((d) => d.deptName).join(", ")
+            : "\u2014"}
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex gap-1.5 whitespace-nowrap">
             <button
               type="button"
               onClick={startEdit}
               data-cy={`subject-edit-${subject.id}`}
-              className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary"
+              className={BTN_ROW}
             >
               <Pencil size={13} /> Edit
             </button>
@@ -281,23 +303,21 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
               onClick={remove}
               disabled={busy}
               data-cy={`subject-delete-${subject.id}`}
-              className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+              className={BTN_DANGER_SM}
             >
               {busy ? <LoaderCircle size={13} className="animate-spin" /> : <Trash2 size={13} />} Delete
             </button>
           </div>
-        </div>
-        {error && (
-          <p className="mt-2 text-xs text-red-600" role="alert" data-cy={`subject-error-${subject.id}`}>
-            {error}
-          </p>
-        )}
-      </div>
+        </td>
+      </tr>
     );
   }
 
+  // Editing spans the whole row: the form is a two-column grid that no single cell can hold, and
+  // splitting it across the columns would tie field order to column order.
   return (
-    <div className={card}>
+    <tr className="border-t border-stroke">
+      <td colSpan={8} className="px-4 py-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Subject name">
           <input
@@ -341,7 +361,7 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
           <span className={FIELD_LABEL}>
             Academic year (locked)
           </span>
-          <div className="flex h-[42px] items-center rounded-xl border border-stroke bg-surface-muted px-3.5 text-sm text-ink-muted">
+          <div className="flex h-[42px] items-center rounded-lg bg-surface-muted px-3.5 text-sm text-ink-muted">
             {formatAcademicYear(subject.academicYearOffered)}
           </div>
         </div>
@@ -391,12 +411,13 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
         <button
           type="button"
           onClick={() => setEditing(false)}
-          className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-2 text-sm font-semibold transition-colors hover:border-primary"
+          className={BTN_SMALL_WIDE}
         >
           <X size={14} /> Cancel
         </button>
-      </div>
-    </div>
+        </div>
+      </td>
+    </tr>
   );
 }
 
