@@ -1,0 +1,6 @@
+<!doctype html>
+<!-- Fixture standing in for the built SPA shell. Present so SpaStaticResourceConfig's fallback is
+     LIVE in tests: without it every unmatched path 404s for want of a file, and the assertion that
+     a missing /assets chunk 404s rather than falling through to this shell could not fail. -->
+<html lang="en"><head><meta charset="UTF-8" /><title>test shell</title></head>
+<body><div id="root"></div></body></html>
