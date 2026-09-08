@@ -10,8 +10,8 @@ import { btn } from "../../lib/buttonClasses";
 
 // The shell behind an admin section that is one route with tabs — the subject catalog and student
 // management. It owns the role guard, the single /departments fetch, pin resolution, the ?tab=
-// whitelist and the tab bar. Don't hand-roll a third copy. The page chrome around it (tinted page,
-// container, sidebar, navy band) is AdminPageShell, shared with the non-tabbed admin pages.
+// whitelist and the tab bar. Don't hand-roll a third copy. The page chrome around it (container,
+// sidebar, top band) is AdminPageShell, shared with the non-tabbed admin pages.
 //
 // Three details are settled here on purpose: `pinnedDeptId` is a plain expression, NOT a useMemo
 // (react-hooks' preserve-manual-memoization rule errors on that useMemo once role-dependent tab
@@ -131,7 +131,7 @@ function AdminTabPage({
               tabIndex={on ? 0 : -1}
               onClick={() => setActiveTab(t.key)}
               data-cy={`tab-${t.key}`}
-              // No border: selected is a SOLID maroon fill, unselected a neutral fill, hover a
+              // No border: selected is a SOLID accent fill, unselected a neutral fill, hover a
               // different fill. An outline would be the one thing the no-box rule forbids, and
               // "hover adds a border" is exactly the edge-appearance it rules out.
               className={btn(on ? "accent" : "neutral")}

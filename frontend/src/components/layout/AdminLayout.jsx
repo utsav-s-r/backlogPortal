@@ -3,8 +3,8 @@ import { Menu } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
 import TopBand from "./TopBand";
 
-// The chrome every admin page shares: the fixed left rail, the full-bleed navy band across the top
-// of the content, and the push. It replaces BrandHeader on the admin side entirely.
+// The chrome every admin page shares: the fixed left rail, the full-bleed TopBand across the top of
+// the content, and the push.
 //
 // PUSH, not overlay (decision 4): the content's left inset tracks the rail's width on desktop, and
 // is zero on mobile, where the drawer covers the WHOLE screen instead — full width and full height,

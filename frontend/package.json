@@ -17,7 +17,8 @@
     "test:e2e": "start-server-and-test dev:e2e http://127.0.0.1:4173 cy:run",
     "cy:run:live": "cypress run --e2e --browser electron --config-file cypress.live.config.js",
     "test:e2e:live": "start-server-and-test dev:e2e http://127.0.0.1:4173 cy:run:live",
-    "lint:no-box": "! grep -rEn 'border border-stroke|border border-(red|amber|green|primary)|rounded-(xl|2xl|3xl) border|hover:underline' src --include='*.jsx' --include='*.js' || { echo 'design contract broken: a control grew an outline, or an underline is standing in for a button'; exit 1; }"
+    "lint:no-box": "! grep -rEn 'border border-stroke|border border-(red|amber|green|primary)|rounded-(xl|2xl|3xl) border|hover:underline' src --include='*.jsx' --include='*.js' || { echo 'design contract broken: a control grew an outline, or an underline is standing in for a button'; exit 1; }",
+    "lint:count": "out=$(npm run lint 2>&1); echo \"$out\" | grep -q '9 problems (9 errors, 0 warnings)' || { echo \"$out\" | tail -20; echo \"lint count changed: expected exactly 9 errors, 0 warnings. The 9 are intentional and carry NOTE comments; any other count means something real changed. STOP.\"; exit 1; }"
   },
   "dependencies": {
     "axios": "^1.20.0",

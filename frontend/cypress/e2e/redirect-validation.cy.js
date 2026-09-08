@@ -1,4 +1,4 @@
-// AdminLoginPage used to hand searchParams.get("redirect") straight to navigate(). On react-router
+// Handing searchParams.get("redirect") straight to navigate() is the hazard here. On react-router
 // 7.14.1 (GHSA-wrjc-x8rr-h8h6, vulnerable <7.18.0) a backslash or protocol-relative value escapes
 // app routing and leaves the site — a phishing primitive delivered on the real domain, over the
 // real certificate, after a genuinely successful login.
@@ -6,7 +6,7 @@
 // NO DOM ASSERTION, deliberately, for the same reason session-expiry-load.cy.js has none: this is
 // redirect-adjacent. Navigation assignment is non-configurable so cy.stub throws, and once
 // navigation commits the page under test is gone. The decision is pure, so it is asserted directly.
-// Mutation-tested 2026-08-26: each guard removed in turn, confirmed exactly the matching cases fail.
+// Mutation-tested: each guard removed in turn, confirmed exactly the matching cases fail.
 import { safeRedirect } from "../../src/lib/redirect";
 
 const FALLBACK = "/admin";

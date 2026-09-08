@@ -4,10 +4,9 @@ import PageLayout from "../components/layout/PageLayout";
 import PrimaryCta from "../components/ui/PrimaryCta";
 import { btn } from "../lib/buttonClasses";
 
-// Catch-all for any unmatched URL. Without this React Router rendered NOTHING — a blank page with
-// no message and no way back, which is what a stale bookmark to a removed route (e.g. the old
-// /admin/add-subject) landed on. Offers all three entry points rather than guessing which
-// audience typed the bad URL.
+// Catch-all for any unmatched URL. Without it React Router renders NOTHING — a blank page with no
+// message and no way back, which is where a stale bookmark to a removed route lands. Offers all
+// three entry points rather than guessing which audience typed the bad URL.
 function NotFoundPage() {
   return (
     <PageLayout containerClassName="max-w-md">

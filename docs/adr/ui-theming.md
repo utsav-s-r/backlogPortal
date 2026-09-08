@@ -1,6 +1,6 @@
 # ADR: UI theming — CSS-first tokens, `data-theme`, and the contrast constraints
 
-Status: Accepted — token utilities adopted 2026-08-10; theme system in place earlier.
+Status: Accepted — token utilities adopted 2026-08-10; palette rebuilt to three colours 2026-09-08.
 Branch: `rejectStatus`.
 
 ## Context
@@ -21,8 +21,9 @@ rename can break every page while the whole suite stays green.
 hook — **nothing reads it**.
 
 **2. Tokens are declared in `@theme static`, which generates real Tailwind utilities.** Use
-`bg-surface-1`, `text-ink`, `border-stroke`, `bg-primary`, `text-primary-ink`, `bg-cta` and so on.
-Dark values are redefined in `[data-theme="dark"]` override blocks.
+`bg-surface-1`, `bg-surface-muted`, `text-ink`, `text-ink-muted`, `border-stroke`, and the three
+colours `bg-accent` / `bg-success` / `bg-alert` (plus their `-tint` and `text-on-accent`).
+Dark values are redefined in the `[data-theme="dark"]` override block.
 
 **3. Do not write `x-[var(--token)]` arbitrary values.** ~800 of them across 28 files were
 converted in one pass. That syntax now signals "one-off, outside the design system". If a value has
@@ -57,80 +58,78 @@ wrap this file in `@layer`.**
 stock `dark:` follows `prefers-color-scheme` and **ignores the toggle**. Current usage of `dark:`
 is zero; tokens plus override blocks are the house style.
 
-## Status banners are a component, because the palette classes are a hidden contract
+## Three colours, because a colour is a meaning
 
-Mechanism (2) — the `[data-theme="dark"]` utility re-tints for the red/amber/green status tints —
-carries an implicit contract that nothing enforces: *a banner may only use classes that block
-covers*. A class without a re-tint ships as a bright light-mode patch on the dark navy page, and
-nothing catches it (Cypress asserts no styles, the build does not run eslint, eslint does not read
-class strings).
+`accent` = anything you can act on. `success` = went through. `alert` = went wrong or undoes
+something. Everything else is a neutral derived from `#201e3c`. A fourth colour is a new *meaning*,
+not a new style — if you cannot say in one word what it means, it does not belong.
 
-For a long time that contract was re-typed by hand at **32 separate banner sites**, which had drifted
-to two red text shades, four amber ones, three paddings, two radii and an inconsistent
-`font-medium`. The revealing detail: **dark mode had already collapsed almost all of it** — the
-re-tints map `text-red-600` and `text-red-700` to the same `#f87171`, and all four amber shades to
-`#fbbf24`. The sprawl was visible in **light only**, so unifying it removed no distinction a user
-could perceive in dark.
+Each colour is **one token name with a light and a dark value**; components write `bg-accent` and
+the theme resolves it. Dark values are **desaturated as well as lightened** — an accent that is only
+lightened glows against the ground. `-tint` variants are the base colour at low alpha rather than
+separate hexes, so a tint cannot drift from the colour it belongs to.
 
-Decision (2026-08-16): `components/AlertBanner.jsx` owns the contract. `TONES` is the one allowed
-class triple per tone (`error`/`warning`/`success`), so there are exactly **9** palette classes in
-the banner system and each has a matching re-tint. Shades are the darkest available with a re-tint
-— dark is unchanged by construction, light gains contrast (red-700 on red-50 is 6.9:1 against
-red-600's 4.8:1). Adding a tone means adding its re-tints in the same edit.
+`--color-on-accent` is defined once as `var(--color-surface-1)`, so the label on any filled colour
+flips with the theme by itself.
 
-Explicitly **not** banners, and deliberately left hand-rolled: destructive buttons, status pills, and
-bare inline error text (`text-sm font-medium text-red-600`, no fill). Routing those through
-`AlertBanner` would put a filled box where the design wants a bare label.
+**Deleted 2026-09-08:** `--color-primary`, `--color-primary-ink`, `--color-cta`, `--color-cta-text`,
+`--color-secondary`, the `[data-theme="dark"] .bg-red-50` re-tint, and `.admin-login-heading`.
+Palette classes (`bg-red-50`, `text-red-600`, `accent-red-600`) are gone from `src` entirely.
 
-## The CTA colour is theme-aware — and that is not decoration
+## Two defects this replaced
 
-`--color-cta` is the one token that goes **brighter** in dark: `var(--color-primary)` maroon
-`#91191c` in light, `var(--text-on-dark-primary)` salmon `#f0888b` in dark. `--color-cta-text` is
-defined **once** as `var(--color-surface-1)` — already white in light and dark navy `#141a35` in
-dark — so the label flips for free.
+**Surfaces collapsed.** `surface-1`, `surface-muted` and the chrome token all resolved to `#201e3c`
+in dark — a contrast ratio of **1.00**. Every input, filter panel and neutral button was literally
+the same colour as the page across 47 usages, while filled buttons beside them looked correct. That
+asymmetry is what made the UI read as broken. In dark mode a raised surface goes **lighter** than the
+page (tonal elevation), never equal or darker.
 
-Measured (WCAG 2.1, recomputed from the live token values):
+**One class carried six meanings.** `bg-red-50` was simultaneously the selected state, positive
+status, negative status, the destructive action, an informational notice, and decoration. So a
+chosen subject, an "Open" badge and a Delete button were painted identically. Related:
+`outcomeBadgeClass` returned the same classes for VERIFIED and REJECTED, and `batchStatus` gave
+CREATED and ERROR one colour — opposite states were indistinguishable.
 
-| Pairing | Ratio | Floor |
-|---|---|---|
-| Light CTA: maroon fill, white label | **8.90** | 4.5 |
-| Dark CTA: salmon fill, navy label | **7.00** | 4.5 |
-| Maroon fill on the dark page | **1.92** | 3.0 (non-text) — fails |
-| Navy fill on the dark page | **1.24** | 3.0 (non-text) — fails |
-| `text-amber-600` on white, small text | **3.19** | 4.5 — fails; use `amber-700` |
-| `text-red-600` on white, small text | **4.83** | 4.5 |
+**A blanket `body *` colour rule must never be added.** One existed and made every text token inert:
+the utilities still applied, the colour never rendered, and nothing failed. `index.css` is unlayered,
+so such a rule outranks every utility.
 
-That amber row is why small amber status text is `text-amber-700`, never `-600` — measured when the
-batch-result table needed an amber that sits beside `text-red-600` without dropping below AA. Both
-shades share one `[data-theme="dark"]` re-tint, so it is a light-only correction. (Recorded here
-2026-08-16 when the conflict-status styles that carried this note were deleted; `text-amber-700` is
-still live in `SemesterTimeline`'s "not set" flag.)
+## There is no chrome colour
 
-Those last two rows are why a single flat brand colour cannot work: the dark page *is* dark navy,
-so a maroon or navy button sinks into it. Brightening maroon until it clears the 3:1 floor lands on
-roughly `#da262a` — about 1.01 from the destructive `bg-red-600`, i.e. indistinguishable from
-Reject/Delete. Salmon-with-a-dark-label versus solid-red-with-a-white-label is what keeps the
-primary and destructive actions apart; raw colour distance alone is only ~1.98, so **the label does
-the work**. Do not "simplify" this back to one colour.
+The top band is `bg-surface-1` with a `border-b`; the sidebar is `bg-surface-muted` with a
+`border-r`. Nothing is painted to look important. `#201e3c` is the **dark-mode page background and
+nothing else** — that is the one fixed colour, and it is scoped to dark. Light mode is free of it
+except as the near-black it resolves to for text.
 
-**There is no pink.** A standalone pink CTA measures 2.08 against white here and fails AA outright.
-Four hardcoded copies of the old pink were replaced by `--color-cta-glow`, `--selection-bg`, the
-dark hero-badge tints, and `--hero-blob-2` (now navy — the accent is maroon, so both blobs would
-otherwise be one hue).
+## Contrast, measured
+
+Verified across 21 views in both themes: 0 text failures, 0 controls invisible against their
+surroundings, 0 mismatched sibling buttons. Every pairing clears its floor — 4.5:1 for body text,
+3:1 for a fill that must read as an object.
+
+Status banners stay a component (`AlertBanner`) for the original reason: a hand-typed tint is a place
+a one-off can slip in with no build, lint or test failure. Both of its classes are theme-aware tokens
+now, so there is no dark re-tint to keep in sync — **a new tone needs a token, not a rule.**
+`error` and `warning` deliberately share `alert-tint`; there is no warning colour, and adding amber
+would be a new meaning.
 
 ## Trade-offs (accepted)
 
-- Some dark rules re-tint Tailwind utilities directly (e.g. `[data-theme="dark"] .bg-amber-50`)
-  rather than adding `dark:` variants at every call site. Accepted: fewer edits, one place to look.
-- Solid destructive fills (`bg-red-600/700` with white text) are theme-**independent** by design.
-- Two semantic one-offs (`.admin-login-heading`, `.login-back-link`) remain hand-written and win by
-  being unlayered.
+- Utility re-tints (`[data-theme="dark"] .bg-amber-50`) are gone — every colour is a theme-aware
+  token, so there is nothing to keep in sync.
+- `--hero-text` survives as a raw var because `HeroSection` reads it from an inline `style={{}}`,
+  which no `[data-theme]` rule can reach.
+- `error` and `warning` share one fill: the palette has three colours and none of them means
+  "warning".
 
 ## Verifying a change here
 
-The test suite proves nothing about CSS. Use the computed-style snapshot method — capture resolved
-values before and after, **in both themes** — rather than eyeballing a screenshot. A token that has
-silently become `undefined` still renders a plausible-looking page.
+The test suite proves nothing about CSS. Measure the **rendered DOM** on every affected page, in
+both themes: walk up to the nearest opaque background, compute contrast for elements holding their
+own text, and flag controls whose fill matches their surroundings. Assert each page actually
+**loaded** — an unauthenticated route redirects to a login screen and then passes trivially. Add a
+second audit for what the first cannot see (sibling buttons compared on height, radius, font-size).
+A token that has silently become `undefined` still renders a plausible-looking page.
 
 ## Related
 

@@ -1,16 +1,15 @@
 import logo from "../../assets/MSRIT.png";
 
-// The full-bleed navy band across the top of every page, admin and public alike. One definition,
-// because the two used to be different shapes (a rounded navy card on the public pages, a band on
-// the admin ones) and that difference was visible when moving between them.
+// The full-bleed band across the top of every page, admin and public alike. ONE definition: two
+// shapes for the two surfaces is visible the moment you move between them.
 //
 // THE BAND HAS NO CHROME COLOUR: it is the page (`bg-surface-1`) with a `border-b` under it. The
 // crest's red shield reads on that ground in both themes (4.45 light, 3.48 dark), so a coloured
 // slab behind it was only adding weight.
 //
-// ⚠ The logo PNG still carries a WHITE-KNOCKOUT wordmark, which needs a dark ground. On this light
-// band the shield shows and the wordmark does not. The asset must be re-exported with dark text
-// (owner said they would handle the logo); until then, treat the wordmark as missing, not broken.
+// ⚠ The logo PNG carries a WHITE-KNOCKOUT wordmark, which needs a dark ground. On this light band
+// the shield reads and the wordmark does not. The asset is the owner's to re-export — treat the
+// wordmark as missing, not broken, and do not raise it.
 //
 // `children` is the left group: the sidebar's hamburger on admin pages, the Dark Mode toggle plus
 // any page action on the public ones. The logo stays right in both.

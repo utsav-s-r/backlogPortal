@@ -88,7 +88,7 @@ function RegistrationPage() {
 
     let ignoreResponse = false;
     // abort a superseded fetch (semester re-picked before the reply landed) so it stops using a
-    // backend connection — the flag alone only hid the response
+    // backend connection — an ignore flag alone only hides the response
     const controller = new AbortController();
     setLoadingSubjects(true);
     setSubjectsError("");

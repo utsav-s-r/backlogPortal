@@ -1,9 +1,9 @@
 // The college-wide registration switch: create / activate / end a cycle.
 //
-// Previously NO functional coverage — the two specs visiting this page stubbed the list as `[]` or
-// a 401, making every per-cycle control unreachable. High stakes: GET /api/registration-status and
-// RegistrationService#register both key off the active cycle, so a regression here locks students
-// out of registering or leaves registration open past its close.
+// High stakes: GET /api/registration-status and RegistrationService#register both key off the
+// active cycle, so a regression here locks students out of registering or leaves registration open
+// past its close. A spec that stubs the list as `[]` or a 401 leaves every per-cycle control
+// unreachable and covers none of that.
 //
 // SCOPE: behaviour, not authorization. Role gating is role-guard.cy.js (DEPT_OFFICE redirected);
 // the real control is ExamCycleController's class-level @PreAuthorize("hasRole('ADMIN')"), which

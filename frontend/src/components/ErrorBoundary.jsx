@@ -8,8 +8,8 @@ import { btn } from "../lib/buttonClasses";
 // SCOPE, precisely: this catches throws during RENDER and lifecycle, plus failed lazy-chunk loads
 // (a dropped network mid-navigation). It does NOT catch errors in event handlers, in promise
 // callbacks, or in async code — React never sees those. Fetch failures therefore still need their
-// own handling at each call site; this is not a substitute for that. Before it existed, a single
-// render throw (e.g. mapping over a field the server didn't send) blanked the entire page.
+// own handling at each call site; this is not a substitute for that. Without it a single render
+// throw — mapping over a field the server didn't send — blanks the entire page.
 class ErrorBoundary extends Component {
   state = { hasError: false };
 

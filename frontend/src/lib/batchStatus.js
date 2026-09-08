@@ -10,9 +10,9 @@
  * Own .js module: a non-component export in a .jsx trips react-refresh/only-export-components and
  * takes lint off its known 9 errors.
  */
-// CREATED and ERROR carried the SAME colour until 2026-09-08 — a row that succeeded and a row that
-// failed read identically down the result table, which is the one thing this table exists to tell
-// apart. A skip is neither, so it stays muted rather than taking a third colour.
+// CREATED and ERROR must never share a colour: a row that succeeded and a row that failed reading
+// identically defeats the one thing this table exists to tell apart. A skip is neither, so it stays
+// muted rather than taking a third colour.
 const STATUS_STYLES = {
   CREATED: "text-success",
   WOULD_CREATE: "text-success",

@@ -1,17 +1,15 @@
-// The one status banner. Replaced 32 hand-rolled copies whose only real variance was spelling.
-// Routing them through here is what stops a one-off tint reaching a page: nothing fails when one
-// does — the build passes, lint passes, and Cypress asserts nothing about styles.
+// The one status banner. Routing every alert through here is what stops a one-off tint reaching a
+// page: nothing fails when one does — the build passes, lint passes, and Cypress asserts nothing
+// about styles.
 //
 // Bare inline error text (`text-sm font-medium text-alert`, no fill — AdminPage row/history errors)
 // is a DIFFERENT pattern and deliberately not routed through here.
 
-// Tone -> the one class PAIR that tone may use. No border: the tint IS the separation (no-box
-// rule), so a banner is a fill on the page, never an outlined card.
-//
-// Both classes are theme-aware tokens, so there is no [data-theme="dark"] re-tint to keep in sync —
-// that whole mechanism is gone. A new tone therefore needs a token added in index.css, not a rule.
-// Tone -> a tint fill plus its own text colour. The tints are the base colour at low alpha, so a
-// banner can never drift from the status colour it belongs to.
+// Tone -> the one class PAIR that tone may use: a tint fill plus its own text colour. No border —
+// the tint IS the separation (no-box rule), so a banner is a fill on the page, never an outlined
+// card. The tints are the base colour at low alpha, so a banner cannot drift from its status
+// colour, and both classes are theme-aware tokens, so a new tone needs a TOKEN in index.css rather
+// than a [data-theme="dark"] re-tint rule.
 //
 // error and warning deliberately share a fill: the palette has three colours and none of them means
 // "warning". Distinguishing them would need a fourth (amber), which is a new MEANING, not a new

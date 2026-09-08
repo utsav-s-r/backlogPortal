@@ -85,8 +85,8 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
 
   // ERROR rows are excluded too: they cannot be created (e.g. a source with no course code), so
   // submitting them would just produce guaranteed per-row failures on apply.
-  // Memoised on `rows`: rebuilding this array every render gave runApply's useCallback a new
-  // dependency each time, so the memoisation below was doing nothing.
+  // Memoised on `rows`: rebuilt every render it hands runApply's useCallback a new dependency each
+  // time, which makes the memoisation below do nothing.
   const applicableRows = useMemo(
     () =>
       (rows || []).filter(

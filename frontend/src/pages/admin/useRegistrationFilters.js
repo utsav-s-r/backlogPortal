@@ -39,10 +39,11 @@ export function useRegistrationFilters({ isAdmin, canFilterByDepartment, onAppli
   const [cycleFilter, setCycleFilter] = useState("");
   // Splits the two meanings an empty `examCycleId` carried: "user chose All Cycles" vs "we never
   // learned what the cycles are". Unsplit, a failed fetch silently listed every cycle including
-  // closed ones and the PDF export follows via allCycles. THREE states, not a boolean: pending must be distinguishable from
-  // failed, or the "cycles failed to load" banner fires on every page load while the request is
-  // still in flight, and a banner that cries wolf is ignored on the day it's true. "loaded" covers a
-  // successful fetch that found no ACTIVE cycle — a real answer, not an unknown one.
+  // closed ones and the PDF export follows via allCycles. THREE states, not a boolean: pending must
+  // be distinguishable from failed, or the "cycles failed to load" banner fires on every page load
+  // while the request is still in flight, and a banner that cries wolf is ignored on the day it is
+  // true. "loaded" covers a successful fetch that found no ACTIVE cycle — a real answer, not an
+  // unknown one.
   const [cyclesStatus, setCyclesStatus] = useState("loading"); // "loading" | "loaded" | "error"
   const [cyclesError, setCyclesError] = useState("");
   // Same trap for the other two filter dropdowns: an empty list reads as "none are configured", so a

@@ -19,8 +19,7 @@ export default function HeroSection() {
 
   return (
     // Transparent: the page background comes from HomePage's bg-surface-1, same as every other
-    // page. The section carried position/z-index only to layer over a fixed backdrop that no
-    // longer exists.
+    // page. No position/z-index — there is no backdrop layer here to stack against.
     <section
       style={{
         padding: "3rem 1rem 5rem",

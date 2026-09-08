@@ -155,9 +155,9 @@ function AdminPage() {
       .catch((error) => {
         if (error.code === "ERR_CANCELED") return; // superseded request aborted
         console.error("Failed to fetch dashboard data:", error);
-        // 401 is the api.js interceptor's job (it signs out); handling it here too would race that
-        // redirect. Everything else, 403 included, is shown in place: a scope denial must not eject an admin
-        // mid-task, and the server's reason is the actionable part.
+        // 401 is the api.js interceptor's job (it signs out); handling it here too would race
+        // that redirect. Everything else, 403 included, is shown in place: a scope denial must not
+        // eject an admin mid-task, and the server's reason is the actionable part.
         if (error.response?.status === 401) return;
         if (seq !== registrationsReqRef.current) return; // superseded
         setLoadError(
@@ -211,8 +211,8 @@ function AdminPage() {
   );
 
   // Returns `prev` untouched when there is no error for this row, so React can bail out of the
-  // re-render. (This was a generic `dropRegId(setter, regId)` while the history cache shared it;
-  // that cache now lives in useRegistrationHistory, which has its own `invalidate`.)
+  // re-render. Row errors only; the history cache has its own `invalidate` in
+  // useRegistrationHistory.
   const clearRowError = (regId) =>
     setRowErrors((prev) => {
       if (!prev[regId]) return prev;
@@ -509,9 +509,9 @@ function AdminPage() {
             </p>
           ) : registrations.length === 0 ? (
             // Says the query came back empty. Without it the page renders a column header over
-            // nothing, which reads as a broken fetch — and the de-boxing removed the wrapper that
-            // used to make an empty table look like an empty box. Wording mirrors the export-scope
-            // line above so the two never disagree about what is being looked at.
+            // nothing, which reads as a broken fetch: there is no wrapper around the table to give
+            // the emptiness a shape. Wording mirrors the export-scope line above so the two never
+            // disagree about what is being looked at.
             <p
               className="rounded-lg bg-surface-muted px-4 py-3 text-sm text-ink"
               data-cy="admin-empty"

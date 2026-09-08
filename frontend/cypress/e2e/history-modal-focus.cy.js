@@ -8,9 +8,9 @@
 // Cypress has no native Tab press and no tab plugin is installed (deliberately — not worth a
 // dependency for this), so these dispatch a synthetic Tab keydown.
 //
-// That makes "focus is still inside the dialog" a VACUOUS assertion, and mutation testing caught it
-// on 2026-08-17: a synthetic Tab moves nothing by itself, so with the trap disabled focus simply
-// stayed on the close button and the containment check passed anyway. What proves interception is
+// That makes "focus is still inside the dialog" a VACUOUS assertion, as mutation testing showed: a
+// synthetic Tab moves nothing by itself, so with the trap disabled focus simply stays on the close
+// button and the containment check passes anyway. What proves interception is
 // `defaultPrevented` — the handler must cancel the browser's default Tab. The event therefore MUST
 // be constructed `cancelable: true`, or preventDefault() is a silent no-op and the assertion can
 // never hold.

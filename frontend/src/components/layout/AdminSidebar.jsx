@@ -23,19 +23,18 @@ import {
   USER_MANAGEMENT_ROLES,
 } from "../../lib/roles";
 
-// The admin navigation, on all seven admin pages. It replaces BrandHeader's six section pills and
-// AdminPageShell's lone "Dashboard" pill.
+// The admin navigation, on all seven admin pages, and the only navigation the admin side has.
 //
 // Why all seven and not just /admin: navigation that appears and disappears as you move is two
-// navigation models in one product. It is all-or-nothing. The side effect is that role gating lives
-// in ONE place instead of seven header variants, and the rail finally answers "which page am I on",
-// which seven identical navy headers never did.
+// navigation models in one product. It is all-or-nothing. Role gating therefore lives in ONE place
+// rather than once per page, and the highlighted row is what answers "which page am I on".
 //
 // UX GATING ONLY. These role lists decide what to offer, never what is permitted: every
 // /api/admin/** call is authorized server-side per endpoint. Never let this be the reason an
 // endpoint skips its @PreAuthorize.
 
-// Sidebar row: navy ground, so its fills are white alphas — the same pair HeaderPill uses.
+// Sidebar row. The rail is a page surface, not a chrome colour, so hover is a real fill
+// (`bg-surface-1` against the rail's `bg-surface-muted`) — never a white alpha and never a border.
 const NAV_ITEM =
   "group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold " +
   "text-ink transition-colors hover:bg-surface-1";
@@ -55,7 +54,7 @@ const ROLE_LABELS = {
   PROCTOR: "Proctor",
 };
 
-// The six destinations, gated exactly as the header pills were. Per role that is 6 / 5 / 4 / 3 / 2
+// The six destinations. Per role that is 6 / 5 / 4 / 3 / 2
 // items for ADMIN / PRINCIPAL / HOD / DEPT_OFFICE / PROCTOR — a proctor's two-item sidebar is thin
 // and was accepted knowingly.
 function destinationsFor(role) {

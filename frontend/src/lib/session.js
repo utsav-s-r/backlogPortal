@@ -37,10 +37,9 @@ export function rememberExpiry(scope, expiresInSeconds) {
 }
 
 /**
- * The signed-in user's own department row. Matched by ID — the name is display-only and editable,
- * so a rename used to silently break the pin for everyone already signed in. `adminDepartmentId`
- * only exists for sessions created after that fix, so fall back to the name for the rest of the
- * (max 1h) window rather than un-pinning them mid-session.
+ * The signed-in user's own department row. Matched by ID: the name is display-only and editable, so
+ * matching on it lets a rename silently un-pin everyone already signed in. The name fallback covers
+ * a session whose storage predates `adminDepartmentId` — un-pinning mid-window would be worse.
  */
 export function findOwnDepartment(departments, adminDepartment) {
   if (!Array.isArray(departments) || departments.length === 0) return null;

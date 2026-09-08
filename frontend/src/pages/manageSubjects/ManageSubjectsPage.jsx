@@ -17,12 +17,11 @@ const TABS = [
   { key: "import", label: "Import", icon: UploadCloud },
 ];
 
-// The subject catalog behind one route as four tabs (Manage / Add / Clone / Import), mirroring
-// the Students page. Clone rolls a year forward; Import loads a catalog that has no previous year
-// to roll. AdminTabPage owns
-// everything the tabs share — role guard, the one departments fetch, dept-pin resolution, chrome —
-// leaving each tab purely presentational. Auth/dept scope is enforced server-side on every
-// /api/admin/** call; the role/dept logic here is only UX gating.
+// The subject catalog behind one route as four tabs (Manage / Add / Clone / Import), mirroring the
+// Students page. Clone rolls a year forward; Import loads a catalog that has no previous year to
+// roll. AdminTabPage owns everything the tabs share — role guard, the one departments fetch,
+// dept-pin resolution, chrome — leaving each tab purely presentational. Auth/dept scope is enforced
+// server-side on every /api/admin/** call; the role/dept logic here is only UX gating.
 function ManageSubjectsPage() {
   return (
     <AdminTabPage

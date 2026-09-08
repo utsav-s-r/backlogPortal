@@ -6,9 +6,8 @@ import SkipLink from "../components/ui/SkipLink";
 
 function HomePage() {
   return (
-    // bg-surface-1 like every other page — the homepage used to carry its own fixed backdrop layer
-    // (decorative corner blobs in light, a brand gradient in dark). Both are gone: the page now
-    // sits on the same flat surface as the rest of the app.
+    // bg-surface-1 like every other page, with no backdrop layer of its own: a decorative one
+    // (corner blobs, a brand gradient) is the homepage disagreeing with the rest of the app.
     <div className="min-h-screen bg-surface-1 text-ink">
       <SkipLink href="#main-content">Skip to main content</SkipLink>
       {/* TopBand directly, not PageLayout: the hero and process sections are full-bleed and own

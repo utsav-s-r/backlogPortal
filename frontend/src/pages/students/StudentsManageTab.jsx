@@ -311,12 +311,9 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
     }
   };
 
-  // A REPEATED list item, so spacing alone does not separate it — consecutive rows just run
-  // together. The hairline is the no-box rule's third mechanism and the one that fits a list;
-  // `first:border-t-0` keeps a rule off the top of the list, where there is nothing to divide.
-  // students sit in even semesters and join at odd ones — two different lists, not one.
-  // Legacy rows predate the parity rule, so a stored invalid value joins its list rather than
-  // rendering as a blank select that submits something the admin never saw.
+  // TWO option lists, not one: students sit in even semesters and join at odd ones. A legacy row
+  // violating the parity rule has its stored value added to its own list, rather than rendering as
+  // a blank <select> that submits something the admin never saw.
   const currentOptions = withLegacyValue(CURRENT_SEMESTERS, student.currentSemester);
   const entryOptions = withLegacyValue(
     entrySemestersUpTo(currentSemester),

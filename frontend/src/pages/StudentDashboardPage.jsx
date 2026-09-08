@@ -119,7 +119,7 @@ function StudentDashboardPage() {
       // only 401 is handled globally (sign-out); 403 belongs here like any other denial
       if (err.response?.status !== 401) {
         // the server's reason is the actionable part (e.g. a 409 telling the student which detail
-        // is missing and to contact the department office) — a generic alert threw it away
+        // is missing and to contact the department office) — a generic alert throws it away
         setDownloadError({
           regId,
           message: await readBlobErrorMessage(

@@ -1,12 +1,10 @@
 import AdminLayout from "./AdminLayout";
 
-// The container every non-tabbed admin section shares, inside AdminLayout's rail + navy band.
+// The container every non-tabbed admin section shares, inside AdminLayout's rail + band.
 //
-// The navy BrandHeader and its lone "Dashboard" pill are gone: the sidebar carries every
-// destination now, so a per-page back-link to /admin is one of seven copies of what the rail
-// already shows. `badge` went with it — the department it displayed lives in the sidebar's identity
-// block, once, instead of on each page. The one extra pill any page carried — Manage Users' "My
-// Password" — is a sidebar row now, so the `actions` slot went too.
+// No back-link, no `badge`, no `actions` slot, deliberately: the sidebar carries every destination,
+// its identity block carries the department once, and Manage Users' "My Password" is a sidebar row.
+// Any of them here is a seventh copy of what the rail already shows.
 //
 // AdminPage is deliberately NOT a caller: skip link first, max-w-7xl, and filter/table specs that
 // assert raw ids and parent-child structure. It composes AdminLayout directly.

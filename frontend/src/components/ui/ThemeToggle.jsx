@@ -5,9 +5,8 @@ import { btn } from "../../lib/buttonClasses";
 // no sun/moon, no icon swapping, no segmented track, no three-state system option. A word needs no
 // legend and no hover tooltip; an icon needs both.
 //
-// Every caller renders it on a navy ground (the sidebar rail, the student/public top band), so the
 // The track fills with the accent when on and sits on `bg-stroke` when off; the thumb is the page
-// exactly like HeaderPill — that is why no [data-theme="dark"] counterpart exists or is needed.
+// surface. All three are theme-aware tokens, so no [data-theme="dark"] counterpart is needed.
 //
 // `label` is a node, not a boolean, because the collapsed sidebar rail needs the SAME words to come
 // back as its hover tooltip rather than disappearing. Pass null for no label at all; the switch is

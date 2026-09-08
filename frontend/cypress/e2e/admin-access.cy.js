@@ -58,8 +58,7 @@ describe("Admin dashboard — role & department scoped access", () => {
     cy.visitAsAdmin("/admin", { role: "HOD", department: "Computer Science" });
     cy.wait("@getRegistrations");
 
-    // The pinned department, which now lives in the SIDEBAR identity block — the navy header
-    // and its badge are gone.
+    // The pinned department, which lives in the SIDEBAR identity block.
     cy.contains("Computer Science").should("be.visible");
 
     // dept roles default to the SUBMITTED filter, so only the pending row shows

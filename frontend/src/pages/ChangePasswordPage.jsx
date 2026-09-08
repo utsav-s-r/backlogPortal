@@ -9,10 +9,10 @@ import { FIELD_INPUT } from "../lib/formClasses";
 import Field from "../components/ui/Field";
 import { btn } from "../lib/buttonClasses";
 
-// Self-service account settings for a signed-in admin-type user: password, and — since V4 made
-// usernames renamable — their own username. Nothing forces them here; accounts start on the derived
-// default (username + "4321") and stay on it until they choose otherwise, so every role reaches
-// this from the sidebar's "My password" row.
+// Self-service account settings for a signed-in admin-type user: their password and their own
+// username. Nothing forces them here; accounts start on the derived default (username + "4321")
+// and stay on it until they choose otherwise, so every role reaches this from the sidebar's
+// "My password" row.
 function ChangePasswordPage() {
   const navigate = useNavigate();
 

@@ -86,9 +86,9 @@ function AdminLoginPage() {
         setDepartments(res.data);
         setDepartmentsError("");
       })
-      // Swallowing this made HOD/DEPT_OFFICE/PROCTOR unable to sign in at all: with no options the
-      // department <select> stays empty, so the "Please select your department." guard below can
-      // never be satisfied and blames the user for a server-side failure.
+      // Swallowing this locks HOD/DEPT_OFFICE/PROCTOR out entirely: with no options the department
+      // <select> stays empty, so the "Please select your department." guard below can never be
+      // satisfied and blames the user for a server-side failure.
       .catch(() => {
         setDepartments([]);
         setDepartmentsError(

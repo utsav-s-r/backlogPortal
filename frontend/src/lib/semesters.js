@@ -49,7 +49,7 @@ export function entrySemestersUpTo(currentSemester) {
  * Snap an entry semester DOWN when the current semester drops below it. Only that case — the
  * entry semester is never otherwise rewritten.
  *
- * A legacy even entry (the rows the parity rule newly makes invalid) is returned UNCHANGED, so the
+ * A legacy even entry (the rows the parity rule makes invalid) is returned UNCHANGED, so the
  * server reports it and an admin fixes it deliberately. Guessing a replacement here raises the
  * eligibility floor and silently hides the student's older backlogs, which is precisely the
  * "reported, never guessed at" rule in docs/adr/backlog-progression.md.
