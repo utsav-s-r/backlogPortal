@@ -13,6 +13,7 @@ import { Link, useNavigate } from "react-router-dom";
 import PageLayout from "../components/layout/PageLayout";
 import PrimaryCta from "../components/ui/PrimaryCta";
 import api from "../lib/api";
+import { reportLoadError } from "../lib/loadError";
 import { formatAcademicYear } from "../lib/academicYear";
 import { saveBlob, readBlobErrorMessage } from "../lib/download";
 import { FIELD_CONTROL, FIELD_LABEL } from "../lib/formClasses";
@@ -102,20 +103,19 @@ function RegistrationPage() {
         if (ignoreResponse) return;
         setSubjects(Array.isArray(res.data?.subjects) ? res.data.subjects : []);
         setResolvedAcademicYear(res.data?.academicYear ?? null);
+        setLoadingSubjects(false);
       })
       .catch((err) => {
-        if (ignoreResponse || err.code === "ERR_CANCELED") return;
+        if (ignoreResponse) return;
         setSubjects([]);
         setResolvedAcademicYear(null);
-        // surface the server's explanation, e.g. a missing progression record
-        setSubjectsError(
-          err.response?.data?.message || "Unable to load subjects. Please try again.",
-        );
         console.error("Failed to fetch subjects", err);
-      })
-      .finally(() => {
-        if (ignoreResponse) return;
-        setLoadingSubjects(false);
+        // reportLoadError surfaces the server's reason (a missing progression record, say) but
+        // stays silent on ERR_CANCELED and on the 401 api.js is redirecting on. Loading clears
+        // here and in .then, never in a .finally — that would also run on that 401.
+        if (reportLoadError(err, setSubjectsError, "Unable to load subjects. Please try again.")) {
+          setLoadingSubjects(false);
+        }
       });
 
     return () => {

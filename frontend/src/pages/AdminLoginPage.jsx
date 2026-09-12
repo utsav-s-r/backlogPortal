@@ -104,7 +104,9 @@ function AdminLoginPage() {
     setError("");
   };
 
-  const handleLogin = async () => {
+  // Submit event: the fields are in a <form>, so the iOS keyboard offers "Go". See StudentLoginPage.
+  const handleLogin = async (e) => {
+    e?.preventDefault();
     if (!username || !password) {
       setError("Username and password are required.");
       return;
@@ -195,6 +197,7 @@ function AdminLoginPage() {
             {ROLES.map((card) => (
               <button
                 key={card.role}
+                type="button"
                 onClick={() => handleRoleSelect(card.title, card.role)}
                 data-cy={`role-${card.role.toLowerCase().replace("_", "-")}`}
                 className="flex items-center gap-4 rounded-lg bg-surface-muted p-4 text-left transition-all duration-200 hover:bg-accent-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -210,7 +213,7 @@ function AdminLoginPage() {
             ))}
           </div>
         ) : (
-          <div className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4">
             <label
               htmlFor="admin-username"
               className={`block text-left ${FIELD_LABEL} text-ink`}
@@ -221,7 +224,12 @@ function AdminLoginPage() {
               id="admin-username"
               placeholder="Username"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              // Editing clears the banner. `departmentsError` is deliberately untouched — it
+              // reports a failed fetch, not a failed attempt.
+              onChange={(e) => {
+                setUsername(e.target.value);
+                setError("");
+              }}
               className={FIELD_INPUT}
               data-cy="admin-username"
             />
@@ -237,7 +245,10 @@ function AdminLoginPage() {
               type="password"
               placeholder="Password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError("");
+              }}
               className={FIELD_INPUT}
               data-cy="admin-password"
             />
@@ -253,7 +264,10 @@ function AdminLoginPage() {
                 <select
                   id="admin-department"
                   value={departmentId}
-                  onChange={(e) => setDepartmentId(e.target.value)}
+                  onChange={(e) => {
+                    setDepartmentId(e.target.value);
+                    setError("");
+                  }}
                   className={FIELD_INPUT}
                   data-cy="admin-department"
                 >
@@ -279,7 +293,7 @@ function AdminLoginPage() {
             ) : null}
 
             <PrimaryCta
-              onClick={handleLogin}
+              type="submit"
               className="mt-2 w-full"
               disabled={loading}
               data-cy="admin-login-submit"
@@ -307,7 +321,7 @@ function AdminLoginPage() {
             >
               <ArrowLeft size={14} /> Back to role selection
             </button>
-          </div>
+          </form>
         )}
 
         <div className="mt-4 text-center">

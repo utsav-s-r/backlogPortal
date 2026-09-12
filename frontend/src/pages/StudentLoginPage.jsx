@@ -30,7 +30,10 @@ function StudentLoginPage() {
     }
   }, [sessionExpired, navigate]);
 
-  const handleLogin = async () => {
+  // Takes the submit event: the fields are in a <form>, so iOS offers a "Go" key and submitting
+  // never depends on tapping a button the software keyboard is covering.
+  const handleLogin = async (e) => {
+    e?.preventDefault();
     if (!usn || !dob) {
       setError("USN and date of birth are required.");
       return;
@@ -91,7 +94,7 @@ function StudentLoginPage() {
           </AlertBanner>
         ) : null}
 
-        <div className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label
               htmlFor="student-usn"
@@ -103,7 +106,12 @@ function StudentLoginPage() {
               id="student-usn"
               placeholder="e.g. 1MS22CS001"
               value={usn}
-              onChange={(e) => setUsn(e.target.value.toUpperCase())}
+              // Editing clears the banner: otherwise a previous attempt's error survives the
+              // correction and sits over credentials that are now right.
+              onChange={(e) => {
+                setUsn(e.target.value.toUpperCase());
+                setError("");
+              }}
               maxLength={10}
               className={FIELD_INPUT}
               data-cy="student-usn"
@@ -121,7 +129,10 @@ function StudentLoginPage() {
               id="student-dob"
               type="date"
               value={dob}
-              onChange={(e) => setDob(e.target.value)}
+              onChange={(e) => {
+                setDob(e.target.value);
+                setError("");
+              }}
               className={FIELD_INPUT}
               data-cy="student-dob"
             />
@@ -134,7 +145,7 @@ function StudentLoginPage() {
           ) : null}
 
           <PrimaryCta
-            onClick={handleLogin}
+            type="submit"
             className="mt-2 w-full"
             disabled={loading}
             data-cy="student-login-submit"
@@ -142,7 +153,7 @@ function StudentLoginPage() {
           >
             {loading ? <LoaderCircle size={16} className="animate-spin" /> : <LogIn size={16} />} Login
           </PrimaryCta>
-        </div>
+        </form>
 
         <div className="mt-6 text-center">
           <Link

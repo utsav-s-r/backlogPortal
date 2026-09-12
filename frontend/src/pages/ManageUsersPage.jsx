@@ -205,6 +205,9 @@ function ManageUsersPage() {
     }
   };
 
+  // useRoleGuard redirects from an effect, which commits AFTER this render — without this the
+  // whole page paints for a frame to a role that may not manage anybody.
+  if (!canManageUsers) return null;
 
   return (
     <AdminPageShell containerClassName="max-w-5xl pb-8">

@@ -400,6 +400,13 @@ function AdminPage() {
 
       <div id="admin-main" className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
 
+        {/* The sidebar row says WHERE you are, this says WHAT the page does. Same classes as
+            DepartmentsPage/ExamCyclePage so the three land at one size. */}
+        <h1 className="text-2xl font-semibold text-secondary-ink">Registrations</h1>
+        <p className="mb-6 mt-1 text-sm text-ink-muted">
+          Verify or reject submitted backlog registrations, and export the current selection as a PDF.
+        </p>
+
         <SummaryCards counts={counts} error={countsError} />
 
         <FilterPanel

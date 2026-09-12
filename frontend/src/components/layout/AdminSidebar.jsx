@@ -90,7 +90,15 @@ function AdminSidebar({ collapsed, openMobile, onToggle, onClose }) {
   const label = (text) =>
     rail ? <span className={TOOLTIP}>{text}</span> : <span>{text}</span>;
 
-  const rowClass = `${NAV_ITEM}${rail ? "justify-center px-0" : ""}`;
+  // Never `${A}${B}` for classes: NAV_ITEM ends in a class name, so adjacent interpolation fuses
+  // both into one dead token ("hover:bg-surface-1justify-center") that Tailwind never emits —
+  // silently losing both, with lint and the build still green.
+  const cx = (...parts) => parts.filter(Boolean).join(" ");
+
+  // No `px-0` here: NAV_ITEM carries `px-3`, and two padding utilities resolve by CSS SOURCE ORDER
+  // (px-0 is emitted first), so it would lose anyway — and symmetric padding already centres the
+  // icon in the rail.
+  const rowClass = cx(NAV_ITEM, rail && "justify-center");
 
   // `Icon` is pulled out as a VARIABLE, not destructured in the parameter list: eslint's
   // varsIgnorePattern '^[A-Z_]' — which is what teaches this repo that `<Icon />` uses `Icon`,
@@ -105,7 +113,7 @@ function AdminSidebar({ collapsed, openMobile, onToggle, onClose }) {
         to={to}
         onClick={onClose}
         aria-current={current ? "page" : undefined}
-        className={`${rowClass}${current ? "bg-accent-tint" : ""}`}
+        className={cx(rowClass, current && "bg-accent-tint")}
       >
         <Icon size={18} />
         {label(text)}
@@ -170,7 +178,7 @@ function AdminSidebar({ collapsed, openMobile, onToggle, onClose }) {
         {/* Collapsed, the words drop but THE CONTROL STAYS — the switch itself is the icon, so
             nothing in the rail is decoration, and the label returns as the hover tooltip. */}
         <ThemeToggle
-          className={`${NAV_ITEM}${rail ? "justify-center px-0" : "justify-between"}`}
+          className={cx(NAV_ITEM, rail ? "justify-center" : "justify-between")}
           label={label("Dark Mode")}
         />
 

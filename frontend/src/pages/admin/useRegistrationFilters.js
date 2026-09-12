@@ -92,15 +92,17 @@ export function useRegistrationFilters({ isAdmin, canFilterByDepartment, onAppli
         if (ignore) return;
         setAllSubjects(res.data);
         setSubjectsError("");
+        setLoadingSubjects(false);
       })
       .catch((err) => {
         if (ignore) return;
         console.error("Failed to fetch subjects list for filter", err);
         setAllSubjects([]);
-        reportLoadError(err, setSubjectsError, "Could not load the subject list. Please refresh.");
-      })
-      .finally(() => {
-        if (!ignore) setLoadingSubjects(false);
+        // Cleared here and in .then, never in a .finally — that also runs on the 401 api.js is
+        // redirecting on, painting an empty dropdown behind the sign-out.
+        if (reportLoadError(err, setSubjectsError, "Could not load the subject list. Please refresh.")) {
+          setLoadingSubjects(false);
+        }
       });
 
     return () => {
