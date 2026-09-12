@@ -6,6 +6,7 @@ import PrimaryCta from "../components/ui/PrimaryCta";
 import api, { getStudentToken } from "../lib/api";
 import { rememberExpiry } from "../lib/session";
 import { safeRedirect } from "../lib/redirect";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import AlertBanner from "../components/AlertBanner";
 import { FIELD_INPUT, FIELD_LABEL } from "../lib/formClasses";
 import { btn } from "../lib/buttonClasses";
@@ -20,6 +21,11 @@ function StudentLoginPage() {
   const [dob, setDob] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Pressing Login again ABORTS the attempt still running, so the reply that lands is always the
+  // one for the credentials on screen. The button is deliberately NOT disabled while loading:
+  // disabling it is what swallowed the retry, leaving a slow attempt's failure to report itself
+  // over credentials the student had already corrected.
+  const nextSignal = useAbortableRequest();
 
   // Already signed in — skip the form for the dashboard. Same shape as the admin login: the
   // marker is a presence hint, and an expired cookie returns as ?expired=1 with the marker
@@ -49,7 +55,7 @@ function StudentLoginPage() {
       const res = await api.post("/student/auth/login", {
         rollNo: usn,
         dateOfBirth: dob, // native date input gives ISO yyyy-MM-dd
-      });
+      }, { signal: nextSignal() });
       if (res.data.rollNo || res.data.name) {
         // the server set the JWT in an httpOnly cookie; store only a presence marker, UI state,
         // and the sign-out deadline
@@ -65,10 +71,14 @@ function StudentLoginPage() {
         navigate(safeRedirect(searchParams.get("redirect"), "/student"));
       } else {
         setError("Login failed. Please try again.");
+        setLoading(false);
       }
     } catch (apiError) {
+      // No `finally`: it would also run on the early return below, clearing the spinner for the
+      // NEWER attempt that superseded this one. Cleared on each terminal path instead — the
+      // success path deliberately leaves it set, since the page is navigating away.
+      if (apiError.code === "ERR_CANCELED") return; // superseded by a newer press
       setError(apiError.response?.data?.message || "Invalid USN or date of birth.");
-    } finally {
       setLoading(false);
     }
   };
@@ -147,7 +157,6 @@ function StudentLoginPage() {
           <PrimaryCta
             type="submit"
             className="mt-2 w-full"
-            disabled={loading}
             data-cy="student-login-submit"
             aria-label="Student login"
           >

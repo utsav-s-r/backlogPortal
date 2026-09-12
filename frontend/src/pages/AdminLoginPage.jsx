@@ -16,6 +16,7 @@ import PrimaryCta from "../components/ui/PrimaryCta";
 import api, { getAdminToken, logoutAdmin } from "../lib/api";
 import { rememberExpiry } from "../lib/session";
 import { safeRedirect } from "../lib/redirect";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import { DEPT_PINNED, STAFF_ROLES } from "../lib/roles";
 import { FIELD_INPUT, FIELD_LABEL } from "../lib/formClasses";
 import DepartmentOptions from "../components/ui/DepartmentOptions";
@@ -69,6 +70,10 @@ function AdminLoginPage() {
   const [departmentsError, setDepartmentsError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Pressing Login again ABORTS the attempt still running, so the reply that lands is always the
+  // one for the credentials on screen, and the button is not disabled while loading. See
+  // StudentLoginPage.
+  const nextSignal = useAbortableRequest();
 
   // Already signed in (e.g. back via "Admin Access") — skip the form and return to the dashboard.
   // The marker is only a presence hint: if the cookie really expired, the dashboard's 401
@@ -125,7 +130,7 @@ function AdminLoginPage() {
         payload.departmentId = departmentId;
       }
 
-      const res = await api.post("/auth/login", payload);
+      const res = await api.post("/auth/login", payload, { signal: nextSignal() });
 
       if (STAFF_ROLES.includes(res.data.role)) {
         // the server set the JWT in an httpOnly cookie; store only a presence marker, UI state,
@@ -154,10 +159,14 @@ function AdminLoginPage() {
         // cookie too, not just local state
         logoutAdmin();
         setError("Unauthorized role.");
+        setLoading(false);
       }
     } catch (apiError) {
+      // No `finally`: it would also run on the early return below, clearing the spinner for the
+      // NEWER attempt that superseded this one. The success path leaves it set — the page is
+      // navigating away.
+      if (apiError.code === "ERR_CANCELED") return; // superseded by a newer press
       setError(apiError.response?.data?.message || "Login failed.");
-    } finally {
       setLoading(false);
     }
   };
@@ -295,7 +304,6 @@ function AdminLoginPage() {
             <PrimaryCta
               type="submit"
               className="mt-2 w-full"
-              disabled={loading}
               data-cy="admin-login-submit"
               aria-label="Admin login"
             >

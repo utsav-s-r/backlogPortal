@@ -10,6 +10,7 @@ import {
 import api from "../../lib/api";
 import { batchRows } from "../../lib/batchResult";
 import { reportLoadError } from "../../lib/loadError";
+import { useAbortableRequest } from "../../hooks/useAbortableRequest";
 import { ALL_SEMESTERS } from "../../lib/semesters";
 import { ROLE } from "../../lib/roles";
 import { FIELD_INPUT } from "../../lib/formClasses";
@@ -69,6 +70,11 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
 
   const proctorParam = isProctor ? "" : targetProctor;
   const targetChosen = isProctor || Boolean(targetProctor);
+  // ONE controller each: the two lists load independently, so a shared one would make loading the
+  // claim picker abort the assigned list. Re-pressing a Load aborts only its own predecessor, so a
+  // slow reply cannot render under a proctor or filter it was not fetched for.
+  const nextAssignedSignal = useAbortableRequest();
+  const nextClaimableSignal = useAbortableRequest();
 
   const loadAssigned = useCallback(async () => {
     if (!targetChosen) return;
@@ -78,14 +84,17 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
       if (proctorParam) params.proctor = proctorParam;
       const res = await api.get("/admin/proctor/students", {
         params,
+        signal: nextAssignedSignal(),
       });
       setAssigned(Array.isArray(res.data) ? res.data : []);
+      setAssignedBusy(false);
     } catch (err) {
+      // No `finally`: it would clear the flag for the newer load that superseded this one.
+      if (err.code === "ERR_CANCELED") return;
       setError(err.response?.data?.message || "Could not load assigned students.");
-    } finally {
       setAssignedBusy(false);
     }
-  }, [targetChosen, proctorParam]);
+  }, [targetChosen, proctorParam, nextAssignedSignal]);
 
   const loadClaimable = useCallback(
     async (targetPage = 0) => {
@@ -103,6 +112,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
         if (fQuery.trim()) params.query = fQuery.trim();
         const res = await api.get("/admin/proctor/claimable", {
           params,
+          signal: nextClaimableSignal(),
         });
         const data = res.data || {};
         setRows(Array.isArray(data.content) ? data.content : []);
@@ -112,13 +122,14 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
           totalElements: data.totalElements ?? 0,
         });
         setSelected(new Set());
+        setBusy(false);
       } catch (err) {
+        if (err.code === "ERR_CANCELED") return;
         setError(err.response?.data?.message || "Could not load students.");
-      } finally {
         setBusy(false);
       }
     },
-    [targetChosen, proctorParam, fYear, fSemester, fQuery],
+    [targetChosen, proctorParam, fYear, fSemester, fQuery, nextClaimableSignal],
   );
 
   const toggle = (rollNo) =>
@@ -208,7 +219,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
         <button
           type="button"
           onClick={loadAssigned}
-          disabled={assignedBusy || !targetChosen}
+          disabled={!targetChosen}
           data-cy="assigned-load"
           className={btn()}
         >
@@ -331,7 +342,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
               setResults(null);
               loadClaimable(0);
             }}
-            disabled={busy || !targetChosen}
+            disabled={!targetChosen}
             data-cy="claim-load"
             className={btn()}
           >

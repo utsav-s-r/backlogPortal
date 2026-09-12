@@ -14,6 +14,7 @@ import {
 import AlertBanner from "../../components/AlertBanner";
 import api from "../../lib/api";
 import { reportLoadError } from "../../lib/loadError";
+import { useAbortableRequest } from "../../hooks/useAbortableRequest";
 import { parseAcademicYear } from "../../lib/academicYear";
 import {
   ALL_SEMESTERS,
@@ -49,6 +50,10 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
   const [error, setError] = useState("");
 
   const effectiveDeptId = deptLocked ? pinnedDeptId : fDeptId;
+  // Pressing Load again aborts the load still running. The filters stay editable while one is in
+  // flight, so without this a slow reply renders the OLD filter's students under the NEW
+  // selection — and the trigger is not disabled, or nothing could supersede it.
+  const nextSignal = useAbortableRequest();
 
   // The endpoint returns a Page ({content, totalPages, ...}), never a bare array — loading the
   // whole roster unfiltered times the client out. Each call pulls one page; filters reset to page 0.
@@ -61,7 +66,7 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
       if (fYear && /^\d{4}$/.test(fYear.trim())) params.admissionYear = Number(fYear.trim());
       if (fSemester) params.semester = Number(fSemester);
       if (fQuery.trim()) params.query = fQuery.trim();
-      const res = await api.get("/admin/students", { params });
+      const res = await api.get("/admin/students", { params, signal: nextSignal() });
       const data = res.data || {};
       setStudents(Array.isArray(data.content) ? data.content : []);
       setPageInfo({
@@ -69,17 +74,20 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
         totalPages: data.totalPages ?? 0,
         totalElements: data.totalElements ?? 0,
       });
+      setBusy(false);
     } catch (err) {
+      // No `finally`: it would clear the flag for the NEWER load that superseded this one.
+      // ECONNABORTED is axios's own timeout and still deserves a message; ERR_CANCELED is ours.
+      if (err.code === "ERR_CANCELED") return;
       setError(
         err.response?.data?.message ||
           (err.code === "ECONNABORTED"
             ? "Loading timed out. Narrow the filters and try again."
             : "Could not load students."),
       );
-    } finally {
       setBusy(false);
     }
-  }, [effectiveDeptId, fYear, fSemester, fQuery]);
+  }, [effectiveDeptId, fYear, fSemester, fQuery, nextSignal]);
 
   const onUpdated = (updated) =>
     setStudents((prev) => prev.map((s) => (s.rollNo === updated.rollNo ? updated : s)));
@@ -157,7 +165,6 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
           <button
             type="button"
             onClick={() => load(0)}
-            disabled={busy}
             data-cy="students-load"
             className={btn()}
           >
