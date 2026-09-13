@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, LogIn, LoaderCircle } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import PageLayout from "../components/layout/PageLayout";
@@ -26,6 +26,7 @@ function StudentLoginPage() {
   // disabling it is what swallowed the retry, leaving a slow attempt's failure to report itself
   // over credentials the student had already corrected.
   const nextSignal = useAbortableRequest();
+  const submitRef = useRef(null);
 
   // Already signed in — skip the form for the dashboard. Same shape as the admin login: the
   // marker is a presence hint, and an expired cookie returns as ?expired=1 with the marker
@@ -143,9 +144,9 @@ function StudentLoginPage() {
                 setDob(e.target.value);
                 setError("");
                 // iOS Chrome: after its date picker closes, taps on Login / Back to home are
-                // swallowed until the page scrolls. A 1px scroll and back does that invisibly.
-                window.scrollBy(0, 1);
-                window.scrollBy(0, -1);
+                // swallowed until focus moves to another element (blur alone does not fix it).
+                // Touch only: on desktop the date is typed, and this would interrupt the edit.
+                if (window.matchMedia("(pointer: coarse)").matches) submitRef.current?.focus();
               }}
               className={FIELD_INPUT}
               data-cy="student-dob"
@@ -159,6 +160,7 @@ function StudentLoginPage() {
           ) : null}
 
           <PrimaryCta
+            ref={submitRef}
             type="submit"
             className="mt-2 w-full"
             data-cy="student-login-submit"
