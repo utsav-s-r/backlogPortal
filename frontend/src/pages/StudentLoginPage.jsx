@@ -13,17 +13,14 @@ import { btn } from "../lib/buttonClasses";
 
 const USN_PATTERN = /^1MS\d{2}[A-Z]{2}\d{3}$/;
 
-// TEMPORARY iOS Chrome dead-button diagnosis, shown only with ?debug=1. Remove with the real fix.
-function describeEl(el) {
-  if (!el || !el.tagName) return "null";
-  const tag = el.tagName.toLowerCase();
-  const cy = el.getAttribute?.("data-cy");
-  const text = (el.textContent || "").trim().slice(0, 14);
-  return [tag, el.id && `#${el.id}`, cy && `[${cy}]`, text && `"${text}"`].filter(Boolean).join("");
-}
-
-function debugLine(line) {
-  return `${new Date().toISOString().slice(17, 23)} ${line}`;
+// iOS Chrome: after its date picker closes, taps on Login / Back to home are swallowed until the
+// page scrolls (a finger scroll or rotation cures it; focus moves and repaints do not). Scroll 1px
+// and back on the next frame — two scrollBy calls in one frame can coalesce into no scroll at all.
+// Needs a page taller than the screen, hence PageLayout's `fullHeightClassName` below.
+function nudgeScroll() {
+  const dir = window.scrollY > 0 ? -1 : 1;
+  window.scrollBy(0, dir);
+  requestAnimationFrame(() => window.scrollBy(0, -dir));
 }
 
 function StudentLoginPage() {
@@ -39,40 +36,8 @@ function StudentLoginPage() {
   // disabling it is what swallowed the retry, leaving a slow attempt's failure to report itself
   // over credentials the student had already corrected.
   const nextSignal = useAbortableRequest();
-  const submitRef = useRef(null);
-
-  const debug = searchParams.get("debug") === "1";
-  const [debugLog, setDebugLog] = useState(() => [
-    debugLine(`debug on, coarse=${window.matchMedia("(pointer: coarse)").matches}`),
-  ]);
-  const pushDebug = (line) => {
-    if (debug) setDebugLog((prev) => [...prev.slice(-13), debugLine(line)]);
-  };
-
-  // Capture phase on document: records every touch/click that reaches the page, and what element
-  // the browser thinks is under the finger, before any React handler runs.
-  useEffect(() => {
-    if (!debug) return undefined;
-    const push = (line) => setDebugLog((prev) => [...prev.slice(-13), debugLine(line)]);
-    const onTouch = (e) => {
-      const t = e.changedTouches[0];
-      const x = Math.round(t.clientX);
-      const y = Math.round(t.clientY);
-      push(`${e.type} ${x},${y} target=${describeEl(e.target)} atPoint=${describeEl(document.elementFromPoint(x, y))}`);
-    };
-    const onPointer = (e) => push(`${e.type} ${e.pointerType} target=${describeEl(e.target)}`);
-    const onClick = (e) => push(`click target=${describeEl(e.target)}`);
-    const onFocusIn = (e) => push(`focusin ${describeEl(e.target)}`);
-    const listeners = [
-      ["touchstart", onTouch],
-      ["touchend", onTouch],
-      ["pointerdown", onPointer],
-      ["click", onClick],
-      ["focusin", onFocusIn],
-    ];
-    listeners.forEach(([type, fn]) => document.addEventListener(type, fn, true));
-    return () => listeners.forEach(([type, fn]) => document.removeEventListener(type, fn, true));
-  }, [debug]);
+  const nudgeTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(nudgeTimerRef.current), []);
 
   // Already signed in — skip the form for the dashboard. Same shape as the admin login: the
   // marker is a presence hint, and an expired cookie returns as ?expired=1 with the marker
@@ -87,7 +52,6 @@ function StudentLoginPage() {
   // never depends on tapping a button the software keyboard is covering.
   const handleLogin = async (e) => {
     e?.preventDefault();
-    pushDebug("form submit fired");
     if (!usn || !dob) {
       setError("USN and date of birth are required.");
       return;
@@ -132,7 +96,7 @@ function StudentLoginPage() {
   };
 
   return (
-    <PageLayout containerClassName="max-w-md">
+    <PageLayout containerClassName="max-w-md" fullHeightClassName="min-h-[calc(100dvh_+_1px)]">
       <div className="py-6 sm:py-8">
         <div className="mb-6 text-left">
           <h1 className="text-3xl font-semibold text-secondary-ink">Sign in</h1>
@@ -190,20 +154,13 @@ function StudentLoginPage() {
               onChange={(e) => {
                 setDob(e.target.value);
                 setError("");
-                pushDebug(`dob change ${e.target.value}`);
               }}
-              onFocus={() => pushDebug("dob focus")}
-              // iOS Chrome: after its date picker closes, taps on Login / Back to home are
-              // swallowed until focus lands on another element. Not onChange: iOS fires it on every
-              // wheel movement, so the picker would close mid-pick. Only when focus is going
-              // nowhere (relatedTarget null), so a tap on USN keeps its keyboard. Touch only.
-              onBlur={(e) => {
-                const coarse = window.matchMedia("(pointer: coarse)").matches;
-                pushDebug(`dob blur related=${describeEl(e.relatedTarget)} coarse=${coarse}`);
-                if (e.relatedTarget === null && coarse) {
-                  submitRef.current?.focus();
-                  pushDebug(`focused submit, active=${describeEl(document.activeElement)}`);
-                }
+              // Blur, not onChange: iOS fires change on every wheel movement while the picker is
+              // open. The delay lets the picker finish closing first. Touch only (see nudgeScroll).
+              onBlur={() => {
+                if (!window.matchMedia("(pointer: coarse)").matches) return;
+                clearTimeout(nudgeTimerRef.current);
+                nudgeTimerRef.current = setTimeout(nudgeScroll, 400);
               }}
               className={FIELD_INPUT}
               data-cy="student-dob"
@@ -217,7 +174,6 @@ function StudentLoginPage() {
           ) : null}
 
           <PrimaryCta
-            ref={submitRef}
             type="submit"
             className="mt-2 w-full"
             data-cy="student-login-submit"
@@ -235,15 +191,6 @@ function StudentLoginPage() {
             <ArrowLeft size={14} /> Back to home
           </Link>
         </div>
-
-        {debug ? (
-          <pre
-            className="mt-4 whitespace-pre-wrap break-all rounded-lg bg-surface-muted p-2 text-left text-[10px] leading-tight text-ink"
-            data-cy="debug-log"
-          >
-            {debugLog.join("\n")}
-          </pre>
-        ) : null}
       </div>
     </PageLayout>
   );
