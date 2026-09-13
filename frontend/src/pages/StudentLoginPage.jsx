@@ -26,6 +26,14 @@ function StudentLoginPage() {
   // disabling it is what swallowed the retry, leaving a slow attempt's failure to report itself
   // over credentials the student had already corrected.
   const nextSignal = useAbortableRequest();
+  // TEST (iOS Chrome dead Login / Back to home after the date picker; only a real scroll cured it):
+  // scroll 100px as soon as the page mounts, and stay there. `instant` overrides index.css's
+  // `scroll-behavior: smooth`, which could otherwise animate a code scroll into nothing visible.
+  // Needs the 100px-taller page passed to PageLayout below.
+  useEffect(() => {
+    window.scrollTo({ top: 100, behavior: "instant" });
+  }, []);
+
   // Already signed in — skip the form for the dashboard. Same shape as the admin login: the
   // marker is a presence hint, and an expired cookie returns as ?expired=1 with the marker
   // already cleared by the 401 interceptor.
@@ -83,7 +91,7 @@ function StudentLoginPage() {
   };
 
   return (
-    <PageLayout containerClassName="max-w-md">
+    <PageLayout containerClassName="max-w-md" fullHeightClassName="min-h-[calc(100dvh_+_100px)]">
       <div className="py-6 sm:py-8">
         <div className="mb-6 text-left">
           <h1 className="text-3xl font-semibold text-secondary-ink">Sign in</h1>
@@ -171,14 +179,6 @@ function StudentLoginPage() {
             <ArrowLeft size={14} /> Back to home
           </Link>
         </div>
-
-        {/* TEST (iOS Chrome dead Login / Back to home): one invisible line rendered once USN has a
-            value — a layout change with no scroll, to see whether that alone keeps the buttons live. */}
-        {usn ? (
-          <p aria-hidden="true" className="invisible mt-4 text-xs" data-cy="layout-test-line">
-            .
-          </p>
-        ) : null}
       </div>
     </PageLayout>
   );

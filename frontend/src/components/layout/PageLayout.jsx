@@ -10,9 +10,18 @@ import TopBand from "./TopBand";
 // The Dark Mode toggle is built in rather than passed, so no page can forget it. `actions` is
 // whatever else that page needs beside it (Home + Log out on the dashboard, Back to Dashboard on
 // /register).
-function PageLayout({ actions = null, containerClassName = "max-w-7xl", children }) {
+//
+// `fullHeightClassName` replaces the default `min-h-screen` rather than adding to it — two
+// min-height utilities on one element resolve by CSS source order. The student login passes a
+// taller value so its iOS Chrome scroll test has room to scroll.
+function PageLayout({
+  actions = null,
+  containerClassName = "max-w-7xl",
+  fullHeightClassName = "min-h-screen",
+  children,
+}) {
   return (
-    <div className="min-h-screen bg-surface-1 text-ink">
+    <div className={[fullHeightClassName, "bg-surface-1 text-ink"].join(" ")}>
       <TopBand>
         <ThemeToggle />
         {actions}
