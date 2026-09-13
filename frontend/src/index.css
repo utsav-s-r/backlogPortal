@@ -90,6 +90,8 @@
   /* Alias, not a second colour: 37 call sites spell headings `text-secondary-ink`. Kept so those
      sites need no edit; it has no independent value and must stay equal to --color-ink. */
   --color-secondary-ink: var(--color-ink);
+  /* TopBand logo wordmark (the SVG's currentColor). Light: the dark-mode page navy; dark: ink. */
+  --color-wordmark: #201e3c;
 
   /* ---- the three colours ----
      ACCENT  anything you can act on: buttons, active tab, focus ring, the row still waiting.
@@ -160,6 +162,7 @@
   /* Off-white, NOT #ffffff: pure white on a dark ground glares. Violet-tinted to match the page. */
   --color-ink: #eceaf4;
   --color-ink-muted: #a9a3c6;
+  --color-wordmark: var(--color-ink);
 
   /* Desaturated as well as lightened. An accent that is only lightened for dark mode glows against
      the ground; dropping saturation ~10-15% keeps the hue recognisable without the neon effect. */
