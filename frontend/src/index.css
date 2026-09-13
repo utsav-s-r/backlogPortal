@@ -244,9 +244,8 @@ textarea:focus-visible {
    won't shrink it, so a date input overflows its `w-full` shell — border-box can't reach inside a
    shadow DOM. Reset the appearance, let control and inner value shrink, and restore the line box the
    reset removes. Global: every date input shares FIELD_INPUT and the bug. */
+/* TEST (iOS Chrome dead Login after the date picker): appearance reset removed for one deploy. */
 input[type="date"] {
-  -webkit-appearance: none;
-  appearance: none;
   min-width: 0;
   max-width: 100%;
 }
