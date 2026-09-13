@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, LogIn, LoaderCircle } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import PageLayout from "../components/layout/PageLayout";
@@ -13,16 +13,6 @@ import { btn } from "../lib/buttonClasses";
 
 const USN_PATTERN = /^1MS\d{2}[A-Z]{2}\d{3}$/;
 
-// iOS Chrome: after its date picker closes, taps on Login / Back to home are swallowed until the
-// page scrolls (a finger scroll or rotation cures it; focus moves and repaints do not). Scroll 1px
-// and back on the next frame — two scrollBy calls in one frame can coalesce into no scroll at all.
-// Needs a page taller than the screen, hence PageLayout's `fullHeightClassName` below.
-function nudgeScroll() {
-  const dir = window.scrollY > 0 ? -1 : 1;
-  window.scrollBy(0, dir);
-  requestAnimationFrame(() => window.scrollBy(0, -dir));
-}
-
 function StudentLoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -36,9 +26,6 @@ function StudentLoginPage() {
   // disabling it is what swallowed the retry, leaving a slow attempt's failure to report itself
   // over credentials the student had already corrected.
   const nextSignal = useAbortableRequest();
-  const nudgeTimerRef = useRef(null);
-  useEffect(() => () => clearTimeout(nudgeTimerRef.current), []);
-
   // Already signed in — skip the form for the dashboard. Same shape as the admin login: the
   // marker is a presence hint, and an expired cookie returns as ?expired=1 with the marker
   // already cleared by the 401 interceptor.
@@ -96,7 +83,7 @@ function StudentLoginPage() {
   };
 
   return (
-    <PageLayout containerClassName="max-w-md" fullHeightClassName="min-h-[calc(100dvh_+_1px)]">
+    <PageLayout containerClassName="max-w-md">
       <div className="py-6 sm:py-8">
         <div className="mb-6 text-left">
           <h1 className="text-3xl font-semibold text-secondary-ink">Sign in</h1>
@@ -155,13 +142,6 @@ function StudentLoginPage() {
                 setDob(e.target.value);
                 setError("");
               }}
-              // Blur, not onChange: iOS fires change on every wheel movement while the picker is
-              // open. The delay lets the picker finish closing first. Touch only (see nudgeScroll).
-              onBlur={() => {
-                if (!window.matchMedia("(pointer: coarse)").matches) return;
-                clearTimeout(nudgeTimerRef.current);
-                nudgeTimerRef.current = setTimeout(nudgeScroll, 400);
-              }}
               className={FIELD_INPUT}
               data-cy="student-dob"
             />
@@ -191,6 +171,14 @@ function StudentLoginPage() {
             <ArrowLeft size={14} /> Back to home
           </Link>
         </div>
+
+        {/* TEST (iOS Chrome dead Login / Back to home): one invisible line rendered once USN has a
+            value — a layout change with no scroll, to see whether that alone keeps the buttons live. */}
+        {usn ? (
+          <p aria-hidden="true" className="invisible mt-4 text-xs" data-cy="layout-test-line">
+            .
+          </p>
+        ) : null}
       </div>
     </PageLayout>
   );
