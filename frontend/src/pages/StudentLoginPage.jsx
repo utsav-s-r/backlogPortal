@@ -143,10 +143,15 @@ function StudentLoginPage() {
               onChange={(e) => {
                 setDob(e.target.value);
                 setError("");
-                // iOS Chrome: after its date picker closes, taps on Login / Back to home are
-                // swallowed until focus moves to another element (blur alone does not fix it).
-                // Touch only: on desktop the date is typed, and this would interrupt the edit.
-                if (window.matchMedia("(pointer: coarse)").matches) submitRef.current?.focus();
+              }}
+              // iOS Chrome: after its date picker closes, taps on Login / Back to home are
+              // swallowed until focus lands on another element. Not onChange: iOS fires it on every
+              // wheel movement, so the picker would close mid-pick. Only when focus is going
+              // nowhere (relatedTarget null), so a tap on USN keeps its keyboard. Touch only.
+              onBlur={(e) => {
+                if (e.relatedTarget === null && window.matchMedia("(pointer: coarse)").matches) {
+                  submitRef.current?.focus();
+                }
               }}
               className={FIELD_INPUT}
               data-cy="student-dob"
