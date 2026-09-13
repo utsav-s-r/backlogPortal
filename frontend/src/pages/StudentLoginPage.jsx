@@ -142,6 +142,10 @@ function StudentLoginPage() {
               onChange={(e) => {
                 setDob(e.target.value);
                 setError("");
+                // iOS Chrome: after its date picker closes, taps on Login / Back to home are
+                // swallowed until the page scrolls. A 1px scroll and back does that invisibly.
+                window.scrollBy(0, 1);
+                window.scrollBy(0, -1);
               }}
               className={FIELD_INPUT}
               data-cy="student-dob"
