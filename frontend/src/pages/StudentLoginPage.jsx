@@ -21,27 +21,21 @@ function StudentLoginPage() {
   const [dob, setDob] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  // Pressing Login again ABORTS the attempt still running, so the reply that lands is always the
-  // one for the credentials on screen. The button is deliberately NOT disabled while loading:
-  // disabling it is what swallowed the retry, leaving a slow attempt's failure to report itself
-  // over credentials the student had already corrected.
+  // New press aborts the old one, so only the latest reply lands. Don't disable Login while
+  // loading: it blocks the retry.
   const nextSignal = useAbortableRequest();
-  // TEST (iOS Chrome: taps on Login / Back to home die after the native date picker closes, until a
-  // real scroll). Touch devices get a page 200px taller than the screen, with no scrolling from
-  // code, to see whether a scrollable page alone keeps the buttons live.
+  // iOS Chrome fix, keep: on a non-scrollable page, Login/Back die after the date picker closes.
+  // 200px extra height fixes it; scrolling from code does not.
   const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
-  // Already signed in — skip the form for the dashboard. Same shape as the admin login: the
-  // marker is a presence hint, and an expired cookie returns as ?expired=1 with the marker
-  // already cleared by the 401 interceptor.
+  // Signed in → dashboard. On ?expired=1 the 401 interceptor already cleared the marker.
   useEffect(() => {
     if (!sessionExpired && getStudentToken()) {
       navigate("/student", { replace: true });
     }
   }, [sessionExpired, navigate]);
 
-  // Takes the submit event: the fields are in a <form>, so iOS offers a "Go" key and submitting
-  // never depends on tapping a button the software keyboard is covering.
+  // <form> submit: iOS "Go" key works even when the keyboard covers Login.
   const handleLogin = async (e) => {
     e?.preventDefault();
     if (!usn || !dob) {
@@ -61,27 +55,20 @@ function StudentLoginPage() {
         dateOfBirth: dob, // native date input gives ISO yyyy-MM-dd
       }, { signal: nextSignal() });
       if (res.data.rollNo || res.data.name) {
-        // the server set the JWT in an httpOnly cookie; store only a presence marker, UI state,
-        // and the sign-out deadline
+        // JWT is an httpOnly cookie; store only a marker, UI state and the expiry.
         sessionStorage.setItem("studentToken", "cookie");
         sessionStorage.setItem("studentRollNo", res.data.rollNo || usn);
         sessionStorage.setItem("studentName", res.data.name || "");
         rememberExpiry("student", res.data.expiresIn);
-        // The dashboard is home base (profile, status, past registrations) and stays the default.
-        // But when ProtectedStudentRoute bounced the student off an explicit deep link it encodes
-        // that destination, and dropping it read as a broken link. Honour it — validated, never
-        // raw: the param is attacker-controllable, and only /register and /student are reachable
-        // anyway (RegistrationPage loads its own data, so it is a complete entry point).
+        // ?redirect= is attacker-controlled: always through safeRedirect.
         navigate(safeRedirect(searchParams.get("redirect"), "/student"));
       } else {
         setError("Login failed. Please try again.");
         setLoading(false);
       }
     } catch (apiError) {
-      // No `finally`: it would also run on the early return below, clearing the spinner for the
-      // NEWER attempt that superseded this one. Cleared on each terminal path instead — the
-      // success path deliberately leaves it set, since the page is navigating away.
-      if (apiError.code === "ERR_CANCELED") return; // superseded by a newer press
+      // No `finally`: it would clear the newer attempt's spinner. Success leaves it (navigating).
+      if (apiError.code === "ERR_CANCELED") return; // superseded
       setError(apiError.response?.data?.message || "Invalid USN or date of birth.");
       setLoading(false);
     }
@@ -123,8 +110,7 @@ function StudentLoginPage() {
               id="student-usn"
               placeholder="e.g. 1MS22CS001"
               value={usn}
-              // Editing clears the banner: otherwise a previous attempt's error survives the
-              // correction and sits over credentials that are now right.
+              // Clear stale error on edit.
               onChange={(e) => {
                 setUsn(e.target.value.toUpperCase());
                 setError("");

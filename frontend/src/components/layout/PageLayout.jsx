@@ -1,19 +1,10 @@
 import ThemeToggle from "../ui/ThemeToggle";
 import TopBand from "./TopBand";
 
-// The chrome for the five pages WITHOUT a sidebar — the student dashboard, /register, the two
-// logins and 404. They get no rail on purpose: a student has two destinations and a visitor has
-// none, so a 260px rail holding one link is worse than the band, and their actions live in the band
-// instead. The homepage is NOT a caller: its hero is full-bleed, so it uses TopBand directly rather
-// than be boxed in by the centred container here.
-//
-// The Dark Mode toggle is built in rather than passed, so no page can forget it. `actions` is
-// whatever else that page needs beside it (Home + Log out on the dashboard, Back to Dashboard on
-// /register).
-//
-// `fullHeightClassName` replaces the default `min-h-screen` rather than adding to it — two
-// min-height utilities on one element resolve by CSS source order. The student login passes a
-// taller value on touch devices for its iOS Chrome workaround (see StudentLoginPage).
+// Shell for sidebar-less pages (student dashboard, /register, logins, 404); too few links for a
+// rail. HomePage uses TopBand directly: its hero is full-bleed. Dark Mode is built in so no page
+// forgets it.
+// `fullHeightClassName` REPLACES min-h-screen: two min-heights resolve by CSS order, not string order.
 function PageLayout({
   actions = null,
   containerClassName = "max-w-7xl",
