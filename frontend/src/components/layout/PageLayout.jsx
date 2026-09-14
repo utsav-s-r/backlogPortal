@@ -13,7 +13,7 @@ import TopBand from "./TopBand";
 //
 // `fullHeightClassName` replaces the default `min-h-screen` rather than adding to it — two
 // min-height utilities on one element resolve by CSS source order. The student login passes a
-// taller value so its iOS Chrome scroll test has room to scroll.
+// 1px-taller value on touch devices for its iOS Chrome workaround (see StudentLoginPage).
 function PageLayout({
   actions = null,
   containerClassName = "max-w-7xl",
