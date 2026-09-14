@@ -26,14 +26,10 @@ function StudentLoginPage() {
   // disabling it is what swallowed the retry, leaving a slow attempt's failure to report itself
   // over credentials the student had already corrected.
   const nextSignal = useAbortableRequest();
-  // iOS Chrome bug: with the page at scrollY 0, taps on Login / Back to home die after the native
-  // date picker closes, until the page scrolls. A page that is already off the top is immune, so
-  // touch devices get a 1px-taller page scrolled 1px on mount and left there. Don't remove it as
-  // dead code. `instant` is load-bearing: index.css's `scroll-behavior: smooth` would animate it.
+  // TEST (iOS Chrome: taps on Login / Back to home die after the native date picker closes, until a
+  // real scroll). Touch devices get a page 200px taller than the screen, with no scrolling from
+  // code, to see whether a scrollable page alone keeps the buttons live.
   const isTouch = window.matchMedia("(pointer: coarse)").matches;
-  useEffect(() => {
-    if (isTouch) window.scrollTo({ top: 1, behavior: "instant" });
-  }, [isTouch]);
 
   // Already signed in — skip the form for the dashboard. Same shape as the admin login: the
   // marker is a presence hint, and an expired cookie returns as ?expired=1 with the marker
@@ -94,7 +90,7 @@ function StudentLoginPage() {
   return (
     <PageLayout
       containerClassName="max-w-md"
-      fullHeightClassName={isTouch ? "min-h-[calc(100dvh_+_1px)]" : "min-h-screen"}
+      fullHeightClassName={isTouch ? "min-h-[calc(100dvh_+_200px)]" : "min-h-screen"}
     >
       <div className="py-6 sm:py-8">
         <div className="mb-6 text-left">
