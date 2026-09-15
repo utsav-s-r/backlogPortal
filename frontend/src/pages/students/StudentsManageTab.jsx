@@ -28,6 +28,7 @@ import { ROLE } from "../../lib/roles";
 import { FIELD_INPUT } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
 import Pager from "../../components/ui/Pager";
+import { PHONE_ERROR, cleanPhoneInput, isValidOptionalPhone } from "../../lib/phone";
 import DepartmentOptions from "../../components/ui/DepartmentOptions";
 import { btn } from "../../lib/buttonClasses";
 
@@ -250,6 +251,10 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
   const save = async () => {
     if (!name.trim()) {
       setError("Name is required.");
+      return;
+    }
+    if (!isValidOptionalPhone(phone)) {
+      setError(PHONE_ERROR);
       return;
     }
     if (Number(entrySemester) > Number(currentSemester)) {
@@ -489,8 +494,10 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
             type="tel"
             inputMode="numeric"
             maxLength={10}
+            placeholder="optional, 10 digits"
             value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+            onChange={(e) => setPhone(cleanPhoneInput(e.target.value))}
+            data-cy="student-edit-phone"
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">

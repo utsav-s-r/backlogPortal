@@ -20,7 +20,9 @@ const HEADER_FIRST_CELLS = ["usn", "rollno"];
 
 /**
  * Parse the pasted CSV into student import rows. Blank semester cells stay null so the batch
- * defaults apply server-side; a blank phone stays null rather than becoming "".
+ * defaults apply server-side; a blank phone stays null rather than becoming "". A phone keeps its
+ * digits UNCAPPED: truncating "+91 99999 99999" yields a different valid-looking number, whereas 12
+ * digits is refused server-side as a row ERROR.
  *
  * @throws {Error} from parseCsv on malformed quoting
  */
@@ -30,7 +32,7 @@ export function parseStudentCsv(text) {
     return {
       rollNo: rollNo || "",
       name: name || "",
-      phone: phone ? phone.replace(/\D/g, "").slice(0, 10) : null,
+      phone: phone ? phone.replace(/\D/g, "") : null,
       dateOfBirth: dateOfBirth || null,
       currentSemester: currentSemester ? Number(currentSemester) : null,
       entrySemester: entrySemester ? Number(entrySemester) : null,

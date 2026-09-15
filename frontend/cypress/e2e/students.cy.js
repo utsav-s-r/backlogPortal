@@ -57,6 +57,18 @@ describe("Students page", () => {
     cy.contains("tr", "Asha R").should("be.visible");
   });
 
+  it("refuses a partial phone on edit without sending it", () => {
+    cy.intercept("PUT", "/api/admin/students/1MS22CS001", cy.spy().as("updateSpy"));
+
+    visitManageAndLoad();
+
+    cy.get('[data-cy="student-edit-1MS22CS001"]').click();
+    cy.get('[data-cy="student-edit-phone"]').clear().type("999999999");
+    cy.get('[data-cy="student-save"]').click();
+    cy.get('[data-cy="student-edit-error"]').should("contain", "exactly 10 digits");
+    cy.get("@updateSpy").should("not.have.been.called");
+  });
+
   it("views and edits a student's semester timeline from the Manage tab", () => {
     cy.intercept("GET", "/api/admin/progression/1MS22CS001", {
       statusCode: 200,
@@ -159,6 +171,23 @@ describe("Students page", () => {
     });
     // the server seeds entry..8 on create, so the banner confirms rather than prompts
     cy.get('[data-cy="student-created-complete"]').should("contain", "full semester timeline seeded");
+  });
+
+  it("refuses a partial phone on the Add tab without sending it", () => {
+    cy.intercept("POST", "/api/admin/students", cy.spy().as("createSpy"));
+
+    stubDepartments();
+    cy.visitAsAdmin("/admin/students?tab=add");
+    cy.wait("@getDepartments");
+
+    cy.get('[data-cy="student-usn"]').type("1ms22cs001");
+    cy.get('[data-cy="student-name"]').type("Asha Rao");
+    cy.get('[data-cy="student-phone"]').type("999999999");
+    cy.get('[data-cy="student-dob"]').type("2004-05-01");
+    cy.get('[data-cy="student-add-submit"]').click();
+
+    cy.get('[data-cy="student-add-error"]').should("contain", "exactly 10 digits");
+    cy.get("@createSpy").should("not.have.been.called");
   });
 
   it("previews a bulk import (dry-run) on the Import tab", () => {

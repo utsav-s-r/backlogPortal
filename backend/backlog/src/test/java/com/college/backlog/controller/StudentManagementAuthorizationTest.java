@@ -354,6 +354,34 @@ class StudentManagementAuthorizationTest {
                 .andExpect(jsonPath("$.created").value(2));
     }
 
+    @Test
+    @WithMockUser(username = ADMIN, roles = "ADMIN")
+    void importPreviewRefusesAPartialPhoneLikeTheRealImportWould() throws Exception {
+        // Not an authorization case; lives here for the full context. The dry run skips
+        // createStudent, so without the up-front check Preview says WOULD_CREATE and Import errors.
+        String body = "{\"dryRun\":true,\"defaultCurrentSemester\":4,\"defaultEntrySemester\":1,"
+                + "\"rows\":[{\"rollNo\":\"" + CS_NEW + "\",\"name\":\"Imported\","
+                + "\"dateOfBirth\":\"2006-01-01\",\"phone\":\"999999999\"}]}";
+        mockMvc.perform(post(STUDENTS + "/import").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.results[0].status").value("ERROR"))
+                .andExpect(jsonPath("$.results[0].message").value("Phone number must be exactly 10 digits."));
+    }
+
+    @Test
+    @WithMockUser(username = ADMIN, roles = "ADMIN")
+    void importPreviewRefusesABlankNameLikeTheRealImportWould() throws Exception {
+        String body = "{\"dryRun\":true,\"defaultCurrentSemester\":4,\"defaultEntrySemester\":1,"
+                + "\"rows\":[{\"rollNo\":\"" + CS_NEW + "\",\"name\":\"  \","
+                + "\"dateOfBirth\":\"2006-01-01\"}]}";
+        mockMvc.perform(post(STUDENTS + "/import").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.results[0].status").value("ERROR"))
+                .andExpect(jsonPath("$.results[0].message").value("Name is required."));
+    }
+
     private static final String CS_NEW = "1MS24CS900";
     private static final String CV_NEW = "1MS24CV900";
 

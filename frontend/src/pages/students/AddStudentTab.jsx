@@ -7,6 +7,7 @@ import AlertBanner from "../../components/AlertBanner";
 import { CURRENT_SEMESTERS, clampEntrySemester, entrySemestersUpTo } from "../../lib/semesters";
 import { FIELD_INPUT } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
+import { PHONE_ERROR, cleanPhoneInput, isValidOptionalPhone } from "../../lib/phone";
 
 
 const USN_RE = /^1MS\d{2}[A-Za-z]{2}\d{3}$/;
@@ -19,9 +20,6 @@ const blank = {
   currentSemester: "2",
   entrySemester: "1",
 };
-
-// keep only digits, max 10
-const cleanPhone = (v) => v.replace(/\D/g, "").slice(0, 10);
 
 // Create one student. Presentational tab: the shell supplies departments and the dept-lock
 // context. DOB is a write-only credential. The server seeds the full entry..8 academic-year
@@ -56,6 +54,10 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
     }
     if (!form.name.trim()) {
       setError("Name is required.");
+      return;
+    }
+    if (!isValidOptionalPhone(form.phone)) {
+      setError(PHONE_ERROR);
       return;
     }
     if (!form.dateOfBirth) {
@@ -150,7 +152,7 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
               className={FIELD_INPUT}
               placeholder="optional, 10 digits"
               value={form.phone}
-              onChange={(e) => set("phone", cleanPhone(e.target.value))}
+              onChange={(e) => set("phone", cleanPhoneInput(e.target.value))}
               data-cy="student-phone"
             />
           </Field>

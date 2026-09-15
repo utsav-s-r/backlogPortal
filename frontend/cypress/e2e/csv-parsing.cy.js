@@ -135,9 +135,15 @@ describe("parseStudentCsv", () => {
     expect(row.entrySemester).to.eq(null);
   });
 
-  it("strips non-digits from the phone and caps it at ten", () => {
-    const [row] = parseStudentCsv("1MS24CS001,Asha Rao,2006-04-12,+91 99999-99999123,2,1");
-    expect(row.phone).to.eq("9199999999");
+  it("strips non-digits from the phone without truncating it", () => {
+    expect(parseStudentCsv("1MS24CS001,Asha Rao,2006-04-12,99999-99999,2,1")[0].phone).to.eq(
+      "9999999999",
+    );
+    // capping at ten turned this into 9199999999 — a different, valid-looking number. Uncapped, the
+    // server refuses 12 digits as a row error instead.
+    expect(parseStudentCsv("1MS24CS001,Asha Rao,2006-04-12,+91 99999-99999,2,1")[0].phone).to.eq(
+      "919999999999",
+    );
   });
 
   it("skips only a leading header row, never a data row", () => {

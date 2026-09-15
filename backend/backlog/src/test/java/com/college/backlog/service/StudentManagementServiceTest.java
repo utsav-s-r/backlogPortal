@@ -170,6 +170,48 @@ class StudentManagementServiceTest {
     }
 
     @Test
+    void createRejectsAPartialPhone() {
+        stubCsDept();
+        StudentCreateRequest r = req("1MS22CS001", 4, 1);
+        r.setPhone("999999999");
+        assertThatThrownBy(() -> service.createStudent(r, ACTOR))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("exactly 10 digits");
+        verify(studentRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createStoresABlankPhoneAsNull() {
+        stubCsDept();
+        when(studentRepository.saveAndFlush(any(Student.class))).thenAnswer(i -> i.getArgument(0));
+        StudentCreateRequest r = req("1MS22CS001", 4, 1);
+        r.setPhone("  ");
+
+        assertThat(service.createStudent(r, ACTOR).getPhone()).isNull();
+    }
+
+    @Test
+    void updateRejectsAPartialPhoneBeforeTouchingTheEntity() {
+        Student s = new Student();
+        s.setRollNo("1MS22CS001");
+        s.setName("Old Name");
+        s.setPhone("9999999999");
+
+        StudentUpdateRequest u = new StudentUpdateRequest();
+        u.setName("New Name");
+        u.setPhone("12345");
+        u.setCurrentSemester(6);
+        u.setEntrySemester(3);
+        assertThatThrownBy(() -> service.updateStudent(s, u, ACTOR))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("exactly 10 digits");
+        // managed entity: a setter run before the throw would be dirty state
+        assertThat(s.getName()).isEqualTo("Old Name");
+        assertThat(s.getPhone()).isEqualTo("9999999999");
+        verify(studentRepository, never()).save(any());
+    }
+
+    @Test
     void deleteRejectsReferencedStudent() {
         Student s = new Student();
         s.setRollNo("1MS22CS001");

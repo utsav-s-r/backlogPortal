@@ -193,16 +193,20 @@ public class StudentManagementController {
             int currentSem = firstNonNull(row.getCurrentSemester(), req.getDefaultCurrentSemester(), 0);
             int entrySem = firstNonNull(row.getEntrySemester(), req.getDefaultEntrySemester(), 1);
             try {
-                // USN + scope + branch + ranges up front, so the dry-run sees the same errors
+                // USN before scope: a malformed USN has no branch code to scope on
                 studentService.validateUsn(roll);
                 if (callerDeptCode != null && !callerDeptCode.equalsIgnoreCase(studentDeptCode(roll))) {
                     throw new IllegalArgumentException("Outside your department's scope.");
                 }
-                studentService.resolveBranchDept(roll);
-                studentService.validateSemesters(currentSem, entrySem);
-                if (row.getDateOfBirth() == null) {
-                    throw new IllegalArgumentException("Date of birth is required.");
-                }
+                StudentCreateRequest create = new StudentCreateRequest();
+                create.setRollNo(roll);
+                create.setName(row.getName());
+                create.setPhone(row.getPhone());
+                create.setDateOfBirth(row.getDateOfBirth());
+                create.setCurrentSemester(currentSem);
+                create.setEntrySemester(entrySem);
+                // createStudent's own rule list, run for dry run and real import alike
+                studentService.validateNewStudent(create);
 
                 if (studentRepository.existsById(roll)) {
                     results.add(new ProgressionRowResult(roll, currentSem, "SKIPPED_EXISTS", null));
@@ -211,13 +215,6 @@ public class StudentManagementController {
                     results.add(new ProgressionRowResult(roll, currentSem, "WOULD_CREATE", null));
                     created++;
                 } else {
-                    StudentCreateRequest create = new StudentCreateRequest();
-                    create.setRollNo(roll);
-                    create.setName(row.getName());
-                    create.setPhone(row.getPhone());
-                    create.setDateOfBirth(row.getDateOfBirth());
-                    create.setCurrentSemester(currentSem);
-                    create.setEntrySemester(entrySem);
                     studentService.createStudent(create, actor.getUsername());
                     results.add(new ProgressionRowResult(roll, currentSem, "CREATED", null));
                     created++;

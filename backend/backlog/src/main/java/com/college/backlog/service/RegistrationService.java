@@ -147,7 +147,7 @@ public class RegistrationService {
         // phone is set only from the dashboard; server-side guard, not bypassable by a crafted request.
         // 409, not 400 — the submission is well-formed; it's the ACCOUNT that isn't ready. See the
         // status rule on this method.
-        if (student.getPhone() == null || !student.getPhone().matches("^[0-9]{10}$")) {
+        if (!Phones.isValid(student.getPhone())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "Add your phone number in your profile before registering.");
         }

@@ -34,7 +34,8 @@ function ImportStudentsTab() {
       description={
         <>
           One row per line: <code>{STUDENT_CSV_HEADER}</code>. Date of birth is{" "}
-          <code>yyyy-MM-dd</code>. Phone is optional; email is assigned automatically as{" "}
+          <code>yyyy-MM-dd</code>. Phone is optional, but exactly 10 digits when given (no
+          country code); email is assigned automatically as{" "}
           <code>usn@msrit.edu</code>. Current semester must be even (2, 4, 6, 8) and entry semester
           odd (1, 3, 5, 7) — entry is where the student joined, so <code>3</code> or above means
           lateral entry. Leave the two semester columns blank to use the batch defaults below.

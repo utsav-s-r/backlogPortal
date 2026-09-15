@@ -20,6 +20,7 @@ import { saveBlob, readBlobErrorMessage } from "../lib/download";
 import ReadOnlyField from "../components/ui/ReadOnlyField";
 import HeaderPill from "../components/ui/HeaderPill";
 import { FIELD_CONTROL, FIELD_LABEL } from "../lib/formClasses";
+import { PHONE_ERROR, PHONE_RE, cleanPhoneInput } from "../lib/phone";
 
 function statusBadgeClass(status) {
   if (status === "VERIFIED")
@@ -90,8 +91,8 @@ function StudentDashboardPage() {
   };
 
   const savePhone = async () => {
-    if (!/^[0-9]{10}$/.test(phoneInput)) {
-      setPhoneError("Phone number must be exactly 10 digits.");
+    if (!PHONE_RE.test(phoneInput)) {
+      setPhoneError(PHONE_ERROR);
       return;
     }
     setSavingPhone(true);
@@ -191,9 +192,8 @@ function StudentDashboardPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <input
                         value={phoneInput}
-                        onChange={(e) =>
-                          setPhoneInput(e.target.value.replace(/\D/g, "").slice(0, 10))
-                        }
+                        onChange={(e) => setPhoneInput(cleanPhoneInput(e.target.value))}
+                        type="tel"
                         inputMode="numeric"
                         maxLength={10}
                         placeholder="10 digit number"

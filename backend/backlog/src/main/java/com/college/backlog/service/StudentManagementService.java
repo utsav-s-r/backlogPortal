@@ -52,22 +52,15 @@ public class StudentManagementService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Student createStudent(StudentCreateRequest req, String actor) {
         String rollNo = normalizeUsn(req.getRollNo());
-        validateUsn(rollNo);
-        Department dept = resolveBranchDept(rollNo);
-        validateSemesters(req.getCurrentSemester(), req.getEntrySemester());
-        if (req.getDateOfBirth() == null) {
-            throw new IllegalArgumentException("Date of birth is required.");
-        }
-        if (req.getName() == null || req.getName().isBlank()) {
-            throw new IllegalArgumentException("Name is required.");
-        }
+        Department dept = validateNewStudent(req);
+        String phone = Phones.normalizeOptional(req.getPhone());
 
         Student s = new Student();
         s.setRollNo(rollNo);
         s.setName(req.getName().trim());
         // email is system-managed, never client-supplied
         s.setEmail(institutionalEmail(rollNo));
-        s.setPhone(trimToNull(req.getPhone()));
+        s.setPhone(phone);
         s.setDateOfBirth(req.getDateOfBirth());
         s.setCurrentSemester(req.getCurrentSemester());
         s.setEntrySemester(req.getEntrySemester());
@@ -97,10 +90,12 @@ public class StudentManagementService {
         if (req.getName() == null || req.getName().isBlank()) {
             throw new IllegalArgumentException("Name is required.");
         }
+        // validated before any setter: `existing` is managed, so a half-applied edit is dirty state
+        String phone = Phones.normalizeOptional(req.getPhone());
         existing.setName(req.getName().trim());
         // email stays system-managed; re-derive so legacy rows self-heal
         existing.setEmail(institutionalEmail(existing.getRollNo()));
-        existing.setPhone(trimToNull(req.getPhone()));
+        existing.setPhone(phone);
         existing.setCurrentSemester(req.getCurrentSemester());
         existing.setEntrySemester(req.getEntrySemester());
         Student saved = studentRepository.save(existing);
@@ -133,6 +128,29 @@ public class StudentManagementService {
     }
 
     // ---- validation helpers (also reused by the controller for dry-run import) ----
+
+    /**
+     * Every data rule a create enforces, and the ONLY list: import's dry run calls this too, so
+     * Preview can't say WOULD_CREATE for a row Import rejects. Add a new create rule here, never
+     * inline in {@link #createStudent} or the controller. Read-only apart from the branch lookup.
+     *
+     * @return the department resolved from the USN's branch code
+     * @throws IllegalArgumentException on the first rule the request breaks
+     */
+    public Department validateNewStudent(StudentCreateRequest req) {
+        String rollNo = normalizeUsn(req.getRollNo());
+        validateUsn(rollNo);
+        Department dept = resolveBranchDept(rollNo);
+        validateSemesters(req.getCurrentSemester(), req.getEntrySemester());
+        if (req.getDateOfBirth() == null) {
+            throw new IllegalArgumentException("Date of birth is required.");
+        }
+        if (req.getName() == null || req.getName().isBlank()) {
+            throw new IllegalArgumentException("Name is required.");
+        }
+        Phones.normalizeOptional(req.getPhone());
+        return dept;
+    }
 
     public String normalizeUsn(String rollNo) {
         return rollNo == null ? "" : rollNo.trim().toUpperCase();
