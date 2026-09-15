@@ -126,6 +126,49 @@ describe("Clone Subjects tab", () => {
     cy.get('[data-cy="clone-result"]').should("contain", "1 error(s)");
   });
 
+  // Regression: apply sent the dropdown's CURRENT department, so previewing CS then switching the
+  // dropdown to CV filed every CS subject under CV. Cloned rows keep the previewed department.
+  it("applies to the previewed department even after the dropdown changes", () => {
+    cy.intercept("GET", "/api/departments", {
+      statusCode: 200,
+      body: [
+        { id: 1, deptName: "Computer Science" },
+        { id: 2, deptName: "Civil Engineering" },
+      ],
+    }).as("getDepartments");
+    cy.intercept("POST", "/api/admin/subjects/clone/preview", {
+      statusCode: 200,
+      body: {
+        sourceYear: 2024,
+        targetYear: 2025,
+        deptId: 1,
+        rows: [
+          { subjectName: "Data Structures", courseCode: "CSL44", semester: 4, credits: 4, subjectType: "REGULAR", eligibleDeptIds: [], status: "WOULD_CREATE", message: null },
+        ],
+      },
+    }).as("preview");
+    cy.intercept("POST", "/api/admin/subjects/clone/apply", {
+      statusCode: 200,
+      body: { created: 1, skipped: 0, errors: 0, rows: [{ courseCode: "CSL44", semester: 4, status: "CREATED", message: null }] },
+    }).as("apply");
+
+    cy.visitAsAdmin("/admin/manage-subjects?tab=clone");
+    cy.wait("@getDepartments");
+
+    cy.get('[data-cy="clone-dept"]').select("1");
+    cy.get('[data-cy="clone-source-year"]').type("2024-25");
+    cy.get('[data-cy="clone-target-year"]').type("2025-26");
+    cy.get('[data-cy="clone-preview"]').click();
+    cy.wait("@preview");
+    cy.contains("h2", "Draft for Computer Science").should("be.visible");
+
+    cy.get('[data-cy="clone-dept"]').select("2");
+    cy.get('[data-cy="clone-apply"]').click();
+
+    cy.wait("@apply").its("request.body.deptId").should("eq", 1);
+    cy.contains("h2", "Draft for Computer Science").should("be.visible");
+  });
+
   it("narrows to odd semesters via the shortcut", () => {
     cy.intercept("POST", "/api/admin/subjects/clone/preview", {
       statusCode: 200,

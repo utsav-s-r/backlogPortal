@@ -56,7 +56,7 @@ class StudentManagementServiceTest {
     @Test
     void createStudentNormalizesUsnAndDerivesBranchYear() {
         stubCsDept();
-        when(studentRepository.save(any(Student.class))).thenAnswer(i -> i.getArgument(0));
+        when(studentRepository.saveAndFlush(any(Student.class))).thenAnswer(i -> i.getArgument(0));
 
         Student s = service.createStudent(req("1ms22cs001", 4, 1), ACTOR);
 
@@ -70,7 +70,7 @@ class StudentManagementServiceTest {
     @Test
     void createAlwaysSetsInstitutionalEmail() {
         stubCsDept();
-        when(studentRepository.save(any(Student.class))).thenAnswer(i -> i.getArgument(0));
+        when(studentRepository.saveAndFlush(any(Student.class))).thenAnswer(i -> i.getArgument(0));
 
         Student s = service.createStudent(req("1ms22cs001", 4, 1), ACTOR);
 
@@ -96,7 +96,7 @@ class StudentManagementServiceTest {
     @Test
     void createSeedsFullTimelineViaSeeder() {
         stubCsDept();
-        when(studentRepository.save(any(Student.class))).thenAnswer(i -> i.getArgument(0));
+        when(studentRepository.saveAndFlush(any(Student.class))).thenAnswer(i -> i.getArgument(0));
 
         service.createStudent(req("1MS22CS001", 4, 1), ACTOR);
 
@@ -108,7 +108,7 @@ class StudentManagementServiceTest {
     @Test
     void createSeedsFullTimelineForLateralEntryToo() {
         stubCsDept();
-        when(studentRepository.save(any(Student.class))).thenAnswer(i -> i.getArgument(0));
+        when(studentRepository.saveAndFlush(any(Student.class))).thenAnswer(i -> i.getArgument(0));
 
         service.createStudent(req("1MS22CS001", 6, 3), ACTOR);
 
@@ -121,7 +121,7 @@ class StudentManagementServiceTest {
         assertThatThrownBy(() -> service.createStudent(req("22CS001", 1, 1), ACTOR))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("1MS22CS001");
-        verify(studentRepository, never()).save(any());
+        verify(studentRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -140,7 +140,7 @@ class StudentManagementServiceTest {
         assertThatThrownBy(() -> service.createStudent(req("1MS22CS001", 2, 5), ACTOR))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Entry semester");
-        verify(studentRepository, never()).save(any());
+        verify(studentRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -157,7 +157,7 @@ class StudentManagementServiceTest {
         assertThatThrownBy(() -> service.createStudent(req("1MS22CS001", 3, 1), ACTOR))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("2, 4, 6 or 8");
-        verify(studentRepository, never()).save(any());
+        verify(studentRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -166,7 +166,7 @@ class StudentManagementServiceTest {
         assertThatThrownBy(() -> service.createStudent(req("1MS22CS001", 4, 2), ACTOR))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("1, 3, 5 or 7");
-        verify(studentRepository, never()).save(any());
+        verify(studentRepository, never()).saveAndFlush(any());
     }
 
     @Test

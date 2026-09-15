@@ -12,6 +12,8 @@ import com.college.backlog.service.StudentSpecification;
 import com.college.backlog.service.Usn;
 import com.college.backlog.service.Batches;
 import com.college.backlog.service.CallerScope;
+import com.college.backlog.service.Constraints;
+import org.springframework.dao.DataIntegrityViolationException;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -104,14 +106,20 @@ public class StudentManagementController {
         req.setRollNo(rollNo);
         assertInScope(actor, rollNo);
         if (studentRepository.existsById(rollNo)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                "A student with USN " + rollNo + " already exists.");
+            throw studentExists(rollNo);
         }
         Student saved;
         try {
             saved = studentService.createStudent(req, actor.getUsername());
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            // Created concurrently between the check above and the insert: the same 409. Any other
+            // constraint goes on to GlobalExceptionHandler.
+            if (!Constraints.isViolationOf(e, Constraints.STUDENT_ROLL_NO)) {
+                throw e;
+            }
+            throw studentExists(rollNo);
         }
         return toSummary(saved);
     }
@@ -232,6 +240,17 @@ public class StudentManagementController {
                 // would flatten it, since ResponseStatusException is itself a RuntimeException
                 results.add(new ProgressionRowResult(roll, currentSem, "ERROR", e.getReason()));
                 errors++;
+            } catch (DataIntegrityViolationException e) {
+                // Above the catch-all. The USN was created concurrently between existsById and the
+                // insert: the same outcome as that check. Any other constraint is a real failure.
+                if (Constraints.isViolationOf(e, Constraints.STUDENT_ROLL_NO)) {
+                    results.add(new ProgressionRowResult(roll, currentSem, "SKIPPED_EXISTS", null));
+                    skipped++;
+                } else {
+                    log.error("STUDENT_IMPORT_ROW_FAILED rollNo={}", roll, e);
+                    results.add(new ProgressionRowResult(roll, currentSem, "ERROR", "Could not import this row."));
+                    errors++;
+                }
             } catch (RuntimeException e) {
                 // an unexpected per-row failure (e.g. a DB constraint) becomes an ERROR row, never
                 // aborting the batch or surfacing as a request-level 4xx/5xx — each createStudent
@@ -246,6 +265,11 @@ public class StudentManagementController {
     }
 
     // ---- helpers ----
+
+    private ResponseStatusException studentExists(String rollNo) {
+        return new ResponseStatusException(HttpStatus.CONFLICT,
+            "A student with USN " + rollNo + " already exists.");
+    }
 
     /** Dept code a dept-scoped caller is pinned to; null ONLY for a genuinely unrestricted
      *  ADMIN/PRINCIPAL. A dept role without a department is unscopeable, not unrestricted. */

@@ -116,7 +116,7 @@ class BatchRowFailureReportingTest {
         when(studentRepository.existsById(ROLL)).thenReturn(true);
         when(assignmentRepository.findById(ROLL)).thenReturn(Optional.empty());
         doThrow(new NumberFormatException("For input string: \"null\""))
-            .when(assignmentRepository).save(any(ProctorAssignment.class));
+            .when(assignmentRepository).saveAndFlush(any(ProctorAssignment.class));
 
         ProctorAssignRequest req = new ProctorAssignRequest();
         req.setRollNos(List.of(ROLL));

@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static com.college.backlog.controller.AdminAuthorizationFixture.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -207,6 +208,20 @@ class DepartmentAndExamCycleAuthorizationTest {
                 .andExpect(status().isOk());
         mockMvc.perform(put(EXAM_CYCLES + "/" + cycleId + "/deactivate").with(csrf()))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = ADMIN, roles = "ADMIN")
+    void reactivatingTheOpenCycleKeepsRegistrationOpen() throws Exception {
+        // Regression: the close step's bulk UPDATE also hit the target, whose loaded entity stayed
+        // active=true, so setActive(true) flushed nothing and registration closed college-wide.
+        // The test transaction shares one persistence context across both calls, which is what
+        // makes the second call see the stale entity. findByActiveTrue flushes and reads the DB.
+        mockMvc.perform(put(EXAM_CYCLES + "/" + cycleId + "/activate").with(csrf()))
+                .andExpect(status().isOk());
+        mockMvc.perform(put(EXAM_CYCLES + "/" + cycleId + "/activate").with(csrf()))
+                .andExpect(status().isOk());
+        assertEquals(cycleId, examCycleRepository.findByActiveTrue().map(ExamCycle::getId).orElse(null));
     }
 
     @Test

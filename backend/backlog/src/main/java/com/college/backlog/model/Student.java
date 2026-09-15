@@ -2,11 +2,12 @@ package com.college.backlog.model;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.ColumnDefault;
+import org.springframework.data.domain.Persistable;
 import java.time.LocalDate;
 
 @Entity
 @Table(name = "students")
-public class Student {
+public class Student implements Persistable<String> {
 
     @Id
     @Column(name = "roll_no")
@@ -37,6 +38,13 @@ public class Student {
     private int entrySemester = 1;
 
     private String branch;
+
+    // Not stored. The id is the USN we assign, so Spring Data cannot tell new from existing and
+    // save() would MERGE: a create racing another create of the same USN silently overwrote that
+    // student, DOB (the login credential) included. Starting true makes save() INSERT, so the
+    // duplicate fails on students_pkey; loaded or inserted instances flip to false and update normally.
+    @Transient
+    private boolean newEntity = true;
 
     // No all-args constructor on purpose: rollNo/name/email/phone are four adjacent Strings, so a
     // positional swap compiles and throws nothing. Build with setters (as StudentManagementService
@@ -70,4 +78,13 @@ public class Student {
     public String getBranch() { return branch; }
     public void setBranch(String branch) { this.branch = branch; }
 
+    @Override
+    public String getId() { return rollNo; }
+
+    @Override
+    public boolean isNew() { return newEntity; }
+
+    @PostLoad
+    @PostPersist
+    void markNotNew() { newEntity = false; }
 }

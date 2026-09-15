@@ -112,10 +112,8 @@ public class RegistrationSpecification implements Specification<Registration> {
         }
 
         if (semester != null) {
-            // COALESCE, not snapSemester alone: the list and the PDF both display
-            // `snapSemester != null ? snapSemester : student.currentSemester`, so matching on the
-            // raw column would hide a row from the very semester it displays (pre-snapshot rows
-            // have a null snap_semester).
+            // Matches the snapshot semester the list and the PDFs display. snap_semester is NOT
+            // NULL, so the currentSemester fallback never applies.
             Expression<Integer> effectiveSemester =
                     cb.coalesce(root.get("snapSemester"), studentJoin.get("currentSemester"));
             predicates.add(cb.equal(effectiveSemester, semester));

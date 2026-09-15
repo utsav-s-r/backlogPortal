@@ -1,6 +1,7 @@
 package com.college.backlog.model;
 
 import jakarta.persistence.*;
+import org.springframework.data.domain.Persistable;
 import java.time.LocalDateTime;
 
 /**
@@ -13,7 +14,13 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "proctor_students")
-public class ProctorAssignment {
+public class ProctorAssignment implements Persistable<String> {
+
+    // Not stored. Same trap as Student: with an assigned id, save() would MERGE, so a claim racing
+    // another claim silently moved the student to the later proctor. Starting true makes save()
+    // INSERT and the second claim fail on proctor_students_pkey.
+    @Transient
+    private boolean newEntity = true;
 
     @Id
     @Column(name = "roll_no")
@@ -52,4 +59,14 @@ public class ProctorAssignment {
 
     public LocalDateTime getAssignedAt() { return assignedAt; }
     public void setAssignedAt(LocalDateTime assignedAt) { this.assignedAt = assignedAt; }
+
+    @Override
+    public String getId() { return rollNo; }
+
+    @Override
+    public boolean isNew() { return newEntity; }
+
+    @PostLoad
+    @PostPersist
+    void markNotNew() { newEntity = false; }
 }

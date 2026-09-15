@@ -17,6 +17,8 @@ import com.college.backlog.service.StudentSpecification;
 import com.college.backlog.service.Usn;
 import com.college.backlog.service.Batches;
 import com.college.backlog.service.CallerScope;
+import com.college.backlog.service.Constraints;
+import org.springframework.dao.DataIntegrityViolationException;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -158,29 +160,48 @@ public class ProctorAssignmentController {
                 }
                 Optional<ProctorAssignment> existing = assignmentRepository.findById(roll);
                 if (existing.isPresent()) {
-                    if (existing.get().getProctorUserId().equals(target.getId())) {
-                        results.add(new ProgressionRowResult(roll, null, "SKIPPED_EXISTS",
-                            "already under this proctor"));
-                        skipped++;
-                    } else {
-                        // the one place the current holder is named — the proctor needs to know
-                        // who to ask, or the HOD who to reassign from. Resolved from the id (V4)
-                        // only on this conflict path, so the happy path stays one query.
-                        results.add(new ProgressionRowResult(roll, null, "ERROR",
-                            "Already assigned to " + holderName(existing.get()) + "."));
-                        errors++;
-                    }
+                    ProgressionRowResult row = alreadyAssigned(roll, existing.get(), target);
+                    results.add(row);
+                    if ("SKIPPED_EXISTS".equals(row.getStatus())) skipped++; else errors++;
                     continue;
                 }
-                assignmentRepository.save(new ProctorAssignment(roll, target.getId(), actor.getUsername()));
+                // Flushed now: ProctorAssignment.isNew() makes this an INSERT, so a claim that
+                // raced this one fails HERE on proctor_students_pkey instead of overwriting it.
+                assignmentRepository.saveAndFlush(
+                    new ProctorAssignment(roll, target.getId(), actor.getUsername()));
                 results.add(new ProgressionRowResult(roll, null, "CREATED", null));
                 assigned++;
+            } catch (DataIntegrityViolationException e) {
+                // Another claim committed between findById and the insert: report it exactly as the
+                // check above would have. Any other constraint, or a holder already gone again, is a
+                // real failure. The re-read works only because assign() has NO enclosing transaction —
+                // Postgres aborts a transaction after a key violation, so inside one every later
+                // statement (this read, the next rows) fails.
+                ProgressionRowResult row = null;
+                if (Constraints.isViolationOf(e, Constraints.PROCTOR_ASSIGNMENT_ROLL_NO)) {
+                    // Guarded: code inside a catch is outside its siblings, so a throw here would
+                    // escape the loop and 500 the batch with earlier rows already committed.
+                    try {
+                        row = assignmentRepository.findById(roll)
+                            .map(holder -> alreadyAssigned(roll, holder, target))
+                            .orElse(null);
+                    } catch (RuntimeException readFailure) {
+                        log.error("PROCTOR_ASSIGN_HOLDER_READ_FAILED rollNo={}", roll, readFailure);
+                    }
+                }
+                if (row != null) {
+                    results.add(row);
+                    if ("SKIPPED_EXISTS".equals(row.getStatus())) skipped++; else errors++;
+                } else {
+                    log.error("PROCTOR_ASSIGN_ROW_FAILED rollNo={}", roll, e);
+                    results.add(new ProgressionRowResult(roll, null, "ERROR",
+                        "Could not assign this student."));
+                    errors++;
+                }
             } catch (NumberFormatException e) {
                 // NFE extends IllegalArgumentException, so without this clause it lands below and
                 // its raw message reaches the admin as if the ROW were bad — a server bug dressed as
-                // a data problem. Must precede the IAE clause; the reverse does not compile. NOT the
-                // catch-all's wording: "it may have just been claimed" names a race, which for an
-                // NFE is a false explanation.
+                // a data problem. Must precede the IAE clause; the reverse does not compile.
                 log.error("PROCTOR_ASSIGN_ROW_FAILED rollNo={}", roll, e);
                 results.add(new ProgressionRowResult(roll, null, "ERROR",
                     "Could not assign this student."));
@@ -196,12 +217,11 @@ public class ProctorAssignmentController {
                 results.add(new ProgressionRowResult(roll, null, "ERROR", e.getReason()));
                 errors++;
             } catch (RuntimeException e) {
-                // e.g. two proctors racing on one student: the PK on roll_no makes the second save
-                // a constraint violation — reported per-row, never aborting the batch. Logged: the
-                // race is the expected cause, but nothing else would record any other cause.
+                // Anything else unexpected (e.g. a dropped Neon connection) is reported per-row,
+                // never aborting the batch. Logged: the row message cannot carry a stack trace.
                 log.error("PROCTOR_ASSIGN_ROW_FAILED rollNo={}", roll, e);
                 results.add(new ProgressionRowResult(roll, null, "ERROR",
-                    "Could not assign this student (it may have just been claimed)."));
+                    "Could not assign this student."));
                 errors++;
             }
         }
@@ -241,6 +261,19 @@ public class ProctorAssignmentController {
     }
 
     // ---- helpers ----
+
+    /**
+     * The row for a student who already has a proctor: skipped if it is this target, else an error
+     * naming the holder — the one place the holder is named, so the proctor knows who to ask or the
+     * HOD who to reassign from. Shared by the pre-check and the lost-race path so both agree.
+     */
+    private ProgressionRowResult alreadyAssigned(String roll, ProctorAssignment existing, User target) {
+        if (existing.getProctorUserId().equals(target.getId())) {
+            return new ProgressionRowResult(roll, null, "SKIPPED_EXISTS", "already under this proctor");
+        }
+        return new ProgressionRowResult(roll, null, "ERROR",
+            "Already assigned to " + holderName(existing) + ".");
+    }
 
     /**
      * The username behind an assignment's {@code proctor_user_id} (V4), for messages and audit

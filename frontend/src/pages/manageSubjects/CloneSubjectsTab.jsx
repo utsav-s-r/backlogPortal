@@ -28,7 +28,10 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
   const [semesters, setSemesters] = useState([...ALL_SEMESTERS]);
 
   const [rows, setRows] = useState(null); // null = no preview yet
-  const [previewYears, setPreviewYears] = useState(null);
+  // What the draft was generated for, taken from the preview REPLY: apply must target these, not
+  // the form's current values, which stay editable after a preview. Cloned rows keep the source
+  // department — sending the dropdown's value filed them under whatever was selected at apply time.
+  const [previewed, setPreviewed] = useState(null); // { deptId, source, target }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
@@ -69,7 +72,11 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
         removed: false,
       }));
       setRows(previewed);
-      setPreviewYears({ source: res.data.sourceYear, target: res.data.targetYear });
+      setPreviewed({
+        deptId: res.data.deptId,
+        source: res.data.sourceYear,
+        target: res.data.targetYear,
+      });
     } catch (err) {
       setError(err.response?.data?.message || "Preview failed.");
     } finally {
@@ -104,8 +111,8 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
     setBusy(true);
     try {
       const payload = {
-        deptId: Number(effectiveDeptId),
-        targetYear: previewYears.target,
+        deptId: previewed.deptId,
+        targetYear: previewed.target,
         rows: applicableRows.map((r) => ({
           subjectName: r.subjectName,
           courseCode: r.courseCode,
@@ -134,7 +141,12 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
     } finally {
       setBusy(false);
     }
-  }, [applicableRows, effectiveDeptId, previewYears]);
+  }, [applicableRows, previewed]);
+
+  // Named in the draft heading so the department a clone will be filed under is on screen, even
+  // after the dropdown has moved on.
+  const previewedDeptName =
+    departments.find((d) => String(d.id) === String(previewed?.deptId))?.deptName || "";
 
   return (
     <>
@@ -241,7 +253,8 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
       {rows && (
         <section className="mt-6 py-5 sm:py-6">
           <h2 className="mb-1 text-lg font-semibold text-secondary-ink">
-            Draft for {formatAcademicYear(previewYears?.target)}
+            Draft for{" "}
+            {[previewedDeptName, formatAcademicYear(previewed?.target)].filter(Boolean).join(" · ")}
           </h2>
           <p className="mb-4 text-sm text-ink-muted">
             {applicableRows.length} to create · {rows.filter((r) => r.status === "WOULD_SKIP").length} already exist ·
@@ -250,8 +263,8 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
 
           {rows.length === 0 ? (
             <p className="rounded-lg bg-surface-muted px-4 py-3 text-sm">
-              No subjects found for {formatAcademicYear(previewYears?.source)} in the selected
-              department and semesters.
+              No subjects found for {formatAcademicYear(previewed?.source)} in{" "}
+              {previewedDeptName || "the selected department"} for the selected semesters.
             </p>
           ) : (
             <div className="overflow-auto">

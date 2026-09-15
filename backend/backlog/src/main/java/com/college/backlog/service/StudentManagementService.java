@@ -42,10 +42,12 @@ public class StudentManagementService {
 
     /**
      * Create one student, in its own transaction so a bad row can't poison a bulk import.
-     * The caller has already enforced USN uniqueness and department scope.
+     * The caller has already checked department scope and pre-checked the USN.
      *
      * @param actor username of the staff account making the change — logged, never persisted
      * @throws IllegalArgumentException on any validation failure
+     * @throws org.springframework.dao.DataIntegrityViolationException on
+     *         {@link Constraints#STUDENT_ROLL_NO} when the same USN was created concurrently
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Student createStudent(StudentCreateRequest req, String actor) {
@@ -74,7 +76,9 @@ public class StudentManagementService {
         s.setBranch(dept.getCode());
         s.setYearOfJoining(Usn.admissionYear(rollNo));
 
-        Student saved = studentRepository.save(s);
+        // Flushed now: Student.isNew() makes this an INSERT, and a USN created concurrently must
+        // fail HERE on students_pkey, before the timeline is seeded, not at commit.
+        Student saved = studentRepository.saveAndFlush(s);
         log.info("STUDENT_CREATE actor={} rollNo={} currentSem={} entrySem={}",
                 actor, rollNo, saved.getCurrentSemester(), saved.getEntrySemester());
 

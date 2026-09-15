@@ -153,7 +153,7 @@ public class StudentController {
             .map(reg -> new RegistrationSummaryResponse(
                 reg.getRegId(),
                 reg.getStudent().getRollNo(),
-                // snapshot only, never the live student row: these are NOT NULL as of V7, and
+                // snapshot only, never the live student row: these columns are NOT NULL, and
                 // falling back would print today's values on an old registration
                 reg.getSnapName(),
                 reg.getSnapSemester(),

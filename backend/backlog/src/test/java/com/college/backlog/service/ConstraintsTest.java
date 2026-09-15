@@ -53,6 +53,29 @@ class ConstraintsTest {
                 Constraints.SUBJECT_CODE_YEAR)).isFalse();
     }
 
+    /** students_pkey is a substring of proctor_students_pkey: a contains() match would report a
+     *  lost proctor claim as a duplicate student, and the reverse. */
+    @Test
+    void matchesTheWholeNameNotASubstringOfALongerOne() {
+        DataIntegrityViolationException claim = violation(
+                "ERROR: duplicate key value violates unique constraint \"proctor_students_pkey\"");
+        DataIntegrityViolationException student = violation(
+                "ERROR: duplicate key value violates unique constraint \"students_pkey\"");
+
+        assertThat(Constraints.isViolationOf(claim, Constraints.PROCTOR_ASSIGNMENT_ROLL_NO)).isTrue();
+        assertThat(Constraints.isViolationOf(claim, Constraints.STUDENT_ROLL_NO)).isFalse();
+        assertThat(Constraints.isViolationOf(student, Constraints.STUDENT_ROLL_NO)).isTrue();
+        assertThat(Constraints.isViolationOf(student, Constraints.PROCTOR_ASSIGNMENT_ROLL_NO)).isFalse();
+    }
+
+    /** Spring and Hibernate also print the name bare or bracketed, e.g. "constraint [students_pkey]". */
+    @Test
+    void matchesTheNameAtTheEdgesOfTheMessageAndInsideBrackets() {
+        assertThat(Constraints.isViolationOf(violation("students_pkey"), Constraints.STUDENT_ROLL_NO)).isTrue();
+        assertThat(Constraints.isViolationOf(violation("constraint [students_pkey]"),
+                Constraints.STUDENT_ROLL_NO)).isTrue();
+    }
+
     @Test
     void matchIsCaseInsensitive() {
         DataIntegrityViolationException e = violation("violates unique constraint \"UQ_SUBJECTS_CODE_YEAR\"");

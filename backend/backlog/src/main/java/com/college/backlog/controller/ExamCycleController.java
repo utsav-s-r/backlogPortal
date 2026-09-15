@@ -71,7 +71,12 @@ public class ExamCycleController {
         User actor = callerScope.requireActor(auth);
         ExamCycle target = examCycleRepository.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Exam cycle not found: " + id));
-        examCycleRepository.deactivateAll();
+        // Already open (a stale tab, a repeated call): nothing changes, so no write and no audit row
+        // claiming registration was opened.
+        if (target.isActive()) {
+            return target;
+        }
+        examCycleRepository.deactivateAllExcept(id);
         target.setActive(true);
         ExamCycle saved = examCycleRepository.save(target);
         // Inside the method's existing transaction: opening registration college-wide can never
