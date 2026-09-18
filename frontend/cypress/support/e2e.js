@@ -85,7 +85,9 @@ Cypress.Commands.add("visitAsAdmin", (path, options = {}) => {
 // it catches nothing extra and is no substitute for stubbing every endpoint the page loads.
 beforeEach(() => {
   cy.intercept({ url: "**/api/**" }, (req) => {
-    if (!/\/api\/(admin\/|register\/verify)/.test(req.url)) return req.continue();
+    if (!/\/api\/(admin\/|register\/verify|auth\/change-(password|username))/.test(req.url)) {
+      return req.continue();
+    }
     throw new Error(
       `Unstubbed admin API call: ${req.method} ${req.url}\n` +
         `It will 401 and sign the session out mid-test. Add a cy.intercept for it.`

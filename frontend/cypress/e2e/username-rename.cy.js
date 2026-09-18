@@ -143,6 +143,47 @@ describe("Account Settings — renaming yourself", () => {
     });
   });
 
+  // A 401 here means the session is gone (expired, or revoked by an admin), not a wrong password
+  // — that is the 400 above. It must sign out like any other admin call, not sit on the page as
+  // an error under a session that no longer exists.
+  it("a lapsed session on change-password signs out instead of showing an error", () => {
+    cy.intercept("POST", "/api/auth/change-password", {
+      statusCode: 401,
+      body: { message: "Your account has changed. Please sign in again." },
+    }).as("changePassword");
+
+    cy.visitAsAdmin("/admin/change-password", { role: "HOD", username: "hod_cs" });
+
+    cy.get("#current-password").type("current-pass");
+    cy.get("#new-password").type("new-pass-123");
+    cy.get("#confirm-password").type("new-pass-123");
+    cy.get("#current-password").closest("form").find('button[type="submit"]').click();
+    cy.wait("@changePassword");
+
+    cy.location("pathname").should("eq", "/admin/login");
+    cy.location("search").should("contain", "expired=1");
+    cy.window().then((win) => {
+      expect(win.sessionStorage.getItem("adminToken")).to.be.null;
+    });
+  });
+
+  it("a lapsed session on change-username signs out instead of showing an error", () => {
+    cy.intercept("POST", "/api/auth/change-username", {
+      statusCode: 401,
+      body: { message: "Unknown account. Please sign in again." },
+    }).as("rename");
+
+    cy.visitAsAdmin("/admin/change-password", { role: "HOD", username: "hod_cs" });
+
+    cy.get("#new-username").type("hod_cse");
+    cy.get("#rename-password").type("current-pass");
+    cy.get('[aria-label="Change username"]').click();
+    cy.wait("@rename");
+
+    cy.location("pathname").should("eq", "/admin/login");
+    cy.location("search").should("contain", "expired=1");
+  });
+
   it("rejects a too-short username without calling the server", () => {
     cy.intercept("POST", "/api/auth/change-username", cy.spy().as("renameCall"));
 

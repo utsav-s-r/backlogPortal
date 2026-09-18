@@ -3,10 +3,13 @@ package com.college.backlog.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.List;
 
 /**
  * Fixed-window rate limiter for the two PDF endpoints, backed by Redis (Upstash in production).
@@ -22,8 +25,9 @@ import java.time.Duration;
  * the bug class already fixed once in {@code SecurityConfig}. Both PDF endpoints require auth, so a
  * principal always exists.
  *
- * <p>Costs two Redis commands per allowed request (INCR, plus EXPIRE only when the window opens),
- * which keeps a low-traffic deployment far inside Upstash's free daily command budget.
+ * <p>One round trip per request: INCR + TTL run as one atomic Lua script
+ * ({@code scripts/pdf-rate-limit.lua}), never as separate calls — an EXPIRE failing after INCR would
+ * leave a TTL-less key that blocks the user permanently once the count passes the limit.
  */
 @Service
 public class PdfRateLimitService {
@@ -31,6 +35,11 @@ public class PdfRateLimitService {
     private static final Logger log = LoggerFactory.getLogger(PdfRateLimitService.class);
 
     private static final String KEY_PREFIX = "rl:pdf:";
+
+    /** Shared, not per call: DefaultRedisScript caches the SHA1, so execute() sends EVALSHA and
+     *  falls back to EVAL only on NOSCRIPT. */
+    static final RedisScript<Long> SCRIPT =
+            RedisScript.of(new ClassPathResource("scripts/pdf-rate-limit.lua"), Long.class);
 
     private final StringRedisTemplate redis;
 
@@ -58,17 +67,15 @@ public class PdfRateLimitService {
         }
         String key = KEY_PREFIX + principal;
         try {
-            Long count = redis.opsForValue().increment(key);
+            // ARGV as a String: StringRedisTemplate serialises every arg with StringRedisSerializer,
+            // which throws ClassCastException on a Long.
+            Long count = redis.execute(SCRIPT, List.of(key),
+                    String.valueOf(Duration.ofMinutes(windowMinutes).toMillis()));
             if (count == null) {
                 // No value back means the command did not really execute; fail OPEN rather than
                 // lock a legitimate user out of their own form.
-                log.warn("PDF rate limit: INCR returned null for key={}, allowing request", key);
+                log.warn("PDF rate limit: script returned null for key={}, allowing request", key);
                 return true;
-            }
-            if (count == 1L) {
-                // First hit opens the window. Set the TTL only here, so a burst cannot keep
-                // pushing the expiry out and turn a fixed window into a rolling one.
-                redis.expire(key, Duration.ofMinutes(windowMinutes));
             }
             return count <= maxPerWindow;
         } catch (RuntimeException e) {

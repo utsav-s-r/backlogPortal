@@ -374,6 +374,60 @@ describe("Admin verification flow", () => {
     cy.get('[data-cy="admin-verify"]').should("not.exist");
   });
 
+  // Verifying the only row on the last page under a status tab refetched that same page index,
+  // which the server answers with an empty page (it doesn't clamp): "No registrations match",
+  // pager hidden, no way back short of changing a filter.
+  it("steps back a page when an action empties the last page", () => {
+    let lastRowVerified = false;
+    const firstPage = Array.from({ length: 25 }, (_, i) =>
+      row({ regId: `REG-2026-2${String(i).padStart(3, "0")}`, rollNo: `1MS22CS${100 + i}` }),
+    );
+    // Pending tab: 26 rows over 2 pages until the last one is verified, then 25 on 1 page. The
+    // server echoes the requested index even past the end, as Spring's PageRequest does.
+    cy.intercept("GET", "/api/admin/registrations*", (req) => {
+      const page = Number(req.query.page);
+      if (req.query.status !== "SUBMITTED") {
+        req.reply({ statusCode: 200, body: { content: firstPage, totalElements: 25, totalPages: 1, number: 0 } });
+        return;
+      }
+      const lastRow = [row({ regId: "REG-2026-9999", rollNo: "1MS22CS999" })];
+      const content = page === 0 ? firstPage : lastRowVerified ? [] : lastRow;
+      req.reply({
+        statusCode: 200,
+        body: {
+          content,
+          totalElements: lastRowVerified ? 25 : 26,
+          totalPages: lastRowVerified ? 1 : 2,
+          number: page,
+        },
+      });
+    }).as("getRegistrations");
+    stubCounts();
+    stubSideCalls();
+    cy.intercept("PUT", "/api/register/verify/REG-2026-9999", (req) => {
+      lastRowVerified = true;
+      req.reply({ statusCode: 200, body: { message: "ok" } });
+    }).as("verifyLast");
+
+    cy.visitAsAdmin("/admin");
+    cy.get('[data-cy="admin-filter-submitted"]').click();
+    cy.get('[data-cy="admin-page-info"]').should("contain", "Page 1 of 2");
+    cy.get('[data-cy="admin-page-next"]').click();
+    cy.get('[data-cy="admin-page-info"]').should("contain", "Page 2 of 2");
+
+    cy.contains("tr", "1MS22CS999").find('[data-cy="admin-verify"]').click();
+    cy.wait("@verifyLast");
+
+    cy.contains("tr", "1MS22CS100").should("be.visible");
+    cy.get('[data-cy="admin-empty"]').should("not.exist");
+    cy.get('[data-cy="admin-page-info"]').should("not.exist"); // one page left: no pager
+    // the empty page-2 reply was followed by a refetch of page 1, not rendered
+    cy.get("@getRegistrations.all").then((calls) => {
+      const pages = calls.map((c) => c.request.query.page);
+      expect(pages.slice(-2)).to.deep.equal(["1", "0"]);
+    });
+  });
+
   it("redirects unauthenticated visitors to the admin login", () => {
     cy.visit("/admin");
     cy.location("pathname").should("eq", "/admin/login");

@@ -143,13 +143,20 @@ function AdminPage() {
       })
       .then((res) => {
         if (seq !== registrationsReqRef.current) return; // superseded
+        const totalPages = res.data.totalPages ?? 0;
+        const number = res.data.number ?? 0;
+        // The server doesn't clamp: actioning the last row of the last page under a status tab
+        // refetches an index that no longer exists and gets an empty page back, with the pager
+        // hidden and no way out. Step back to the last real page; changing `page` refetches.
+        const lastPage = Math.max(0, totalPages - 1);
+        if (number > lastPage) {
+          setLoading(true);
+          setPage(lastPage);
+          return;
+        }
         setLoadError("");
         setRegistrations(res.data.content || []);
-        setPageInfo({
-          totalPages: res.data.totalPages ?? 0,
-          totalElements: res.data.totalElements ?? 0,
-          number: res.data.number ?? 0,
-        });
+        setPageInfo({ totalPages, totalElements: res.data.totalElements ?? 0, number });
         setLoading(false);
       })
       .catch((error) => {

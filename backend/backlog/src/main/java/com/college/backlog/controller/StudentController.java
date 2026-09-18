@@ -20,6 +20,7 @@ import com.college.backlog.service.PdfService;
 import com.college.backlog.service.Usn;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -185,8 +186,11 @@ public class StudentController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment",
-            "backlog-registration-" + reg.getStudent().getRollNo() + ".pdf");
+        // attachment (RFC 6266), not setContentDispositionFormData: that builds a multipart PART
+        // header, "form-data; name=...", which is not a response disposition
+        headers.setContentDisposition(ContentDisposition.attachment()
+            .filename("backlog-registration-" + reg.getStudent().getRollNo() + ".pdf")
+            .build());
 
         return ResponseEntity.ok().headers(headers).body(pdfBytes);
     }

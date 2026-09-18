@@ -82,8 +82,12 @@ function RegistrationPage() {
   // carves out. A knowing lint error, deliberately not disabled.
   useEffect(() => {
     if (!searchSemester) {
+      // reset EVERY field this effect owns: the previous run's cleanup ignores its reply, so a
+      // spinner or error left set here outlives the semester it belonged to
       setSubjects([]);
       setResolvedAcademicYear(null);
+      setLoadingSubjects(false);
+      setSubjectsError("");
       return;
     }
 

@@ -14,6 +14,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/student/auth")
@@ -32,8 +33,10 @@ public class StudentAuthController {
     public Map<String, String> login(@RequestBody Map<String, String> body,
                                      HttpServletResponse response) {
 
-        String rollNo = body.getOrDefault("rollNo", "").trim();
-        String dob = body.getOrDefault("dateOfBirth", "").trim();
+        // Objects.toString, not getOrDefault: that default covers only an ABSENT key, and a JSON null
+        // must get the same 400 below, not an NPE the catch-all turns into a 500.
+        String rollNo = Objects.toString(body.get("rollNo"), "").trim();
+        String dob = Objects.toString(body.get("dateOfBirth"), "").trim();
 
         if (rollNo.isEmpty() || dob.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "USN and date of birth are required");

@@ -27,11 +27,22 @@ export function recentAcademicYears(selected) {
   ).sort((a, b) => b - a);
 }
 
-// Accepts spans and bare start years alike, so older "2025" inputs and CSV pastes keep working:
-//   "2025-26" | "2025-2026" | "2025" | 2025  ->  2025
-// NaN when no 4-digit start year can be read; callers treat NaN / empty as "not provided".
+// A bare start year, or a span whose end is start+1 (2- or 4-digit end; "-", "–" or "/", spaces
+// allowed):  "2025" | 2025 | "2025-26" | "2025-2026" | "2025 / 26"  ->  2025
+// NaN for anything else — including "2025-24" or "20251". Never guess a start year out of a string
+// that isn't one: this int is the year-binding key, so a typo read as a year silently re-points
+// every backlog through it. Callers treat NaN / empty as "not provided" or show an error.
+const YEAR_OR_SPAN = /^(\d{4})(?:\s*[-–/]\s*(\d{2}|\d{4}))?$/;
+
 export function parseAcademicYear(value) {
   if (value == null) return NaN;
-  const match = String(value).trim().match(/^(\d{4})/);
-  return match ? Number(match[1]) : NaN;
+  const match = String(value).trim().match(YEAR_OR_SPAN);
+  if (!match) return NaN;
+  const start = Number(match[1]);
+  const end = match[2];
+  if (end !== undefined) {
+    const expected = end.length === 2 ? (start + 1) % 100 : start + 1;
+    if (Number(end) !== expected) return NaN;
+  }
+  return start;
 }

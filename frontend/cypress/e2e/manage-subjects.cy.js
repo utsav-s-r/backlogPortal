@@ -33,6 +33,23 @@ describe("Manage Subjects page", () => {
     cy.contains("tr", "Data Structures").should("be.visible");
   };
 
+  it("refuses an unreadable year filter instead of loading the whole catalog", () => {
+    visitAndLoad();
+
+    // "2025-24" is not a span (26 would follow 25); read leniently it filtered on 2025, and an
+    // unparseable year was dropped, loading everything under a filter box still showing text
+    cy.get('[data-cy="subjects-year"]').type("2025-24");
+    cy.get('[data-cy="subjects-load"]').click();
+    cy.get('[data-cy="subjects-error"]').should("contain", "e.g. 2024-25");
+    cy.get("@getSubjects.all").should("have.length", 1);
+
+    // a valid span goes through as the start-year int
+    cy.get('[data-cy="subjects-year"]').clear().type("2022-23");
+    cy.get('[data-cy="subjects-load"]').click();
+    cy.wait("@getSubjects").its("request.query.academicYearOffered").should("equal", "2022");
+    cy.get('[data-cy="subjects-error"]').should("not.exist");
+  });
+
   it("edits a subject's credits, keeping the locked course code", () => {
     cy.intercept("PUT", "/api/admin/subjects/10", {
       statusCode: 200,

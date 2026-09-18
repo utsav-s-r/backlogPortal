@@ -142,6 +142,45 @@ describe("Student registration flow", () => {
     cy.contains("Please contact the department office.").should("be.visible");
   });
 
+  it("clearing the semester mid-load drops the spinner", () => {
+    stubAuthedSession();
+    // held long enough to clear the semester first; the cancelled reply must not own the spinner
+    cy.intercept("GET", "/api/student/subjects*", {
+      statusCode: 200,
+      delay: 4000,
+      body: { semester: 3, academicYear: 2023, subjects: [] },
+    }).as("getSubjectsSlow");
+
+    login();
+    cy.get('[data-cy="register-cta"]').click();
+    cy.get('[data-cy="reg-semester"]').select("3");
+    cy.contains("Loading subjects...").should("be.visible");
+
+    cy.get('[data-cy="reg-semester"]').select("Select semester");
+
+    cy.contains("Select a semester to find subjects.").should("be.visible");
+    cy.contains("Loading subjects...").should("not.exist");
+  });
+
+  it("clearing the semester drops the previous semester's error", () => {
+    stubAuthedSession();
+    cy.intercept("GET", "/api/student/subjects*", {
+      statusCode: 409,
+      body: { message: "No record for semester 3. Please contact the department office." },
+    }).as("getSubjectsFailed");
+
+    login();
+    cy.get('[data-cy="register-cta"]').click();
+    cy.get('[data-cy="reg-semester"]').select("3");
+    cy.wait("@getSubjectsFailed");
+    cy.contains("No record for semester 3.").should("be.visible");
+
+    cy.get('[data-cy="reg-semester"]').select("Select semester");
+
+    cy.contains("No record for semester 3.").should("not.exist");
+    cy.contains("Select a semester to find subjects.").should("be.visible");
+  });
+
   it("blocks registration until a phone number is set", () => {
     stubAuthedSession({ phone: null });
 

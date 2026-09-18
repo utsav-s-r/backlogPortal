@@ -120,6 +120,35 @@ describe("Students page", () => {
     cy.get('[data-cy="prog-term-year-4"]').should("have.value", "2023-24");
   });
 
+  it("refuses an inconsistent academic-year span on the semester timeline", () => {
+    cy.intercept("GET", "/api/admin/progression/1MS22CS001", {
+      statusCode: 200,
+      body: {
+        rollNo: "1MS22CS001",
+        name: "Asha Rao",
+        currentSemester: 4,
+        entrySemester: 1,
+        terms: [{ semester: 1, academicYear: 2022 }],
+      },
+    }).as("progression");
+    cy.intercept("PUT", "/api/admin/progression/1MS22CS001/semester/*", {
+      statusCode: 500,
+      body: { message: "must not be reached" },
+    }).as("setSem");
+
+    visitManageAndLoad();
+    cy.get('[data-cy="student-sems-1MS22CS001"]').click();
+    cy.wait("@progression");
+
+    // "2025-24" read leniently saved 2025 — the year-binding key — with nothing on screen to show it
+    cy.get('[data-cy="prog-term-year-4"]').type("2025-24");
+    cy.get('[data-cy="prog-term-save-4"]').click();
+    cy.get('[data-cy="student-sems-panel-1MS22CS001"]')
+      .find('[role="alert"]')
+      .should("contain", "e.g. 2024-25");
+    cy.get("@setSem.all").should("have.length", 0);
+  });
+
   it("blocks deletion of a student referenced by registrations", () => {
     cy.intercept("DELETE", "/api/admin/students/1MS22CS001", {
       statusCode: 409,

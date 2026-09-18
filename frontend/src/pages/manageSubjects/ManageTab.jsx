@@ -37,13 +37,19 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
   // The endpoint returns a Page ({content, totalPages, ...}), never a bare array — loading the
   // whole catalog unfiltered times the client out. Each call pulls one page; filters reset to page 0.
   const loadSubjects = useCallback(async (targetPage = 0) => {
+    // a typed year that doesn't parse is refused, never dropped: dropping it loads the whole
+    // catalog under a filter box still showing a year
+    const y = parseAcademicYear(fYear);
+    if (fYear.trim() && Number.isNaN(y)) {
+      setError("Enter the academic year as a range or start year, e.g. 2024-25.");
+      return;
+    }
     setError("");
     setBusy(true);
     try {
       const params = { page: targetPage, size: PAGE_SIZE };
       if (effectiveDeptId) params.deptId = Number(effectiveDeptId);
-      const y = parseAcademicYear(fYear);
-      if (fYear && !Number.isNaN(y)) params.academicYearOffered = y;
+      if (!Number.isNaN(y)) params.academicYearOffered = y;
       if (fSemester) params.semester = Number(fSemester);
       const res = await api.get("/admin/subjects", { params });
       const data = res.data || {};

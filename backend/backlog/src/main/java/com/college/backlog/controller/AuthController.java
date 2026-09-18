@@ -12,6 +12,7 @@ import com.college.backlog.security.SessionCookieService;
 import com.college.backlog.service.AdminAuditService;
 import com.college.backlog.service.CallerScope;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +24,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -50,21 +53,39 @@ public class AuthController {
     @Autowired
     private AdminAuditService auditService;
 
+    /** Compared against when there is no real hash. Made by the app's own encoder so its algorithm
+     *  and cost match every stored hash; a hardcoded one drifts silently if the encoder changes. */
+    private String dummyHash;
+
+    @PostConstruct
+    void initDummyHash() {
+        dummyHash = passwordEncoder.encode(UUID.randomUUID().toString());
+    }
+
     @PostMapping("/login")
     public Map<String, String> login(@RequestBody Map<String, String> body,
                                      HttpServletResponse response) {
 
-        String username = body.getOrDefault("username", "").trim();
-        String password = body.getOrDefault("password", "");
+        // Objects.toString, not getOrDefault: that default covers only an ABSENT key, and a JSON null
+        // must get the same 400 below, not an NPE the catch-all turns into a 500.
+        String username = Objects.toString(body.get("username"), "").trim();
+        String password = Objects.toString(body.get("password"), "");
 
         if (username.isEmpty() || password.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username and password are required");
         }
 
         User user = userRepository.findByUsername(username).orElse(null);
-        // Unknown user and wrong password are deliberately indistinguishable — same 401, same text
-        if (user == null || !matchesPassword(user, password)) {
+        // Unknown user and wrong password are deliberately indistinguishable — same 401, same text,
+        // same time: matchesPassword runs one bcrypt check on every path, a null user included.
+        if (!matchesPassword(user, password)) {
             throw invalidCredentials();
+        }
+
+        // users.role is nullable; Set.of(...).contains(null) NPEs. After the password check, so only
+        // a caller who proved the credentials learns the account is broken. Same refusal CallerScope makes.
+        if (user.getRole() == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This account has no role assigned. Contact admin.");
         }
 
         if (DEPT_ROLES.contains(user.getRole())) {
@@ -122,9 +143,8 @@ public class AuthController {
 
         if (!matchesPassword(user, req.getCurrentPassword())) {
             // 400, not 401: the session is valid — a mistyped `currentPassword` is a bad FIELD, not
-            // a dead session. It survives as a 401 today only because api.js's admin-scoped URL
-            // matcher happens not to cover /auth/change-password; widen that matcher later and a
-            // typo would sign the user out mid-change.
+            // a dead session. api.js signs out on a 401 from this endpoint, so a 401 here would
+            // eject the user over a typo.
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
         }
         if (passwordEncoder.matches(req.getNewPassword(), user.getPassword())) {
@@ -191,9 +211,12 @@ public class AuthController {
         return resp;
     }
 
+    /** Exactly one bcrypt check per call, whatever the outcome. Skipping it for a missing user or
+     *  hash answers tens of ms faster than a wrong password, which enumerates usernames. */
     private boolean matchesPassword(User user, String rawPassword) {
-        String storedPassword = user.getPassword();
+        String storedPassword = user == null ? null : user.getPassword();
         if (storedPassword == null || storedPassword.isBlank()) {
+            passwordEncoder.matches(rawPassword, dummyHash);
             return false;
         }
         // bcrypt only — legacy plaintext rows are upgraded once at startup by DataSeeder
