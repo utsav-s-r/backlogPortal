@@ -295,6 +295,10 @@ function DepartmentsPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
+                      {/* Locked once students exist: the code is the branch segment of every one
+                          of their USNs, and it decides which department may verify their
+                          registrations. The server refuses the change (409); this only stops the
+                          admin typing one and losing the save. */}
                       <input
                         type="text"
                         data-cy={`dept-code-input-${d.id}`}
@@ -307,9 +311,15 @@ function DepartmentsPage() {
                         }
                         placeholder="CS"
                         maxLength={2}
+                        disabled={d.hasStudents}
                         aria-label={`Code for ${d.deptName}`}
                         className={`w-16 text-center uppercase ${FIELD_CONTROL}`}
                       />
+                      {d.hasStudents && (
+                        <p className="mt-1 text-xs text-ink-muted" data-cy={`dept-code-locked-${d.id}`}>
+                          Fixed — students' USNs carry it
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <input

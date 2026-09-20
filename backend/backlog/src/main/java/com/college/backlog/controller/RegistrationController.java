@@ -49,14 +49,17 @@ public class RegistrationController {
             return;
         }
         if (!DEPT_ROLES.contains(user.getRole())) return; // ADMIN / PRINCIPAL: unrestricted
-        Long userDeptId = callerScope.requireDepartmentId(user);
-        boolean hasAccess = reg.getSubjects().stream().anyMatch(s -> {
-            if (s.getDepartment() != null && userDeptId.equals(s.getDepartment().getId())) return true;
-            return s.getEligibleDepartments() != null &&
-                   s.getEligibleDepartments().stream().anyMatch(d -> userDeptId.equals(d.getId()));
-        });
-        if (!hasAccess) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This registration does not belong to your department.");
+        // The STUDENT's department verifies, not the subject's. The form is signed by the
+        // student's proctor and HOD, and this is that signature. Scoping by subject made the
+        // authority multi-valued — a registration spanning three departments could be actioned by
+        // any of them, first click wins — and let a CSE HOD sign off a Civil student's form while
+        // the student's own HOD sometimes could not see it at all. VIEWING stays wider: every
+        // involved department sees the row (RegistrationSpecification).
+        String callerDept = callerScope.requireDepartmentCode(user);
+        String studentBranch = reg.getStudent() != null ? reg.getStudent().getBranch() : null;
+        if (studentBranch == null || !callerDept.equalsIgnoreCase(studentBranch)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "Only the student's own department can verify this registration.");
         }
     }
 

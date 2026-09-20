@@ -124,6 +124,35 @@ describe("Admin verification flow", () => {
     cy.wait("@export").its("request.body").should("deep.equal", { regIds: ["REG-2026-1001"] });
   });
 
+  // Every department INVOLVED in a registration sees it, but only the student's OWN department may
+  // verify or reject — the server decides and says so per row via canVerify. Without the gate the
+  // page would offer a button that 403s on click.
+  it("offers no verify or reject on a row the caller may not action", () => {
+    cy.intercept("GET", "/api/admin/registrations*", {
+      statusCode: 200,
+      body: pageOf([
+        row({ regId: "REG-OWN", canVerify: true }),
+        row({ regId: "REG-OTHER-DEPT", rollNo: "1MS24CV001", studentName: "Civil Student",
+              canVerify: false }),
+      ]),
+    }).as("getRegistrations");
+    stubCounts();
+    stubSideCalls();
+
+    cy.visitAsAdmin("/admin", { role: "HOD", username: "hod", department: "CSE", departmentId: 1 });
+    cy.wait("@getRegistrations");
+
+    cy.contains("tr", "Civil Student").find('[data-cy="admin-verify"]').should("not.exist");
+    cy.contains("tr", "Civil Student").find('[data-cy="admin-reject"]').should("not.exist");
+    cy.contains("tr", "Civil Student").find('[data-cy="admin-other-dept"]')
+      .should("contain", "Student's department verifies");
+
+    // The control: the caller's own student keeps both buttons, so this cannot pass on a page
+    // that simply stopped rendering them.
+    cy.contains("tr", "Student One").find('[data-cy="admin-verify"]').should("exist");
+    cy.contains("tr", "Student One").find('[data-cy="admin-reject"]').should("exist");
+  });
+
   it("logs in as admin and verifies pending registration", () => {
     cy.intercept("POST", "/api/auth/login", {
       statusCode: 200,

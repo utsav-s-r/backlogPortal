@@ -49,6 +49,37 @@ describe("Department code edit — concurrent-edit conflict detection", () => {
     cy.get('[data-cy="dept-code-input-1"]').should("have.value", "CX");
   });
 
+  // The code is the branch segment of every student's USN (1MS24CS001) and decides which
+  // department may verify their registrations, so it is fixed once students exist. The server
+  // 409s the change; the lock is what stops the admin typing one and losing the save.
+  it("locks the code of a department that has students, leaving the rest editable", () => {
+    cy.intercept("GET", "/api/admin/departments*", {
+      statusCode: 200,
+      body: [
+        { id: 1, deptName: "Computer Science", code: "CS", contactEmail: null, version: 0,
+          hasStudents: true },
+        { id: 2, deptName: "Aeronautical", code: "AE", contactEmail: null, version: 0,
+          hasStudents: false },
+      ],
+    }).as("getDepartments");
+    cy.intercept("PUT", "/api/admin/departments/1", { statusCode: 200, body: {} }).as("update");
+
+    authedVisit("/admin/departments");
+    cy.wait("@getDepartments");
+
+    cy.get('[data-cy="dept-code-input-1"]').should("be.disabled");
+    cy.get('[data-cy="dept-code-locked-1"]').should("contain", "USNs carry it");
+    // The control: a department nobody has been admitted into is still correctable, so this
+    // cannot pass on a page that disabled every code field.
+    cy.get('[data-cy="dept-code-input-2"]').should("not.be.disabled");
+    cy.get('[data-cy="dept-code-locked-2"]').should("not.exist");
+
+    // The rest of the row still saves, code unchanged — the guard must not freeze the whole row.
+    cy.get('[data-cy="dept-email-input-1"]').clear().type("cse@msrit.edu");
+    cy.get('[data-cy="dept-save-1"]').click();
+    cy.wait("@update").its("request.body").should("include", { code: "CS", contactEmail: "cse@msrit.edu" });
+  });
+
   it("saves an edited contact email through the inline row", () => {
     cy.intercept("GET", "/api/admin/departments*", {
       statusCode: 200,

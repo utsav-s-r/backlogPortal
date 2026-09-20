@@ -87,14 +87,25 @@ public class RegistrationService {
      * is a lazy load; mapping in the controller would only work with open-in-view, which is off.
      * {@code @BatchSize(1000)} collapses the per-row loads. {@code readOnly} skips dirty-check/flush.
      */
+    /**
+     * @param mayVerifyAtAll false for a role the verify endpoint refuses outright — PRINCIPAL is
+     *     absent from its {@code @PreAuthorize}, so every attempt 403s and no row is actionable.
+     * @param verifyingBranch the caller's department CODE when only their own students' rows may
+     *     be actioned (HOD / DEPT_OFFICE), or null for a caller who may action every row they can
+     *     see — ADMIN, and PROCTOR, whose rows are by construction their own assigned students
+     *     (assignment refuses a roll number outside the proctor's department).
+     */
     @Transactional(readOnly = true)
-    public Page<RegistrationSummaryResponse> listSummaries(Specification<Registration> spec, Pageable pageable) {
-        return registrationRepository.findAll(spec, pageable).map(this::toSummary);
+    public Page<RegistrationSummaryResponse> listSummaries(Specification<Registration> spec, Pageable pageable,
+                                                           boolean mayVerifyAtAll, String verifyingBranch) {
+        return registrationRepository.findAll(spec, pageable)
+                .map(reg -> toSummary(reg, mayVerifyAtAll, verifyingBranch));
     }
 
     /** Private on purpose: touches lazy state, so it must not be reachable from a controller
      *  (see {@link #listSummaries}). */
-    private RegistrationSummaryResponse toSummary(Registration reg) {
+    private RegistrationSummaryResponse toSummary(Registration reg, boolean mayVerifyAtAll,
+                                                  String verifyingBranch) {
         // Snapshot columns only — NOT NULL in the schema. The old `snap != null ? snap : student.get()`
         // fallbacks silently printed the LIVE student row on an old registration, inverting the
         // immutable-history convention this table exists to uphold.
@@ -110,7 +121,22 @@ public class RegistrationService {
             reg.getStatus().name(),
             reg.getRegisteredAt().toString(),
             reg.getVerifiedBy(),
-            reg.getExamCycle() != null ? reg.getExamCycle().getName() : null);
+            reg.getExamCycle() != null ? reg.getExamCycle().getName() : null,
+            canVerify(reg, mayVerifyAtAll, verifyingBranch));
+    }
+
+    /** Mirrors RegistrationController.checkDeptAccess — the SERVER-side rule is that one; this
+     *  only tells the UI which rows to offer the buttons on. They must agree, or the page shows a
+     *  button that 403s (or hides one that would have worked). */
+    private boolean canVerify(Registration reg, boolean mayVerifyAtAll, String verifyingBranch) {
+        if (!mayVerifyAtAll) {
+            return false;
+        }
+        if (verifyingBranch == null) {
+            return true;
+        }
+        String branch = reg.getStudent() != null ? reg.getStudent().getBranch() : null;
+        return branch != null && verifyingBranch.equalsIgnoreCase(branch);
     }
 
     // One transaction for the insert AND its SUBMITTED audit event, so history can never gain a

@@ -114,7 +114,14 @@ public class Registration {
     public void setStudent(Student student) { this.student = student; }
 
     public List<Subject> getSubjects() { return subjects; }
-    public void setSubjects(List<Subject> subjects) { this.subjects = subjects; }
+    /** Copies, rather than holding the caller's list: Hibernate mutates this collection in place
+     *  when the row is updated, so a {@code List.of(...)} handed in here surfaces later as
+     *  UnsupportedOperationException from inside a flush — on the VERIFY path, as a 500. Mapping
+     *  is field-access, so Hibernate's own load never goes through this setter. Same reason as
+     *  ExamCycle.setBatchLines. */
+    public void setSubjects(List<Subject> subjects) {
+        this.subjects = subjects == null ? null : new java.util.ArrayList<>(subjects);
+    }
 
     public Instant getRegisteredAt() { return registeredAt; }
     public void setRegisteredAt(Instant registeredAt) { this.registeredAt = registeredAt; }

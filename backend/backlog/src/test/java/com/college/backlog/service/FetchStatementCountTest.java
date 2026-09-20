@@ -122,10 +122,10 @@ class FetchStatementCountTest {
     @Test
     void theAdminListCostsTheSameNumberOfStatementsAtThreeRowsAsAtTwelve() {
         seedRegistrations(FEW);
-        long few = statementsFor(() -> registrationService.listSummaries(anyRegistration(), PAGE));
+        long few = statementsFor(() -> registrationService.listSummaries(anyRegistration(), PAGE, true, null));
 
         seedRegistrations(MANY - FEW); // top up to MANY
-        long many = statementsFor(() -> registrationService.listSummaries(anyRegistration(), PAGE));
+        long many = statementsFor(() -> registrationService.listSummaries(anyRegistration(), PAGE, true, null));
 
         // The list leaves `subjects` lazy on purpose (fetching a collection on a paginated query
         // paginates in memory — see the next test), so every row's subjects would be its own SELECT
@@ -143,9 +143,9 @@ class FetchStatementCountTest {
     void theAdminListCostsTheSameNumberOfStatementsAtAFullPageAsAtTheDefaultPage() {
         seedRegistrations(ACROSS_BATCH);
 
-        long defaultPage = statementsFor(() -> registrationService.listSummaries(anyRegistration(), PAGE));
+        long defaultPage = statementsFor(() -> registrationService.listSummaries(anyRegistration(), PAGE, true, null));
         long fullPage = statementsFor(() ->
-                registrationService.listSummaries(anyRegistration(), PageRequest.of(0, ACROSS_BATCH)));
+                registrationService.listSummaries(anyRegistration(), PageRequest.of(0, ACROSS_BATCH), true, null));
 
         // A DIFFERENT axis from the test above, which varies rows at a FIXED page size and so cannot
         // see this: @BatchSize batches the lazy `subjects` loads one page-row at a time, so a batch
@@ -167,7 +167,7 @@ class FetchStatementCountTest {
         int pageSize = 5;
         statistics.clear();
 
-        Page<?> page = registrationService.listSummaries(anyRegistration(), PageRequest.of(0, pageSize));
+        Page<?> page = registrationService.listSummaries(anyRegistration(), PageRequest.of(0, pageSize), true, null);
 
         assertThat(page.getContent()).hasSize(pageSize);
         assertThat(page.getTotalElements()).isEqualTo(MANY);
@@ -227,7 +227,7 @@ class FetchStatementCountTest {
         seedRegistrations(FEW);
 
         // same query, same lazy association — the only difference is the service's transaction
-        Page<?> summaries = registrationService.listSummaries(anyRegistration(), PAGE);
+        Page<?> summaries = registrationService.listSummaries(anyRegistration(), PAGE, true, null);
 
         assertThat(summaries.getContent()).hasSize(FEW);
     }

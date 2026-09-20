@@ -165,7 +165,9 @@ public class StudentController {
                 reg.getStatus().name(),
                 reg.getRegisteredAt().toString(),
                 reg.getVerifiedBy(),
-                reg.getExamCycle() != null ? reg.getExamCycle().getName() : null))
+                reg.getExamCycle() != null ? reg.getExamCycle().getName() : null,
+                // A student never verifies anything; the field exists for the admin list.
+                false))
             .collect(Collectors.toList());
     }
 

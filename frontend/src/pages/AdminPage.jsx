@@ -618,7 +618,13 @@ function AdminPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {reg.status === "SUBMITTED" && adminRole !== ROLE.PRINCIPAL ? (
+                        {/* canVerify comes from the server: every department INVOLVED sees a
+                            registration, but only the student's OWN may action it
+                            (RegistrationController.checkDeptAccess). Without this the page would
+                            offer a button that 403s. `!== false` so a caller that predates the
+                            field is not silently stripped of its buttons. */}
+                        {reg.status === "SUBMITTED" && adminRole !== ROLE.PRINCIPAL
+                          && reg.canVerify !== false ? (
                           <div className="flex flex-col gap-1.5">
                             <div className="flex flex-col items-start gap-1.5">
                               <button
@@ -660,7 +666,7 @@ function AdminPage() {
                               </p>
                             )}
                           </div>
-                        ) : reg.status === "VERIFIED" ? (
+                        ) : reg.status === "VERIFIED" && reg.canVerify !== false ? (
                           <div className="flex flex-col gap-1.5">
                             {rejectVerified.isArmed(reg.regId) ? (
                               <div className="flex flex-col items-start gap-1.5">
@@ -716,6 +722,16 @@ function AdminPage() {
                                 {rowErrors[reg.regId]}
                               </p>
                             )}
+                          </div>
+                        ) : reg.canVerify === false ? (
+                          <div className="flex flex-col items-start gap-1">
+                            <span className="text-sm font-semibold text-ink-muted">
+                              {reg.status === "VERIFIED" ? "Verified"
+                                : reg.status === "REJECTED" ? "Rejected" : "Submitted"}
+                            </span>
+                            <span className="text-xs text-ink-muted" data-cy="admin-other-dept">
+                              Student's department verifies
+                            </span>
                           </div>
                         ) : reg.status === "REJECTED" ? (
                           <span className="text-sm font-semibold text-alert">

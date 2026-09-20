@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 
 /**
@@ -40,6 +41,12 @@ public interface StudentRepository extends JpaRepository<Student, String>, JpaSp
     // Department-delete guard: students carry their branch as the 2-letter code with no FK, so a
     // department can't be removed while students of that branch exist — they couldn't register.
     boolean existsByBranchIgnoreCase(String branch);
+
+    // Which branch codes actually have students, for the departments list's `hasStudents` flag:
+    // ONE query for the whole list, never existsByBranchIgnoreCase per row. Lower-cased in SQL so
+    // the caller compares like for like.
+    @Query("select distinct lower(s.branch) from Student s where s.branch is not null")
+    Set<String> findDistinctBranchCodes();
 
     // ---- bulk progression ----
 

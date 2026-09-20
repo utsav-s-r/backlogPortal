@@ -27,6 +27,7 @@ import java.util.List;
 
 import static com.college.backlog.controller.AdminAuthorizationFixture.*;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
@@ -80,13 +81,21 @@ class RegistrationReadAuthorizationTest {
     @Autowired private ExamCycleRepository examCycleRepository;
     @Autowired private RegistrationRepository registrationRepository;
 
+    private AdminAuthorizationFixture.Ids ids;
+    private ExamCycle cycle;
+    private ExamCycle secondCycle;
+
     @BeforeEach
     void seedTheCastAndItsRegistrations() {
-        AdminAuthorizationFixture.Ids ids = AdminAuthorizationFixture.seed(
+        ids = AdminAuthorizationFixture.seed(
                 userRepository, departmentRepository, studentRepository, assignmentRepository,
                 subjectRepository);
         examCycleRepository.deactivateAll();
-        ExamCycle cycle = examCycleRepository.save(new ExamCycle("Fixture Cycle", "2026-01"));
+        cycle = examCycleRepository.save(new ExamCycle("Fixture Cycle", "2026-01"));
+        // uq_pending_reg_per_cycle is a partial unique index on (roll_no, exam_cycle_id) WHERE
+        // status='SUBMITTED', and every student below already has a pending row in `cycle`. Tests
+        // that add a second registration for the same student put it in this one.
+        secondCycle = examCycleRepository.save(new ExamCycle("Fixture Cycle 2", "2026-07"));
 
         Subject csSubject = subjectRepository.findById(ids.csSubjectId).orElseThrow();
         Subject cvSubject = subjectRepository.findById(ids.cvSubjectId).orElseThrow();
@@ -112,6 +121,93 @@ class RegistrationReadAuthorizationTest {
         r.setSnapSemester(student.getCurrentSemester());
         r.setSnapYearOfJoining(student.getYearOfJoining());
         registrationRepository.save(r);
+    }
+
+    // ---- who is INVOLVED: the union added 2026-09-20 ----
+
+    /** A department sees its OWN students' registrations even when no subject on them is theirs.
+     *  Reachable in production once an elective's eligibility list is edited: the student
+     *  registered legitimately, and their own department — the one that signs the form — then
+     *  lost sight of the row entirely. Built directly here, which is that post-edit state. */
+    @Test
+    @WithMockUser(username = HOD, roles = "HOD")
+    void hodSeesItsOwnStudentEvenWhenNoSubjectBelongsToTheDepartment() throws Exception {
+        Subject otherDeptSubject = subjectRepository.findById(ids.cvSubjectId).orElseThrow();
+        registration("REG-CS-STUDENT-CV-SUBJECT", CS_UNASSIGNED, otherDeptSubject, secondCycle);
+
+        mockMvc.perform(get(REGISTRATIONS).param("size", "200"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[*].regId", hasItem("REG-CS-STUDENT-CV-SUBJECT")));
+    }
+
+    /** The other half of the union, unchanged: a department still sees another department's
+     *  student taking ITS subject. Widening the scope must not have narrowed this. */
+    @Test
+    @WithMockUser(username = HOD, roles = "HOD")
+    void hodStillSeesAnotherDepartmentsStudentTakingItsSubject() throws Exception {
+        mockMvc.perform(get(REGISTRATIONS).param("size", "200"))
+                .andExpect(status().isOk())
+                // REG_OTHER_DEPT is the CV student on a CV subject — not involved with CS at all.
+                .andExpect(jsonPath("$.content[*].regId", not(hasItem(REG_OTHER_DEPT))));
+
+        Subject csSubject = subjectRepository.findById(ids.csSubjectId).orElseThrow();
+        registration("REG-CV-STUDENT-CS-SUBJECT", CV_STUDENT, csSubject, secondCycle);
+
+        mockMvc.perform(get(REGISTRATIONS).param("size", "200"))
+                .andExpect(jsonPath("$.content[*].regId", hasItem("REG-CV-STUDENT-CS-SUBJECT")));
+    }
+
+    // ---- canVerify: seeing a row is not being allowed to action it ----
+
+    /** Every involved department SEES the row; only the student's own may action it. The flag is
+     *  what stops the page offering a button that 403s — it must agree with
+     *  RegistrationVerifyScopeTest, which pins the server-side rule. */
+    @Test
+    @WithMockUser(username = HOD, roles = "HOD")
+    void hodMaySeeAnotherDepartmentsStudentButNotActionThem() throws Exception {
+        Subject csSubject = subjectRepository.findById(ids.csSubjectId).orElseThrow();
+        registration("REG-CV-ON-CS-SUBJECT", CV_STUDENT, csSubject, secondCycle);
+
+        mockMvc.perform(get(REGISTRATIONS).param("size", "200"))
+                .andExpect(status().isOk())
+                // own student -> actionable
+                .andExpect(jsonPath("$.content[?(@.regId=='" + REG_ASSIGNED + "')].canVerify",
+                        contains(true)))
+                // visible, not actionable
+                .andExpect(jsonPath("$.content[?(@.regId=='REG-CV-ON-CS-SUBJECT')].canVerify",
+                        contains(false)));
+    }
+
+    /** PRINCIPAL is absent from the verify endpoint's @PreAuthorize entirely, so every attempt
+     *  403s — the flag must say so rather than leaving the page's own role test as the only thing
+     *  hiding the buttons. Found by the auth-scope audit. */
+    @Test
+    @WithMockUser(username = PRINCIPAL, roles = "PRINCIPAL")
+    void principalSeesEverythingAndMayActionNothing() throws Exception {
+        mockMvc.perform(get(REGISTRATIONS).param("size", "200"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[*].regId",
+                        containsInAnyOrder(REG_ASSIGNED, REG_UNASSIGNED, REG_OTHER_DEPT)))
+                .andExpect(jsonPath("$.content[?(@.regId=='" + REG_ASSIGNED + "')].canVerify",
+                        contains(false)));
+    }
+
+    @Test
+    @WithMockUser(username = ADMIN, roles = "ADMIN")
+    void adminMayActionEveryRowItSees() throws Exception {
+        mockMvc.perform(get(REGISTRATIONS).param("size", "200"))
+                .andExpect(jsonPath("$.content[?(@.regId=='" + REG_OTHER_DEPT + "')].canVerify",
+                        contains(true)));
+    }
+
+    /** A proctor's rows are their assigned students, who cannot be outside their department, so
+     *  the branch rule never bites — asserted rather than assumed. */
+    @Test
+    @WithMockUser(username = PROCTOR, roles = "PROCTOR")
+    void proctorMayActionItsAssignedStudents() throws Exception {
+        mockMvc.perform(get(REGISTRATIONS).param("size", "200"))
+                .andExpect(jsonPath("$.content[?(@.regId=='" + REG_ASSIGNED + "')].canVerify",
+                        contains(true)));
     }
 
     // ---- GET /registrations — scope is content ----
@@ -212,6 +308,30 @@ class RegistrationReadAuthorizationTest {
     }
 
     // ---- GET /registrations/{regId}/events — per-registration scope ----
+
+    /**
+     * The history must follow the LIST's scope, not verify's. Found by the auth-scope audit:
+     * widening the list query alone let a HOD see a row and action it, then get a 403 opening the
+     * audit trail of the decision they had just made.
+     */
+    @Test
+    @WithMockUser(username = HOD, roles = "HOD")
+    void hodReadsTheHistoryOfItsOwnStudentEvenWhenNoSubjectBelongsToTheDepartment() throws Exception {
+        Subject otherDeptSubject = subjectRepository.findById(ids.cvSubjectId).orElseThrow();
+        registration("REG-HISTORY-OWN-STUDENT", CS_UNASSIGNED, otherDeptSubject, secondCycle);
+
+        mockMvc.perform(get(REGISTRATIONS + "/REG-HISTORY-OWN-STUDENT/events"))
+                .andExpect(status().isOk());
+    }
+
+    /** The control: still refused for a registration the department is not involved in at all. */
+    @Test
+    @WithMockUser(username = HOD, roles = "HOD")
+    void hodCannotReadTheHistoryOfAnUninvolvedRegistration() throws Exception {
+        mockMvc.perform(get(REGISTRATIONS + "/" + REG_OTHER_DEPT + "/events"))
+                .andExpect(status().isForbidden());
+    }
+
 
     @Test
     @WithMockUser(username = HOD, roles = "HOD")

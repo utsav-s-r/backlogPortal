@@ -192,8 +192,8 @@ public class SubjectService {
      *     the predicate would leak every department's subjects to a proctor.
      */
     public List<Subject> findDistinctSubjectsByRegistrationFilters(
-            Long departmentId, String subjectType, String searchQuery, Integer semester,
-            Collection<String> studentRollNos) {
+            Long departmentId, String departmentCode, String subjectType, String searchQuery,
+            Integer semester, Collection<String> studentRollNos) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Subject> query = cb.createQuery(Subject.class);
         Root<Registration> registrationRoot = query.from(Registration.class);
@@ -202,14 +202,23 @@ public class SubjectService {
         query.select(subjectJoin).distinct(true);
 
         List<Predicate> predicates = new ArrayList<>();
-        boolean needsStudent = (searchQuery != null && !searchQuery.isBlank()) || semester != null;
+        boolean needsStudent = (searchQuery != null && !searchQuery.isBlank()) || semester != null
+                || (departmentCode != null && !departmentCode.isBlank());
         Join<Registration, Student> studentJoin =
-                needsStudent ? registrationRoot.join("student") : null;
+                needsStudent ? registrationRoot.join("student", JoinType.LEFT) : null;
 
         if (departmentId != null) {
+            // Same three arms as RegistrationSpecification, including the student's own
+            // department — the dropdown must offer exactly the subjects the list can show.
             Predicate offeredBy = cb.equal(subjectJoin.join("department", JoinType.LEFT).get("id"), departmentId);
             Predicate eligibleFor = cb.equal(subjectJoin.join("eligibleDepartments", JoinType.LEFT).get("id"), departmentId);
-            predicates.add(cb.or(offeredBy, eligibleFor));
+            if (departmentCode != null && !departmentCode.isBlank()) {
+                Predicate ownStudent = cb.equal(
+                        cb.lower(studentJoin.get("branch")), departmentCode.toLowerCase(java.util.Locale.ROOT));
+                predicates.add(cb.or(offeredBy, eligibleFor, ownStudent));
+            } else {
+                predicates.add(cb.or(offeredBy, eligibleFor));
+            }
         }
 
         SubjectType subjectTypeFilter = SubjectType.fromNullable(subjectType);

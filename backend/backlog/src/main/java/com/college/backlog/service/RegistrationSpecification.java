@@ -22,10 +22,17 @@ import java.util.List;
 public class RegistrationSpecification implements Specification<Registration> {
 
     private final Long subjectId;
-    // Dept scope AND the admin's dept filter share this field — the predicate is identical either
-    // way. Which value lands here is the CALLER's decision, and it is security-critical: a
-    // dept-pinned role's own department must always win over a request parameter.
+    // Dept scope AND the admin's dept filter share these — the predicate is identical either way.
+    // Which values land here is the CALLER's decision, and it is security-critical: a dept-pinned
+    // role's own department must always win over a request parameter.
+    //
+    // A department is INVOLVED in a registration three ways: it offers one of the subjects, one of
+    // its subjects lists it as eligible, or the STUDENT is one of theirs. The third arm needs the
+    // department's CODE, because students carry their branch as a code with no FK — hence a pair,
+    // set together through department(id, code) so a caller cannot configure one without the
+    // other and silently narrow the scope back to subjects.
     private final Long departmentId;
+    private final String departmentCode;
     private final String subjectType;
     private final String searchQuery;
     private final Integer semester;
@@ -40,6 +47,7 @@ public class RegistrationSpecification implements Specification<Registration> {
     private RegistrationSpecification(Builder b) {
         this.subjectId = b.subjectId;
         this.departmentId = b.departmentId;
+        this.departmentCode = b.departmentCode;
         this.subjectType = b.subjectType;
         this.searchQuery = b.searchQuery;
         this.semester = b.semester;
@@ -54,6 +62,7 @@ public class RegistrationSpecification implements Specification<Registration> {
     public static final class Builder {
         private Long subjectId;
         private Long departmentId;
+        private String departmentCode;
         private String subjectType;
         private String searchQuery;
         private Integer semester;
@@ -63,7 +72,14 @@ public class RegistrationSpecification implements Specification<Registration> {
         private Collection<String> regIds;
 
         public Builder subjectId(Long v) { this.subjectId = v; return this; }
-        public Builder departmentId(Long v) { this.departmentId = v; return this; }
+        /** The department involved: its id (for the subject arms) and its code (for the student
+         *  arm). Both or neither — a null code silently drops the student's own department from
+         *  its own scope. */
+        public Builder department(Long id, String code) {
+            this.departmentId = id;
+            this.departmentCode = code;
+            return this;
+        }
         public Builder subjectType(String v) { this.subjectType = v; return this; }
         public Builder searchQuery(String v) { this.searchQuery = v; return this; }
         public Builder semester(Integer v) { this.semester = v; return this; }
@@ -79,7 +95,8 @@ public class RegistrationSpecification implements Specification<Registration> {
     public Predicate toPredicate(Root<Registration> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
         List<Predicate> predicates = new ArrayList<>();
         // searchQuery and semester both need `student`; joining per-predicate would emit two joins
-        boolean needsStudent = (searchQuery != null && !searchQuery.isBlank()) || semester != null;
+        boolean needsStudent = (searchQuery != null && !searchQuery.isBlank()) || semester != null
+                || (departmentCode != null && !departmentCode.isBlank());
         Join<Registration, Student> studentJoin =
                 needsStudent ? root.join("student", JoinType.LEFT) : null;
 
@@ -93,11 +110,24 @@ public class RegistrationSpecification implements Specification<Registration> {
                 predicates.add(cb.equal(subjectJoin.get("id"), subjectId));
             }
             if (departmentId != null) {
+                // Every department INVOLVED sees the registration, not only the ones whose
+                // subjects are on it: a student registering solely for other departments'
+                // electives was invisible to their OWN department, which is the department that
+                // signs the form. Verification stays narrower — RegistrationController's
+                // checkDeptAccess allows only the student's department.
                 Predicate offeredBy = cb.equal(
                         subjectJoin.join("department", JoinType.LEFT).get("id"), departmentId);
                 Predicate eligibleFor = cb.equal(
                         subjectJoin.join("eligibleDepartments", JoinType.LEFT).get("id"), departmentId);
-                predicates.add(cb.or(offeredBy, eligibleFor));
+                if (departmentCode != null && !departmentCode.isBlank()) {
+                    // lower(), matching ix_students_branch_lower — a functional index serves only
+                    // the exact expression it was built on.
+                    Predicate ownStudent = cb.equal(
+                            cb.lower(studentJoin.get("branch")), departmentCode.toLowerCase(java.util.Locale.ROOT));
+                    predicates.add(cb.or(offeredBy, eligibleFor, ownStudent));
+                } else {
+                    predicates.add(cb.or(offeredBy, eligibleFor));
+                }
             }
             SubjectType subjectTypeFilter = SubjectType.fromNullable(subjectType);
             if (subjectTypeFilter != null) {

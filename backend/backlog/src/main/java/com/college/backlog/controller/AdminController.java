@@ -1,6 +1,7 @@
 package com.college.backlog.controller;
 
 import com.college.backlog.controller.dto.DepartmentRequest;
+import com.college.backlog.controller.dto.DepartmentListItem;
 import com.college.backlog.controller.dto.RegistrationSummaryResponse;
 import com.college.backlog.controller.dto.RegistrationEventResponse;
 import com.college.backlog.controller.dto.RegistrationExportRequest;
@@ -127,9 +128,14 @@ public class AdminController {
     }
 
     /**
-     * A dept-scoped caller (HOD/DEPT_OFFICE) may only touch a registration involving their
-     * department — one of its subjects owned by or eligible for it. Mirrors checkDeptAccess in
-     * RegistrationController (verify). A PROCTOR is scoped by student instead.
+     * READ scope for one registration, mirroring {@link RegistrationSpecification}'s three arms —
+     * NOT {@code checkDeptAccess}, which is the narrower VERIFY rule. A department is involved if
+     * it offers one of the subjects, one of the subjects lists it as eligible, or the student is
+     * one of its own. A PROCTOR is scoped by student instead.
+     *
+     * <p>The third arm is load-bearing: without it a HOD can see a row in the list and action it,
+     * then get a 403 opening its history — the audit trail of a decision they just made. Caught by
+     * the auth-scope audit 2026-09-20, when only the list-side query had been widened.
      */
     private void assertRegistrationInScope(Authentication auth, Registration reg) {
         User user = callerUser(auth);
@@ -139,7 +145,11 @@ public class AdminController {
         }
         Long callerDeptId = resolveCallerDeptId(user);
         if (callerDeptId == null) return; // ADMIN / PRINCIPAL: unrestricted
-        boolean hasAccess = reg.getSubjects().stream().anyMatch(s -> {
+        String callerDeptCode = effectiveDeptCode(user, callerDeptId);
+        String studentBranch = reg.getStudent() != null ? reg.getStudent().getBranch() : null;
+        boolean ownStudent = callerDeptCode != null && studentBranch != null
+                && callerDeptCode.equalsIgnoreCase(studentBranch);
+        boolean hasAccess = ownStudent || reg.getSubjects().stream().anyMatch(s -> {
             if (s.getDepartment() != null && callerDeptId.equals(s.getDepartment().getId())) return true;
             return s.getEligibleDepartments() != null &&
                    s.getEligibleDepartments().stream().anyMatch(d -> callerDeptId.equals(d.getId()));
@@ -172,6 +182,7 @@ public class AdminController {
         Long callerDeptId = resolveCallerDeptId(caller);
         java.util.Set<String> proctorRolls = proctorRollNos(caller);
 
+        Long filterDeptId = effectiveDeptId(callerDeptId, departmentId.orElse(null));
         int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         int safePage = Math.max(page, 0);
         Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "registeredAt"));
@@ -181,7 +192,7 @@ public class AdminController {
 
         Specification<Registration> spec = RegistrationSpecification.builder()
                 .subjectId(subjectId.orElse(null))
-                .departmentId(effectiveDeptId(callerDeptId, departmentId.orElse(null)))
+                .department(filterDeptId, effectiveDeptCode(caller, filterDeptId))
                 .subjectType(subjectType.orElse(null))
                 .searchQuery(searchQuery.orElse(null))
                 .semester(parseSemester(semester.orElse(null)))
@@ -190,7 +201,8 @@ public class AdminController {
                 .studentRollNos(proctorRolls)
                 .build();
         // mapping stays in the service transaction — `subjects` loads lazily during it
-        return registrationService.listSummaries(spec, pageable);
+        return registrationService.listSummaries(spec, pageable,
+                mayVerifyAtAll(caller), verifyingBranchOf(caller));
     }
 
     // Dashboard stat cards: same filters as the list but WITHOUT status, so the cards show totals
@@ -212,11 +224,12 @@ public class AdminController {
         if (proctorRolls != null && proctorRolls.isEmpty()) {
             return Map.of("total", 0L, "submitted", 0L, "verified", 0L, "rejected", 0L);
         }
+        Long filterDeptId = effectiveDeptId(callerDeptId, departmentId.orElse(null));
         // one GROUP BY over the filtered set (status left unset — the cards span every status)
         Map<RegistrationStatus, Long> counts = registrationService.countGroupedByStatus(
             RegistrationSpecification.builder()
                 .subjectId(subjectId.orElse(null))
-                .departmentId(effectiveDeptId(callerDeptId, departmentId.orElse(null)))
+                .department(filterDeptId, effectiveDeptCode(caller, filterDeptId))
                 .subjectType(subjectType.orElse(null))
                 .searchQuery(searchQuery.orElse(null))
                 .semester(parseSemester(semester.orElse(null)))
@@ -240,6 +253,47 @@ public class AdminController {
      */
     private Long effectiveDeptId(Long callerDeptId, Long requestedDeptId) {
         return callerDeptId != null ? callerDeptId : requestedDeptId;
+    }
+
+    /**
+     * The same department's CODE, for the specification's student arm — students carry their
+     * branch as a code with no FK. Read off the caller when it is their own department (no query),
+     * looked up otherwise. Null for an unknown id, which leaves the scope no wider than the
+     * subject arms alone.
+     */
+    private String effectiveDeptCode(User caller, Long effectiveDeptId) {
+        if (effectiveDeptId == null) {
+            return null;
+        }
+        if (caller.getDepartment() != null && effectiveDeptId.equals(caller.getDepartment().getId())) {
+            return caller.getDepartment().getCode();
+        }
+        return departmentRepository.findById(effectiveDeptId)
+                .map(com.college.backlog.model.Department::getCode)
+                .orElse(null);
+    }
+
+    /**
+     * Whose rows this caller may VERIFY, as a department code, or null for "every row they can
+     * see". Only HOD and DEPT_OFFICE are restricted to their own students.
+     *
+     * <p>Deliberately NOT {@code DEPT_ROLES}, which carries PROCTOR: a proctor's rows are already
+     * only their assigned students, and the server checks supervision, not branch
+     * (RegistrationController.checkDeptAccess). Gating them by branch here would give the right
+     * answer for the wrong reason and strip the buttons from a legitimately assigned student
+     * whose branch no longer matches — e.g. after a department code is renamed.
+     */
+    private String verifyingBranchOf(User caller) {
+        return caller.getRole() == UserRole.HOD || caller.getRole() == UserRole.DEPT_OFFICE
+                ? callerScope.requireDepartmentCode(caller)
+                : null;
+    }
+
+    /** PRINCIPAL is absent from the verify endpoint's {@code @PreAuthorize} entirely, so every
+     *  attempt 403s — the flag has to say so rather than leaving the page's own role test as the
+     *  only thing hiding the button. */
+    private boolean mayVerifyAtAll(User caller) {
+        return caller.getRole() != UserRole.PRINCIPAL;
     }
 
     /** Optional semester filter; absent = every semester, out of range = 400. */
@@ -288,8 +342,13 @@ public class AdminController {
     // Read is open to all admin roles like the other reads here; the writes below stay ADMIN/PRINCIPAL.
     @GetMapping("/departments")
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD', 'DEPT_OFFICE', 'PROCTOR')")
-    public List<Department> getDepartments() {
-        return departmentRepository.findAll(Sort.by("deptName"));
+    public List<DepartmentListItem> getDepartments() {
+        // One query for every branch code that has students, not one exists-check per row.
+        java.util.Set<String> branchesWithStudents = studentRepository.findDistinctBranchCodes();
+        return departmentRepository.findAll(Sort.by("deptName")).stream()
+                .map(d -> DepartmentListItem.of(d, d.getCode() != null
+                        && branchesWithStudents.contains(d.getCode().toLowerCase(java.util.Locale.ROOT))))
+                .toList();
     }
 
     @PostMapping("/departments")
@@ -337,6 +396,19 @@ public class AdminController {
                     "A department with code '" + code + "' already exists.");
             }
         });
+        // A department's code is FIXED once it has students. It is the branch segment of every one
+        // of their USNs (1MS24CS001), so rewriting students.branch to follow a rename would
+        // desync the column from the USN it is derived from — and since 2026-09-20 the code also
+        // decides which department may VERIFY those students' registrations, so a rename would
+        // silently strip that department's HOD and office of their own students. Same shape as
+        // the delete guard below, and the name and contact email stay editable either way.
+        if (dept.getCode() != null && !dept.getCode().equalsIgnoreCase(code)
+                && studentRepository.existsByBranchIgnoreCase(dept.getCode())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Students of branch '" + dept.getCode() + "' exist and their USNs contain that "
+                    + "code, so it cannot be changed. The department name can still be edited.");
+        }
+
         // Read BEFORE mutating: the code is what every student of that branch matches on, so a
         // code change silently reassigns them and the old value is the only way to see that later.
         String previous = "code=" + dept.getCode() + " name=" + dept.getDeptName();
@@ -410,8 +482,10 @@ public class AdminController {
         if (proctorRolls != null && proctorRolls.isEmpty()) {
             return List.of();
         }
+        Long filterDeptId = effectiveDeptId(callerDeptId, departmentId.orElse(null));
         return subjectService.findDistinctSubjectsByRegistrationFilters(
-                effectiveDeptId(callerDeptId, departmentId.orElse(null)),
+                filterDeptId,
+                effectiveDeptCode(caller, filterDeptId),
                 subjectType.orElse(null),
                 searchQuery.orElse(null),
                 parseSemester(semester.orElse(null)),
@@ -445,7 +519,7 @@ public class AdminController {
             registrations = registrationRepository.findAll(
                     RegistrationSpecification.builder()
                             .regIds(request.getRegIds())
-                            .departmentId(callerDeptId)
+                            .department(callerDeptId, effectiveDeptCode(caller, callerDeptId))
                             .studentRollNos(proctorRolls)
                             .build(),
                     Sort.by(Sort.Direction.DESC, "registeredAt"));
@@ -465,7 +539,7 @@ public class AdminController {
             registrations = registrationRepository.findAll(
                     RegistrationSpecification.builder()
                             .subjectId(request.getSubjectId())
-                            .departmentId(deptId)
+                            .department(deptId, effectiveDeptCode(caller, deptId))
                             .subjectType(request.getSubjectType())
                             .searchQuery(request.getSearchQuery())
                             .semester(parseSemester(request.getSemester()))
