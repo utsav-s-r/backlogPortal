@@ -28,7 +28,7 @@ describe("History modal focus handling", () => {
     subjects: ["Data Structures"],
     status: "SUBMITTED",
     verifiedBy: null,
-    registeredAt: "2026-04-20T10:20:00",
+    registeredAt: "2026-04-20T10:20:00Z",
   };
 
   // AdminPage fires all of these on mount; an unstubbed /api/admin call 401s and signs the session

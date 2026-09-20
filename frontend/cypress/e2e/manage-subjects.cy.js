@@ -13,7 +13,7 @@ describe("Manage Subjects page", () => {
     eligibleDepartments: [],
   };
 
-  const visitAndLoad = () => {
+  const visitAndLoad = (row = subject) => {
     cy.intercept("GET", "/api/departments", {
       statusCode: 200,
       body: [{ id: 1, deptName: "Computer Science" }],
@@ -21,7 +21,7 @@ describe("Manage Subjects page", () => {
     // the list endpoint returns a Spring Page envelope, not a bare array
     cy.intercept("GET", "/api/admin/subjects*", {
       statusCode: 200,
-      body: { content: [subject], number: 0, totalPages: 1, totalElements: 1 },
+      body: { content: [row], number: 0, totalPages: 1, totalElements: 1 },
     }).as("getSubjects");
     cy.visitAsAdmin("/admin/manage-subjects");
     cy.wait("@getDepartments");
@@ -74,6 +74,33 @@ describe("Manage Subjects page", () => {
       });
 
     cy.contains("tr", "3 credits").should("be.visible");
+  });
+
+  // The four fields a registration displays live off the subject row. The server 409s an edit to
+  // them once one exists; `registered` on the list row is what lets the form say so BEFORE a save.
+  it("locks the printed fields once a registration references the subject", () => {
+    visitAndLoad({ ...subject, registered: true });
+
+    cy.get('[data-cy="subject-edit-10"]').click();
+    cy.get('[data-cy="subject-locked-note"]').should("contain", "locked");
+    cy.get('[data-cy="subject-name"]').should("be.disabled");
+    cy.get('[data-cy="subject-code"]').should("be.disabled");
+    cy.get('[data-cy="subject-semester"]').should("be.disabled");
+    cy.get('[data-cy="subject-credits"]').should("be.disabled");
+    // Type and eligibility are future eligibility, not printed history — freezing them would lock
+    // an elective's departments for a whole year, with no second offering possible under
+    // UNIQUE(course_code, academic_year_offered).
+    cy.get('[data-cy="subject-type"]').should("not.be.disabled");
+  });
+
+  // The control: without it the case above passes on a form whose fields are always disabled.
+  it("leaves the fields editable while nothing references the subject", () => {
+    visitAndLoad();
+
+    cy.get('[data-cy="subject-edit-10"]').click();
+    cy.get('[data-cy="subject-locked-note"]').should("not.exist");
+    cy.get('[data-cy="subject-name"]').should("not.be.disabled");
+    cy.get('[data-cy="subject-credits"]').should("not.be.disabled");
   });
 
   it("blocks deletion of a subject referenced by registrations", () => {

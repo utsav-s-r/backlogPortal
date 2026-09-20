@@ -12,7 +12,7 @@ public enum AdminAuditAction {
     // 1. privilege surface
     USER_CREATE, USER_DELETE, USER_PASSWORD_RESET, USER_RENAME,
     // 2. the college-wide registration switch
-    EXAM_CYCLE_CREATE, EXAM_CYCLE_ACTIVATE, EXAM_CYCLE_DEACTIVATE,
+    EXAM_CYCLE_CREATE, EXAM_CYCLE_UPDATE, EXAM_CYCLE_ACTIVATE, EXAM_CYCLE_DEACTIVATE,
     // 3. personal data leaving the system
     PDF_BULK_EXPORT,
     // 4. catalog and org structure

@@ -2,6 +2,7 @@ package com.college.backlog.service;
 
 import com.college.backlog.model.*;
 import com.college.backlog.repository.*;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -13,6 +14,8 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
+import java.util.TimeZone;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -48,8 +51,20 @@ class RegistrationServiceTest {
     private ExamCycle cycle;
     private Subject subject;
 
+    private TimeZone defaultZone;
+
+    @AfterEach
+    void restoreTheDefaultZone() {
+        TimeZone.setDefault(defaultZone);
+    }
+
     @BeforeEach
     void setUp() {
+        // Run as the production server does. Without this, a write path that builds the instant
+        // from a LOCAL clock plus an assumed +05:30 offset lands on the right instant on any
+        // developer's machine (already IST) and is 5h30 out on Render — which is the bug.
+        defaultZone = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
         MockitoAnnotations.openMocks(this);
 
         cycle = new ExamCycle("Cycle A", "May 2026");
@@ -117,6 +132,30 @@ class RegistrationServiceTest {
 
         assertThat(saved.getStatus()).isEqualTo(RegistrationStatus.SUBMITTED);
         verify(registrationRepository).saveAndFlush(any());
+    }
+
+    /**
+     * The timestamp must be an INSTANT, and must reach the client carrying its offset.
+     * {@code LocalDateTime.now()} wrote the server's wall clock into a zone-less column, and
+     * {@code toString()} then emitted "2026-09-20T05:12:33" — which JavaScript parses as LOCAL
+     * time, so every registration read 5h30 early against the history dialog's already-zoned
+     * timestamp for the same record.
+     */
+    @Test
+    void stampsTheRegistrationWithAnInstantThatSerialisesWithItsOffset() {
+        when(registrationRepository.countByStudent_RollNoAndExamCycle_IdAndStatus(
+                ROLL, 10L, RegistrationStatus.SUBMITTED))
+                .thenReturn(0L);
+        when(registrationRepository.saveAndFlush(any()))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        Instant before = Instant.now();
+        Registration saved = service.register(ROLL, List.of(100L));
+
+        assertThat(saved.getRegisteredAt()).isBetween(before.minusSeconds(1), Instant.now().plusSeconds(1));
+        // What the API actually sends: toSummary and StudentController both call toString(), and
+        // an Instant's is ISO-8601 in UTC. The trailing Z is the whole fix as the browser sees it.
+        assertThat(saved.getRegisteredAt().toString()).endsWith("Z");
     }
 
     @Test

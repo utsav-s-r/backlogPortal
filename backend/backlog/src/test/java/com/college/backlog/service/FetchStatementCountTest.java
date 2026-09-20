@@ -27,7 +27,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 import static com.college.backlog.controller.AdminAuthorizationFixture.*;
@@ -265,7 +265,7 @@ class FetchStatementCountTest {
             // (roll_no, exam_cycle_id) WHERE status = 'SUBMITTED', so several pending rows for one
             // student in one cycle are not storable — and this fixture reuses students on purpose.
             r.setStatus(RegistrationStatus.VERIFIED);
-            r.setRegisteredAt(LocalDateTime.now());
+            r.setRegisteredAt(Instant.now());
             r.setSnapName(student.getName());
             r.setSnapEmail(student.getEmail());
             r.setSnapBranch(student.getBranch());

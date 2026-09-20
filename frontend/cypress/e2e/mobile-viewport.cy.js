@@ -102,7 +102,7 @@ describe("Mobile viewport (375x812)", () => {
       subjects: ["Data Structures"],
       status: "VERIFIED",
       verifiedBy: "hod.cse",
-      registeredAt: "2026-04-20T10:20:00",
+      registeredAt: "2026-04-20T10:20:00Z",
     };
     // every endpoint AdminPage fires on mount — an unstubbed /api/admin call 401s and signs the
     // session out mid-test

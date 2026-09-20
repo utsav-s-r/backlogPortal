@@ -23,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class SubjectService {
@@ -94,6 +95,8 @@ public class SubjectService {
                 "You can only edit subjects for your own department.");
         }
 
+        assertPrintedFieldsUnchangedOnceRegistered(subject, request);
+
         subject.setSubjectName(request.getSubjectName());
         subject.setCourseCode(request.getCourseCode());
         subject.setSemester(request.getSemester());
@@ -124,6 +127,40 @@ public class SubjectService {
                 "Another subject with course code '" + request.getCourseCode()
                     + "' already exists for this academic year.");
         }
+    }
+
+    /**
+     * The four fields a registration DISPLAYS but does not snapshot — the admin table, the student
+     * list and both PDFs read them live off this row. Editing one after a student has registered
+     * rewrites the form they already signed, silently and retroactively. Frozen once referenced,
+     * for the same reason {@link #deleteSubject} refuses: registrations are immutable history.
+     * Correct a mistake by offering a new subject, not by moving this one.
+     *
+     * <p>Compares FIRST, then queries: called before the setters (a managed entity is written back
+     * by dirty checking), and a type/eligibility-only edit — those two stay editable, being future
+     * eligibility rather than printed history — never pays for the existence check.
+     */
+    private void assertPrintedFieldsUnchangedOnceRegistered(Subject subject, SubjectUpdateRequest request) {
+        List<String> changed = new ArrayList<>();
+        if (!Objects.equals(subject.getSubjectName(), request.getSubjectName())) {
+            changed.add("subject name");
+        }
+        if (!Objects.equals(subject.getCourseCode(), request.getCourseCode())) {
+            changed.add("course code");
+        }
+        if (subject.getSemester() != request.getSemester()) {
+            changed.add("semester");
+        }
+        if (subject.getCredits() != request.getCredits()) {
+            changed.add("credits");
+        }
+        if (changed.isEmpty() || !registrationRepository.existsBySubjects_Id(subject.getId())) {
+            return;
+        }
+        throw new ResponseStatusException(HttpStatus.CONFLICT,
+            "This subject is referenced by existing registrations, so its "
+                + String.join(", ", changed) + " cannot be changed — it would alter forms students "
+                + "have already submitted. Add a new subject for the corrected details instead.");
     }
 
     /** Delete a subject, dept-scoped; blocked if any registration references it, since removing

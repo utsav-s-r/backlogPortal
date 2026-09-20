@@ -47,6 +47,21 @@ describe("Exam cycles — the registration switch", () => {
       req.reply({ statusCode: 200, body: server.cycles.find((c) => c.id === id) });
     }).as("activate");
 
+    // The edit the server allows only while nothing references the cycle; `referenced` on the row
+    // is what the page reads, so the stub must carry it like the real list does.
+    cy.intercept("PUT", /\/api\/admin\/exam-cycles\/\d+$/, (req) => {
+      const id = Number(req.url.match(/exam-cycles\/(\d+)$/)[1]);
+      const target = server.cycles.find((c) => c.id === id);
+      if (target.referenced) {
+        req.reply({ statusCode: 409, body: { message: "Students have registered under this cycle" } });
+        return;
+      }
+      const updated = { ...target, name: req.body.name, examMonthYear: req.body.examMonthYear,
+                        batchLines: req.body.batchLines ?? target.batchLines };
+      server.cycles = server.cycles.map((c) => (c.id === id ? updated : c));
+      req.reply({ statusCode: 200, body: updated });
+    }).as("update");
+
     cy.intercept("PUT", "/api/admin/exam-cycles/*/deactivate", (req) => {
       const id = idFrom(req.url);
       server.cycles = server.cycles.map((c) => (c.id === id ? { ...c, active: false } : c));
@@ -54,8 +69,17 @@ describe("Exam cycles — the registration switch", () => {
     }).as("deactivate");
   };
 
-  const JUNE = { id: 1, name: "June 2026 Backlog Exams", examMonthYear: "June 2026", active: false };
-  const DEC = { id: 2, name: "December 2025 Backlog Exams", examMonthYear: "December 2025", active: true };
+  const JUNE = { id: 1, name: "June 2026 Backlog Exams", examMonthYear: "2026-06", active: false };
+  const DEC = { id: 2, name: "December 2025 Backlog Exams", examMonthYear: "2025-12", active: true };
+  // Created before the format existed. Kept verbatim on screen — no rule recovers a month
+  // from free text, and guessing one would invent an exam date.
+  const LEGACY = {
+    id: 3,
+    name: "Testing",
+    examMonthYear: "Not a valid month/year",
+    active: false,
+    batchLines: [{ label: "B.E. I to VII Semester", batch: "2021" }],
+  };
 
   const visitPage = () => {
     cy.visitAsAdmin("/admin/exam-cycles", { role: "ADMIN", username: "admin" });
@@ -88,19 +112,21 @@ describe("Exam cycles — the registration switch", () => {
     cy.get('[data-cy="cycle-end"]').should("not.exist");
   });
 
-  it("creates a cycle, trimming both fields, then reloads the list", () => {
+  it("creates a cycle, trimming the name and composing the month, then reloads the list", () => {
     stubExamCycles([]);
     visitPage();
 
     // Padding is what a paste produces; untrimmed it is stored padded and every later match on
     // the name is off by whitespace.
     cy.get("#cycle-name").type("  June 2026 Backlog Exams  ");
-    cy.get("#cycle-my").type("  June 2026  ");
+    cy.get("#cycle-month").select("June");
+    cy.get("#cycle-year").type("2026");
     cy.contains("button", "Create Cycle").click();
 
+    // The stored form, composed from the two controls — never the label the admin read.
     cy.wait("@create").its("request.body").should("deep.equal", {
       name: "June 2026 Backlog Exams",
-      examMonthYear: "June 2026",
+      examMonthYear: "2026-06",
     });
 
     // The list is re-fetched, not patched locally — this second @list is the round trip.
@@ -112,7 +138,118 @@ describe("Exam cycles — the registration switch", () => {
 
     // fields cleared, so a second create does not silently resubmit the first name
     cy.get("#cycle-name").should("have.value", "");
-    cy.get("#cycle-my").should("have.value", "");
+    cy.get("#cycle-month").should("have.value", "");
+    cy.get("#cycle-year").should("have.value", "");
+  });
+
+  it("renders the stored YYYY-MM as a month name, and legacy free text verbatim", () => {
+    stubExamCycles([JUNE, LEGACY]);
+    visitPage();
+
+    row(JUNE.name).should("contain", "June 2026").and("not.contain", "2026-06");
+    row(LEGACY.name).should("contain", "Not a valid month/year");
+  });
+
+  it("refuses a half-filled or missing month without calling the server", () => {
+    stubExamCycles([]);
+    visitPage();
+
+    cy.get("#cycle-name").type("Supplementary 2026");
+    // Year alone: a month picked from a list can't be malformed, so the half-filled case is the
+    // one that matters — composing "2026-" and posting it would 400 on the server's @Pattern.
+    cy.get("#cycle-year").type("2026");
+    cy.contains("button", "Create Cycle").click();
+
+    cy.contains("Pick the exam month").should("be.visible");
+    cy.get("@create.all").should("have.length", 0);
+  });
+
+  it("corrects an unreferenced cycle's name and month, then reloads the list", () => {
+    stubExamCycles([LEGACY]);
+    visitPage();
+
+    row(LEGACY.name).find('[data-cy="cycle-edit"]').click();
+    // Legacy free text cannot be split into a month and a year, so the controls start empty
+    // rather than guessing a month out of "Not a valid month/year".
+    cy.get('[data-cy="cycle-edit-month"]').should("have.value", "");
+    cy.get('[data-cy="cycle-edit-name"]').clear().type("June 2026 Backlog Exams");
+    cy.get('[data-cy="cycle-edit-month"]').select("June");
+    cy.get('[data-cy="cycle-edit-year"]').type("2026");
+    cy.get('[data-cy="cycle-edit-save"]').click();
+
+    // The batch list rides along untouched: the whole cycle saves as one block, so an edit that
+    // only fixes the name and month must not drop the lines.
+    cy.wait("@update").its("request.body").should("deep.equal", {
+      name: "June 2026 Backlog Exams",
+      examMonthYear: "2026-06",
+      batchLines: [{ label: "B.E. I to VII Semester", batch: "2021" }],
+    });
+
+    // Re-fetched, not patched locally — the same round trip the create test asserts.
+    cy.wait("@list");
+    row("June 2026 Backlog Exams").should("contain", "June 2026");
+  });
+
+  it("edits the batch list with the rest of the cycle, in one save", () => {
+    stubExamCycles([LEGACY]);
+    visitPage();
+
+    // The count is what the read-only row shows about the list.
+    row(LEGACY.name).find('[data-cy="cycle-batch-count"]').should("contain", "1 batch line");
+
+    row(LEGACY.name).find('[data-cy="cycle-edit"]').click();
+    cy.get('[data-cy="cycle-line-add"]').click();
+    cy.get('[data-cy="cycle-line-label"]').eq(1).type("M.TECH. I to IV Semester");
+    cy.get('[data-cy="cycle-line-batch"]').eq(1).type("2022 & 2023");
+    // The legacy month is corrected in the SAME save — the PUT validates it, so a batch-list-only
+    // save would 400 on a cycle like this one.
+    cy.get('[data-cy="cycle-edit-month"]').select("June");
+    cy.get('[data-cy="cycle-edit-year"]').type("2026");
+    cy.get('[data-cy="cycle-edit-save"]').click();
+
+    cy.wait("@update").its("request.body.batchLines").should("deep.equal", [
+      { label: "B.E. I to VII Semester", batch: "2021" },
+      { label: "M.TECH. I to IV Semester", batch: "2022 & 2023" },
+    ]);
+
+    cy.wait("@list");
+    row(LEGACY.name).find('[data-cy="cycle-batch-count"]').should("contain", "2 batch lines");
+  });
+
+  it("refuses a half-filled batch line without calling the server", () => {
+    stubExamCycles([LEGACY]);
+    visitPage();
+
+    row(LEGACY.name).find('[data-cy="cycle-edit"]').click();
+    cy.get('[data-cy="cycle-edit-month"]').select("June");
+    cy.get('[data-cy="cycle-edit-year"]').type("2026");
+    cy.get('[data-cy="cycle-line-add"]').click();
+    // Programme text, no batch: this prints as "... ( Batch Students)" on a signed form.
+    cy.get('[data-cy="cycle-line-label"]').eq(1).type("M.TECH. I to IV Semester");
+    cy.get('[data-cy="cycle-edit-save"]').click();
+
+    cy.contains("needs both").should("be.visible");
+    cy.get("@update.all").should("have.length", 0);
+  });
+
+  it("stops the admin adding more lines than the form can hold", () => {
+    stubExamCycles([{ ...LEGACY, batchLines: [] }]);
+    visitPage();
+
+    row(LEGACY.name).find('[data-cy="cycle-edit"]').click();
+    cy.get('[data-cy="cycle-lines-empty"]').should("be.visible");
+    for (let i = 0; i < 12; i += 1) cy.get('[data-cy="cycle-line-add"]').click();
+
+    cy.get('[data-cy="cycle-line-label"]').should("have.length", 12);
+    cy.get('[data-cy="cycle-line-add"]').should("be.disabled");
+  });
+
+  it("offers no edit on a cycle that already has registrations", () => {
+    stubExamCycles([{ ...JUNE, referenced: true }]);
+    visitPage();
+
+    row(JUNE.name).find('[data-cy="cycle-locked"]').should("contain", "Locked");
+    row(JUNE.name).find('[data-cy="cycle-edit"]').should("not.exist");
   });
 
   it("refuses an empty name without calling the server", () => {

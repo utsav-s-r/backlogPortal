@@ -42,7 +42,7 @@ describe("Admin dashboard — role & department scoped access", () => {
         semester: 4,
         subjects: ["Data Structures"],
         status: "SUBMITTED",
-        registeredAt: "2026-04-20T10:20:00",
+        registeredAt: "2026-04-20T10:20:00Z",
       },
       {
         regId: "REG-V",
@@ -51,7 +51,7 @@ describe("Admin dashboard — role & department scoped access", () => {
         semester: 4,
         subjects: ["Operating Systems"],
         status: "VERIFIED",
-        registeredAt: "2026-04-20T10:21:00",
+        registeredAt: "2026-04-20T10:21:00Z",
       },
     ]);
 
@@ -86,7 +86,7 @@ describe("Admin dashboard — role & department scoped access", () => {
         semester: 4,
         subjects: ["Data Structures"],
         status: "SUBMITTED",
-        registeredAt: "2026-04-20T10:20:00",
+        registeredAt: "2026-04-20T10:20:00Z",
       },
     ]);
 

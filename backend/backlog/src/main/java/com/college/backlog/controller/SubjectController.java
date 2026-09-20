@@ -3,6 +3,7 @@ package com.college.backlog.controller;
 import com.college.backlog.controller.dto.SubjectCreateRequest;
 import com.college.backlog.controller.dto.BatchResult;
 import com.college.backlog.controller.dto.SubjectImportRequest;
+import com.college.backlog.controller.dto.SubjectListItem;
 import com.college.backlog.controller.dto.SubjectRowResult;
 import com.college.backlog.controller.dto.SubjectUpdateRequest;
 import com.college.backlog.model.Subject;
@@ -13,6 +14,7 @@ import com.college.backlog.service.AdminAuditService;
 import org.springframework.transaction.annotation.Transactional;
 import com.college.backlog.model.UserRole;
 import com.college.backlog.repository.DepartmentRepository;
+import com.college.backlog.repository.RegistrationRepository;
 import com.college.backlog.repository.SubjectRepository;
 import com.college.backlog.service.AcademicYears;
 import com.college.backlog.service.Batches;
@@ -59,6 +61,7 @@ public class SubjectController {
     private static final int DEFAULT_PAGE_SIZE = 25;
 
     @Autowired private SubjectRepository subjectRepository;
+    @Autowired private RegistrationRepository registrationRepository;
     @Autowired private SubjectService subjectService;
     @Autowired private SubjectImportService subjectImportService;
     @Autowired private DepartmentRepository departmentRepository;
@@ -66,7 +69,7 @@ public class SubjectController {
     // Spring Page envelope ({content, totalPages, totalElements, number, ...}), matching
     // /registrations. Was an unbounded findAll, which timed out clients once the catalog grew.
     @GetMapping
-    public Page<Subject> list(
+    public Page<SubjectListItem> list(
             @RequestParam Optional<Long> deptId,
             @RequestParam Optional<Integer> academicYearOffered,
             @RequestParam Optional<Integer> semester,
@@ -84,7 +87,13 @@ public class SubjectController {
             Sort.Order.desc("academicYearOffered"),
             Sort.Order.asc("semester"),
             Sort.Order.asc("subjectName")));
-        return subjectRepository.findAll(spec, pageable);
+        Page<Subject> subjects = subjectRepository.findAll(spec, pageable);
+        // One query for the whole page, not existsBySubjects_Id per row. Skipped on an empty page:
+        // an empty IN list is not valid SQL.
+        Set<Long> referenced = subjects.isEmpty() ? Set.of()
+            : registrationRepository.findReferencedSubjectIds(
+                subjects.getContent().stream().map(Subject::getId).toList());
+        return subjects.map(s -> SubjectListItem.of(s, referenced.contains(s.getId())));
     }
 
     /**

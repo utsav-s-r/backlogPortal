@@ -22,7 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 import static com.college.backlog.controller.AdminAuthorizationFixture.*;
@@ -103,7 +103,7 @@ class RegistrationReadAuthorizationTest {
         r.setSubjects(List.of(subject));
         r.setExamCycle(cycle);
         r.setStatus(RegistrationStatus.SUBMITTED);
-        r.setRegisteredAt(LocalDateTime.now());
+        r.setRegisteredAt(Instant.now());
         // the snapshot columns are NOT NULL — a registration is immutable history, so it carries
         // its own copy of the student rather than reading through the association
         r.setSnapName(student.getName());

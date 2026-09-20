@@ -19,7 +19,7 @@ describe("Admin dashboard — filter stale-response race", () => {
       semester: 4,
       subjects: ["Data Structures"],
       status: "SUBMITTED",
-      registeredAt: "2026-04-20T10:20:00",
+      registeredAt: "2026-04-20T10:20:00Z",
     };
     const BOB = {
       regId: "REG-B",
@@ -28,7 +28,7 @@ describe("Admin dashboard — filter stale-response race", () => {
       semester: 4,
       subjects: ["Data Structures"],
       status: "SUBMITTED",
-      registeredAt: "2026-04-20T10:21:00",
+      registeredAt: "2026-04-20T10:21:00Z",
     };
 
     // Aliased separately so the SLOW stale one can be waited on deterministically — otherwise the

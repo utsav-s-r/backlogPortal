@@ -15,6 +15,10 @@ public interface ExamCycleRepository extends JpaRepository<ExamCycle, Long> {
     Optional<ExamCycle> findByActiveTrue();
     List<ExamCycle> findAllByOrderByCreatedAtDesc();
 
+    // Copy-forward source on create: a new cycle's batch list is almost always the previous one,
+    // moved on a year. Newest by creation, not by exam month — the month is free-ordered text.
+    Optional<ExamCycle> findFirstByOrderByCreatedAtDesc();
+
     // Single bulk UPDATE, so closing the open cycle can't lose a write to a concurrent
     // activation — no read-modify-write over the table.
     @Modifying

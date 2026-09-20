@@ -13,7 +13,7 @@ describe("Admin verification flow", () => {
     subjects: ["Data Structures"],
     status: "SUBMITTED",
     verifiedBy: null,
-    registeredAt: "2026-04-20T10:20:00",
+    registeredAt: "2026-04-20T10:20:00Z",
     ...overrides,
   });
   const pageOf = (rows) => ({

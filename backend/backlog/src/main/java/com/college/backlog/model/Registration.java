@@ -2,7 +2,7 @@ package com.college.backlog.model;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.BatchSize;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 @Entity
@@ -46,7 +46,10 @@ public class Registration {
     private List<Subject> subjects;
 
     @Column(name = "registered_at")
-    private LocalDateTime registeredAt;
+    // Instant, matching every other timestamp in the schema (V6). LocalDateTime here stored the
+    // SERVER's wall clock — UTC on Render, IST from a laptop — so the value did not identify a
+    // point in time: the API emitted it without an offset and browsers read it as local.
+    private Instant registeredAt;
 
     // Stored as the enum name (varchar), with a DB CHECK constraint guarding the values.
     @Enumerated(EnumType.STRING)
@@ -92,7 +95,7 @@ public class Registration {
 
     public Registration() {}
 
-    public Registration(Long id, String regId, Student student, List<Subject> subjects, LocalDateTime registeredAt, RegistrationStatus status) {
+    public Registration(Long id, String regId, Student student, List<Subject> subjects, Instant registeredAt, RegistrationStatus status) {
         this.id = id;
         this.regId = regId;
         this.student = student;
@@ -113,8 +116,8 @@ public class Registration {
     public List<Subject> getSubjects() { return subjects; }
     public void setSubjects(List<Subject> subjects) { this.subjects = subjects; }
 
-    public LocalDateTime getRegisteredAt() { return registeredAt; }
-    public void setRegisteredAt(LocalDateTime registeredAt) { this.registeredAt = registeredAt; }
+    public Instant getRegisteredAt() { return registeredAt; }
+    public void setRegisteredAt(Instant registeredAt) { this.registeredAt = registeredAt; }
 
     public RegistrationStatus getStatus() { return status; }
     public void setStatus(RegistrationStatus status) { this.status = status; }

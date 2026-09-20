@@ -1,5 +1,6 @@
 package com.college.backlog.service;
 
+import com.college.backlog.model.BatchLine;
 import com.college.backlog.model.Registration;
 import com.college.backlog.model.Subject;
 import com.itextpdf.io.font.constants.StandardFonts;
@@ -23,7 +24,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -69,7 +69,7 @@ public class PdfService {
         addHorizontalRule(doc);
         addDateLine(doc, regular, bold, reg);
         addMainTitle(doc, bold);
-        addBatchList(doc, regular, bold);
+        addBatchList(doc, regular, bold, reg);
         addCurrentSemesterLabel(doc, bold, regular, reg);
         addStudentDetailsTable(doc, regular, bold, reg);
         addSubjectsTable(doc, regular, bold, reg);
@@ -126,7 +126,6 @@ public class PdfService {
                         .setVerticalAlignment(VerticalAlignment.MIDDLE));
             }
 
-            DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy");
             int i = 1;
             for (Registration reg : registrations) {
                 table.addCell(dataCellCentre(String.valueOf(i++), regular));
@@ -148,7 +147,7 @@ public class PdfService {
                 table.addCell(dataCellCentre(
                         reg.getStatus() != null ? reg.getStatus().name() : "", regular));
 
-                String dateStr = reg.getRegisteredAt() != null ? reg.getRegisteredAt().format(dtf) : "";
+                String dateStr = Times.formatDate(reg.getRegisteredAt());
                 table.addCell(dataCellCentre(dateStr, regular));
             }
 
@@ -250,8 +249,10 @@ public class PdfService {
     // ---- 2. date line ----
     private void addDateLine(Document doc, PdfFont regular, PdfFont bold,
                              Registration reg) {
+        // Times.formatDate, never the server's default zone: Render runs UTC, so a registration
+        // made between 00:00 and 05:30 IST printed YESTERDAY's date on the form.
         String date = (reg != null && reg.getRegisteredAt() != null)
-                ? reg.getRegisteredAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                ? Times.formatDate(reg.getRegisteredAt())
                 : "................";
 
         Paragraph p = new Paragraph()
@@ -277,28 +278,35 @@ public class PdfService {
     }
 
     // ---- 4. batch list ----
-    private void addBatchList(Document doc, PdfFont regular, PdfFont bold) {
+    /**
+     * Which batches this exam is for, from the CYCLE. These eight-ish lines were a hardcoded
+     * String[][] here: they describe where each batch stands, so they went stale every academic
+     * year and needed a deploy to correct — and they stopped at the 2025 intake.
+     *
+     * <p>The "(", the " Batch Students)" and the bold/regular split (which falls inside the
+     * parenthesis) are supplied here, never stored: they never vary, so storing them would only
+     * let one row's punctuation drift.
+     *
+     * <p>A cycle with no lines prints NO block, not a placeholder — the section is informational,
+     * and a student must still be able to print their form.
+     */
+    private void addBatchList(Document doc, PdfFont regular, PdfFont bold, Registration reg) {
 
-        String[][] rows = {
-            { "B.E. I to VII Semester ",                    "2021", " Batch Students)"        },
-            { "B.Arch. I to VIII Semester ",                "2021", " Batch Students)"        },
-            { "B.E. / B.Arch. I to VII Semester ",          "2022", " Batch Students)"        },
-            { "B.E. / B.Arch. I to V Semester ",            "2023", " Batch Students)"        },
-            { "B.E. / B.Arch. I & II Semester ",            "2024", " Batch Students)"        },
-            { "B.E. / B.Arch. I Semester ",                 "2025", " Batch Students)"        },
-            { "M.TECH./MBA/MCA/M.ARCH. I to IV Semester ",  "2022 & 2023", " Batch Students)" },
-            { "M.TECH./MBA/MCA/M.ARCH. I to III Semester ", "2024", " Batch Students)"        },
-        };
+        List<BatchLine> lines = (reg != null && reg.getExamCycle() != null)
+                ? reg.getExamCycle().getBatchLines() : List.of();
+        if (lines == null || lines.isEmpty()) {
+            return;
+        }
 
-        for (String[] row : rows) {
+        for (BatchLine line : lines) {
             Paragraph p = new Paragraph()
                     .setTextAlignment(TextAlignment.CENTER)
                     .setFontSize(FS_BATCH)
                     .setMargin(0).setPaddingBottom(0.8f);
-            p.add(new Text(row[0]).setFont(bold));
+            p.add(new Text(nvl(line.getLabel()) + " ").setFont(bold));
             p.add(new Text("(").setFont(bold));
-            p.add(new Text(row[1]).setFont(bold));
-            p.add(new Text(row[2]).setFont(regular));
+            p.add(new Text(nvl(line.getBatch())).setFont(bold));
+            p.add(new Text(" Batch Students)").setFont(regular));
             doc.add(p);
         }
 
@@ -325,8 +333,13 @@ public class PdfService {
     private void addStudentDetailsTable(Document doc, PdfFont regular, PdfFont bold,
                                         Registration reg) {
 
-        String examMonthYear = (reg != null && reg.getRegisteredAt() != null)
-                ? reg.getRegisteredAt().format(DateTimeFormatter.ofPattern("MMMM yyyy")) : "";
+        // The EXAM's month, from the cycle the student registered under — not the month they
+        // registered in, which is what this printed until 2026-09 and is wrong whenever a cycle
+        // spans a month boundary (a May registration for June exams printed "May 2026").
+        // Blank when the registration has no cycle: the box is fillable by hand, and a month
+        // derived from anything else here would be a guess on a document that gets signed.
+        String examMonthYear = optional(reg, "exam month", r -> r.getExamCycle() == null ? ""
+                : ExamMonths.format(r.getExamCycle().getExamMonthYear()));
         // identity — the form means nothing without these, so a gap refuses the download
         String name   = required(reg, "name", r -> upper(r.getSnapName()));
         String usn    = required(reg, "USN", r -> r.getStudent().getRollNo());

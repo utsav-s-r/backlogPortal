@@ -214,6 +214,11 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  // A registration DISPLAYS these four live off the subject row, so the server refuses to change
+  // them once one exists (SubjectService.assertPrintedFieldsUnchangedOnceRegistered). Locking the
+  // inputs is UX only — the 409 is the control, and the flag comes from the list query.
+  const locked = subject.registered === true;
+
   const startEdit = () => {
     setName(subject.subjectName || "");
     setCode(subject.courseCode || "");
@@ -251,7 +256,9 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
           eligibleDeptIds: type === "ELECTIVE" ? eligible : [],
         },
       );
-      onUpdated(res.data);
+      // The PUT returns the entity, which has no `registered` flag (it is a property of the
+      // LIST query) — carry the row's own across, or the form unlocks after one save.
+      onUpdated({ ...res.data, registered: subject.registered });
       setEditing(false);
     } catch (err) {
       setError(err.response?.data?.message || "Could not save.");
@@ -324,12 +331,20 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
   return (
     <tr className="border-t border-stroke">
       <td colSpan={8} className="px-4 py-4">
+      {locked && (
+        <p className="mb-3 text-sm text-ink-muted" data-cy="subject-locked-note">
+          Students have registered for this subject, so its name, course code, semester and
+          credits are locked — changing them would alter forms already submitted. Add a new
+          subject for the corrected details. Type and eligible departments stay editable.
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Subject name">
           <input
             className={FIELD_INPUT}
             value={name}
             onChange={(e) => setName(e.target.value)}
+            disabled={locked}
             data-cy="subject-name"
           />
         </Field>
@@ -338,11 +353,18 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
             className={FIELD_INPUT}
             value={code}
             onChange={(e) => setCode(e.target.value)}
+            disabled={locked}
             data-cy="subject-code"
           />
         </Field>
         <Field label="Semester">
-          <select className={FIELD_INPUT} value={semester} onChange={(e) => setSemester(e.target.value)}>
+          <select
+            className={FIELD_INPUT}
+            value={semester}
+            onChange={(e) => setSemester(e.target.value)}
+            disabled={locked}
+            data-cy="subject-semester"
+          >
             {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
               <option key={s} value={s}>
                 Semester {s}
@@ -357,6 +379,7 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
             min="0"
             value={credits}
             onChange={(e) => setCredits(e.target.value)}
+            disabled={locked}
             data-cy="subject-credits"
           />
         </Field>
@@ -372,7 +395,12 @@ function SubjectRow({ subject, departments, onUpdated, onRemoved }) {
           </div>
         </div>
         <Field label="Type">
-          <select className={FIELD_INPUT} value={type} onChange={(e) => setType(e.target.value)}>
+          <select
+            className={FIELD_INPUT}
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            data-cy="subject-type"
+          >
             <option value="REGULAR">Regular</option>
             <option value="ELECTIVE">Elective</option>
           </select>

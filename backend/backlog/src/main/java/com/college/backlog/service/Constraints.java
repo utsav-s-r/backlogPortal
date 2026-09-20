@@ -26,6 +26,9 @@ public final class Constraints {
     /** registrations (roll_no, exam_cycle_id) WHERE status='SUBMITTED' — one pending per cycle. */
     public static final String PENDING_REGISTRATION_PER_CYCLE = "uq_pending_reg_per_cycle";
 
+    /** exam_cycles (name) — cycle names are unique college-wide. */
+    public static final String EXAM_CYCLE_NAME = "uq_exam_cycles_name";
+
     /** students (roll_no) — the USN primary key. */
     public static final String STUDENT_ROLL_NO = "students_pkey";
 
