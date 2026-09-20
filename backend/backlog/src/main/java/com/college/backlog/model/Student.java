@@ -3,6 +3,7 @@ package com.college.backlog.model;
 import jakarta.persistence.*;
 import org.hibernate.annotations.ColumnDefault;
 import org.springframework.data.domain.Persistable;
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
@@ -38,6 +39,18 @@ public class Student implements Persistable<String> {
     private int entrySemester = 1;
 
     private String branch;
+
+    /**
+     * Tokens issued STRICTLY BEFORE this instant are refused (AccountExistenceFilter). Stamped at
+     * creation and on every change to a sign-in credential or to identity, which is what stops a
+     * recreated username inheriting a live session and what makes a password change take effect
+     * now instead of in up to an hour.
+     *
+     * <p>Bump it with {@link #revokeExistingSessions()} rather than by hand, so every write site
+     * reads the same and none of them can set it to anything but "now".
+     */
+    @Column(name = "session_valid_from", nullable = false)
+    private Instant sessionValidFrom = Instant.now();
 
     // Not stored. The id is the USN we assign, so Spring Data cannot tell new from existing and
     // save() would MERGE: a create racing another create of the same USN silently overwrote that
@@ -75,6 +88,12 @@ public class Student implements Persistable<String> {
     public int getEntrySemester() { return entrySemester; }
     public void setEntrySemester(int entrySemester) { this.entrySemester = entrySemester; }
 
+    public Instant getSessionValidFrom() { return sessionValidFrom; }
+
+    /** Kill every token issued so far for this student — a date of birth IS the login credential
+     *  here, so resetting one must end the sessions it opened. See User.revokeExistingSessions. */
+    public void revokeExistingSessions() { this.sessionValidFrom = Instant.now(); }
+
     public String getBranch() { return branch; }
     public void setBranch(String branch) { this.branch = branch; }
 
@@ -87,4 +106,5 @@ public class Student implements Persistable<String> {
     @PostLoad
     @PostPersist
     void markNotNew() { newEntity = false; }
+
 }

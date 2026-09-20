@@ -37,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Transactional
 class BulkProgressionSqlTest {
 
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
     @Autowired private BulkProgressionService service;
     @Autowired private StudentRepository studentRepository;
     @Autowired private ProgressionBatchStudentRepository batchStudentRepository;
@@ -46,6 +47,24 @@ class BulkProgressionSqlTest {
     @BeforeEach
     void closeRegistration() {
         examCycleRepository.deactivateAll();
+        allowSeedingTheLegacyRowsThisSuiteIsAbout();
+    }
+
+    /**
+     * Drops V8's semester CHECKs for the duration of THIS transaction, which rolls back with it
+     * (Postgres DDL is transactional), so nothing outside this class is affected.
+     *
+     * <p>Necessary, and the point rather than a workaround: the SKIPPED_INVALID_SEMESTER branch
+     * under test exists ONLY for rows that predate those constraints — V8 adds them NOT VALID
+     * precisely so such rows survive and keep being reported rather than being auto-corrected.
+     * The application can no longer create one, so a test that needs one has to create it the way
+     * the data itself got there: before the constraint existed.
+     */
+    private void allowSeedingTheLegacyRowsThisSuiteIsAbout() {
+        entityManager.createNativeQuery(
+                "ALTER TABLE students DROP CONSTRAINT chk_students_semester_parity").executeUpdate();
+        entityManager.createNativeQuery(
+                "ALTER TABLE students DROP CONSTRAINT chk_students_entry_not_after_current").executeUpdate();
     }
 
     private void student(String rollNo, String branch, int current, int entry) {

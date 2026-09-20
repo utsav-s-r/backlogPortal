@@ -2,7 +2,7 @@ package com.college.backlog.model;
 
 import jakarta.persistence.*;
 import org.springframework.data.domain.Persistable;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * One student's supervision by one proctor. The roll number is the primary key, which is what
@@ -37,7 +37,10 @@ public class ProctorAssignment implements Persistable<String> {
     private String assignedBy;
 
     @Column(name = "assigned_at", nullable = false)
-    private LocalDateTime assignedAt = LocalDateTime.now();
+    // Instant on a timestamptz column (V7), like every other timestamp here. LocalDateTime wrote
+    // the SERVER's wall clock — UTC on Render, IST from a laptop — and the controller serialises
+    // this field offset-less, so a browser would read it 5h30 early the day anything renders it.
+    private Instant assignedAt = Instant.now();
 
     public ProctorAssignment() {}
 
@@ -45,7 +48,7 @@ public class ProctorAssignment implements Persistable<String> {
         this.rollNo = rollNo;
         this.proctorUserId = proctorUserId;
         this.assignedBy = assignedBy;
-        this.assignedAt = LocalDateTime.now();
+        this.assignedAt = Instant.now();
     }
 
     public String getRollNo() { return rollNo; }
@@ -57,8 +60,8 @@ public class ProctorAssignment implements Persistable<String> {
     public String getAssignedBy() { return assignedBy; }
     public void setAssignedBy(String assignedBy) { this.assignedBy = assignedBy; }
 
-    public LocalDateTime getAssignedAt() { return assignedAt; }
-    public void setAssignedAt(LocalDateTime assignedAt) { this.assignedAt = assignedAt; }
+    public Instant getAssignedAt() { return assignedAt; }
+    public void setAssignedAt(Instant assignedAt) { this.assignedAt = assignedAt; }
 
     @Override
     public String getId() { return rollNo; }

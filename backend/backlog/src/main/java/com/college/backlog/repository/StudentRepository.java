@@ -60,6 +60,12 @@ public interface StudentRepository extends JpaRepository<Student, String>, JpaSp
         AND (CAST(:filterDeptCode AS text) IS NULL OR lower(s.branch) = lower(CAST(:filterDeptCode AS text)))
         """;
 
+    // These bounds are now BACKED by the database (V8: chk_students_semester_parity,
+    // chk_students_entry_not_after_current), which is why they are not being extended further.
+    // Two reported issues asked for a lower bound on current_semester and an entry <= current
+    // test here; both describe rows that can no longer be stored at all, and adding conditions no
+    // test can exercise — in the one place OUTCOME_CASE says two copies must never disagree — buys
+    // nothing. The rule lives once, in the schema.
     String PROMOTABLE = SELECTION + """
         AND s.roll_no NOT IN (:excluded)
         AND s.current_semester < 8 AND MOD(s.current_semester, 2) = 0
@@ -71,7 +77,12 @@ public interface StudentRepository extends JpaRepository<Student, String>, JpaSp
     String NOT_PROMOTABLE = SELECTION + "AND NOT (" + PROMOTABLE + ")\n";
 
     /** Why a selected student is not moving. Extracted because the preview and the audit MUST
-     *  classify the same student identically — two copies could silently disagree. */
+     *  classify the same student identically — two copies could silently disagree.
+     *
+     *  <p>They still differ on one input, deliberately left alone: a semester-8 student with
+     *  entry 9 is counted at max by {@link #countAtMax} and recorded SKIPPED_INVALID_SEMESTER
+     *  here. V8's CHECK makes that pair unstorable, so the disagreement has no reachable input;
+     *  reconciling it would mean editing progression SQL against data that cannot exist. */
     String OUTCOME_CASE = """
         CASE
           WHEN s.roll_no IN (:excluded) THEN 'EXCLUDED_BY_ADMIN'

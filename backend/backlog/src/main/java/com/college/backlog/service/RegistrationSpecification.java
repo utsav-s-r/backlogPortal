@@ -136,9 +136,8 @@ public class RegistrationSpecification implements Specification<Registration> {
         }
 
         if (searchQuery != null && !searchQuery.isBlank()) {
-            Predicate namePredicate = cb.like(cb.lower(studentJoin.get("name")), "%" + searchQuery.toLowerCase() + "%");
-            Predicate usnPredicate = cb.like(cb.lower(studentJoin.get("rollNo")), "%" + searchQuery.toLowerCase() + "%");
-            predicates.add(cb.or(namePredicate, usnPredicate));
+            // Shared with SubjectService's dropdown query, which must match the same rows.
+            predicates.add(RegistrationSearch.studentMatches(cb, root, studentJoin, searchQuery));
         }
 
         if (semester != null) {

@@ -141,6 +141,10 @@ public class UserManagementController {
         }
 
         target.setPassword(passwordEncoder.encode(defaultPasswordFor(target.getUsername())));
+        // The point of a reset is that the old credential stops working NOW. Without this the
+        // account's existing sessions ran on for up to the full hour, so resetting the password
+        // of an account you believe is compromised evicted nobody.
+        target.revokeExistingSessions();
         userRepository.save(target);
         auditService.record(AdminAuditAction.USER_PASSWORD_RESET, actor, AuditTargetType.USER,
                 target.getUsername(), "reset to the derived default");
@@ -188,6 +192,11 @@ public class UserManagementController {
                 "from=" + target.getUsername() + " role=" + target.getRole());
 
         target.setUsername(newUsername);
+        // Belt and braces: the rename already revokes, because the JWT subject is the username
+        // and this row no longer answers to the old one. Stamped anyway so ONE rule covers every
+        // identity change — and so the old name becoming free cannot hand a new account's scope
+        // to the old token.
+        target.revokeExistingSessions();
         userRepository.save(target);
 
         return accountResponse(target);

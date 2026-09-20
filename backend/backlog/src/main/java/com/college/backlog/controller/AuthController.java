@@ -138,7 +138,8 @@ public class AuthController {
      *  password. The only way off the derived default issued by create/reset (username + "4321"),
      *  so every admin role must be able to reach it — the dashboard header links it. */
     @PostMapping("/change-password")
-    public Map<String, String> changePassword(@Valid @RequestBody ChangePasswordRequest req, Authentication auth) {
+    public Map<String, String> changePassword(@Valid @RequestBody ChangePasswordRequest req, Authentication auth,
+                                              HttpServletResponse response) {
         User user = callerScope.requireActor(auth);
 
         if (!matchesPassword(user, req.getCurrentPassword())) {
@@ -152,10 +153,19 @@ public class AuthController {
         }
 
         user.setPassword(passwordEncoder.encode(req.getNewPassword()));
+        // Every session opened with the OLD password dies, this tab included. Deliberate, and the
+        // same shape as change-username below: the cookie is cleared here rather than left for
+        // AccountExistenceFilter to 401 on the next request. Re-issuing a token here instead
+        // would keep this tab alive at the cost of a THIRD endpoint that mints sessions — login
+        // is the only place that should, and the point of changing a password is that the new
+        // one is required.
+        user.revokeExistingSessions();
         userRepository.save(user);
+        sessionCookieService.clear(response, SessionCookieService.ADMIN_COOKIE);
 
         Map<String, String> resp = new HashMap<>();
-        resp.put("message", "Password changed");
+        resp.put("message", "Password changed. Please sign in again.");
+        resp.put("signedOut", "true");
         return resp;
     }
 
@@ -202,6 +212,7 @@ public class AuthController {
                 "self-rename from=" + oldUsername);
 
         user.setUsername(newUsername);
+        user.revokeExistingSessions(); // one rule for every identity change — see the reset path
         userRepository.save(user);
         sessionCookieService.clear(response, SessionCookieService.ADMIN_COOKIE);
 

@@ -111,6 +111,9 @@ public class StudentManagementService {
             throw new IllegalArgumentException("Date of birth is required.");
         }
         existing.setDateOfBirth(dateOfBirth);
+        // The date of birth IS the student's login credential, so resetting one must end the
+        // sessions it opened — otherwise the old DOB keeps working for up to an hour.
+        existing.revokeExistingSessions();
         studentRepository.save(existing);
         log.info("STUDENT_DOB_RESET actor={} rollNo={}", actor, existing.getRollNo());
     }

@@ -1,7 +1,9 @@
 package com.college.backlog.security;
 
+import com.college.backlog.model.Student;
 import com.college.backlog.model.User;
 import com.college.backlog.model.UserRole;
+import com.college.backlog.repository.StudentRepository;
 import com.college.backlog.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
@@ -27,7 +29,9 @@ import static org.mockito.Mockito.when;
 class AccountExistenceFilterTest {
 
     private final UserRepository userRepository = mock(UserRepository.class);
-    private final AccountExistenceFilter filter = new AccountExistenceFilter(userRepository);
+    private final StudentRepository studentRepository = mock(StudentRepository.class);
+    private final AccountExistenceFilter filter =
+            new AccountExistenceFilter(userRepository, studentRepository);
 
     @AfterEach
     void clearContext() {
@@ -206,11 +210,14 @@ class AccountExistenceFilterTest {
         verifyNoInteractions(userRepository);
     }
 
-    // Students authenticate with the same cookie machinery but are not rows in `users`, so
-    // checking existence for them would 401 every student on every request.
+    // Students are not rows in `users`, so the admin branch cannot cover them — they get their
+    // own, against `students`. Added with V7 for the AGE check: a date-of-birth reset (the DOB IS
+    // their login credential) used to leave every session it had opened alive. The existence half
+    // is defence in depth — each student endpoint already 401s on a missing row.
     @Test
-    void studentsAreNotSubjectToThisFilter() throws Exception {
+    void studentsAreCheckedAgainstTheStudentsTableNotUsers() throws Exception {
         authenticateAs("1MS22CS001", "STUDENT");
+        when(studentRepository.findById("1MS22CS001")).thenReturn(Optional.of(new Student()));
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
@@ -218,7 +225,23 @@ class AccountExistenceFilterTest {
         filter.doFilter(req, response, chain);
 
         verify(chain, times(1)).doFilter(req, response);
+        // `users` is never consulted for a student — doing so would 401 every student request.
         verifyNoInteractions(userRepository);
+    }
+
+    /** Not a new protection — StudentController.currentStudent already 401s on a missing row —
+     *  but revocation now states it in one place rather than relying on each handler. */
+    @Test
+    void aDeletedStudentIsRejectedEvenWithAValidToken() throws Exception {
+        authenticateAs("1MS22CS001", "STUDENT");
+        when(studentRepository.findById("1MS22CS001")).thenReturn(Optional.empty());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request("GET", "/api/student/me"), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        verify(chain, never()).doFilter(any(), any());
     }
 
     @Test

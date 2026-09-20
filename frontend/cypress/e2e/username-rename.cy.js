@@ -167,6 +167,31 @@ describe("Account Settings — renaming yourself", () => {
     });
   });
 
+  // Changing your own password ends every session it opened, this tab included: the server
+  // stamps the account's session_valid_from and clears the cookie, the same shape as a rename.
+  // The page must follow it to the login screen and drop the cached identity — otherwise the
+  // admin sits on a dashboard whose every request now 401s.
+  it("changing your own password signs you out and clears the cached identity", () => {
+    cy.intercept("POST", "/api/auth/change-password", {
+      statusCode: 200,
+      body: { message: "Password changed. Please sign in again.", signedOut: "true" },
+    }).as("changePassword");
+
+    cy.visitAsAdmin("/admin/change-password", { role: "HOD", username: "hod_cs" });
+
+    cy.get("#current-password").type("current-pass");
+    cy.get("#new-password").type("BrandNew1234");
+    cy.get("#confirm-password").type("BrandNew1234");
+    cy.get('[aria-label="Change password"]').click();
+    cy.wait("@changePassword");
+
+    cy.location("pathname").should("eq", "/admin/login");
+    cy.window().then((win) => {
+      expect(win.sessionStorage.getItem("adminToken")).to.be.null;
+      expect(win.sessionStorage.getItem("adminRole")).to.be.null;
+    });
+  });
+
   it("a lapsed session on change-username signs out instead of showing an error", () => {
     cy.intercept("POST", "/api/auth/change-username", {
       statusCode: 401,

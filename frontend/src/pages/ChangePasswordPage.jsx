@@ -49,7 +49,11 @@ function ChangePasswordPage() {
     setLoading(true);
     try {
       await api.post("/auth/change-password", { currentPassword, newPassword });
-      navigate("/admin");
+      // Changing your own password ENDS every session it opened, this tab included: the server
+      // stamps the account and clears the cookie, exactly as the rename below does. Drop the
+      // cached identity too, or the login page shows a stale adminRole/adminUsername.
+      clearAdminSession();
+      navigate("/admin/login");
     } catch (apiError) {
       setError(apiError.response?.data?.message || "Could not change password.");
     } finally {

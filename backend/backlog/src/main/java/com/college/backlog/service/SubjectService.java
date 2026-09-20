@@ -227,9 +227,9 @@ public class SubjectService {
         }
 
         if (searchQuery != null && !searchQuery.isBlank()) {
-            Predicate namePredicate = cb.like(cb.lower(studentJoin.get("name")), "%" + searchQuery.toLowerCase() + "%");
-            Predicate usnPredicate = cb.like(cb.lower(studentJoin.get("rollNo")), "%" + searchQuery.toLowerCase() + "%");
-            predicates.add(cb.or(namePredicate, usnPredicate));
+            // The same predicate the list uses, not a copy of it — the dropdown must offer
+            // exactly the subjects the list can show.
+            predicates.add(RegistrationSearch.studentMatches(cb, registrationRoot, studentJoin, searchQuery));
         }
 
         if (semester != null) {

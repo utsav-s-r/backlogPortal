@@ -25,6 +25,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.hamcrest.Matchers.endsWith;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -102,6 +103,21 @@ class ProctorAssignmentAuthorizationTest {
     }
 
     // ---- PROCTOR: self only, on every endpoint that names a target ----
+
+    /**
+     * The assignment timestamp must reach the client as an INSTANT, offset and all. It was a
+     * LocalDateTime on a zone-less column until V7 — the same defect as registrations.registered_at
+     * (#3), and the last one in the schema: the server writes its own wall clock (UTC on Render)
+     * and a browser parses an offset-less string as LOCAL time, reading it 5h30 early here.
+     * Nothing renders this field yet, which is exactly why it needs a test rather than a reader.
+     */
+    @Test
+    @WithMockUser(username = ADMIN, roles = "ADMIN")
+    void theAssignedListSendsAnInstantNotAZonelessLocalTime() throws Exception {
+        mockMvc.perform(get(ASSIGNED).param("proctor", PROCTOR))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].assignedAt").value(endsWith("Z")));
+    }
 
     @Test
     @WithMockUser(username = PROCTOR, roles = "PROCTOR")

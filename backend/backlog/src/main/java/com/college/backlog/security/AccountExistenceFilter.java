@@ -1,6 +1,8 @@
 package com.college.backlog.security;
 
+import com.college.backlog.model.Student;
 import com.college.backlog.model.User;
+import com.college.backlog.repository.StudentRepository;
 import com.college.backlog.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Set;
 
 /**
@@ -42,10 +45,14 @@ public class AccountExistenceFilter extends OncePerRequestFilter {
     private static final Set<String> ADMIN_AUTHORITIES =
             Set.of("ROLE_ADMIN", "ROLE_PRINCIPAL", "ROLE_HOD", "ROLE_DEPT_OFFICE", "ROLE_PROCTOR");
 
-    private final UserRepository userRepository;
+    private static final String STUDENT_AUTHORITY = "ROLE_STUDENT";
 
-    public AccountExistenceFilter(UserRepository userRepository) {
+    private final UserRepository userRepository;
+    private final StudentRepository studentRepository;
+
+    public AccountExistenceFilter(UserRepository userRepository, StudentRepository studentRepository) {
         this.userRepository = userRepository;
+        this.studentRepository = studentRepository;
     }
 
     @Override
@@ -72,8 +79,61 @@ public class AccountExistenceFilter extends OncePerRequestFilter {
                         "{\"message\":\"Your account has changed. Please sign in again.\"}");
                 return;
             }
+            if (predatesAccount(auth, account.getSessionValidFrom())) {
+                write(response, HttpServletResponse.SC_UNAUTHORIZED,
+                        "{\"message\":\"Your session is no longer valid. Please sign in again.\"}");
+                return;
+            }
+        } else if (isStudentRequest(auth) && !LOGOUT_PATH.equals(request.getRequestURI())) {
+            // Students are NOT rows in `users`, so the branch above cannot cover them. What is
+            // NEW here is the age check: a date-of-birth reset — the DOB IS their login
+            // credential — left every session it had opened alive for up to the full hour.
+            //
+            // The existence half is defence in depth, NOT a fix: every student-authenticated path
+            // already resolves the row and 401s without it (StudentController.currentStudent,
+            // RegistrationService.register). Keeping it here means revocation reads the same for
+            // both kinds of account and does not depend on each handler remembering to look.
+            // One primary-key lookup on a table the request is about to read anyway.
+            Student student = studentRepository.findById(auth.getName()).orElse(null);
+            if (student == null) {
+                write(response, HttpServletResponse.SC_UNAUTHORIZED,
+                        "{\"message\":\"Unknown account. Please sign in again.\"}");
+                return;
+            }
+            if (predatesAccount(auth, student.getSessionValidFrom())) {
+                write(response, HttpServletResponse.SC_UNAUTHORIZED,
+                        "{\"message\":\"Your session is no longer valid. Please sign in again.\"}");
+                return;
+            }
         }
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Was the presented token minted before the account's {@code session_valid_from}? That column
+     * is stamped at creation and on every credential or identity change, so this is what refuses
+     * a token whose account has been recreated under the same username, or whose password or date
+     * of birth has since changed. STRICTLY older: the stamp is set at creation too, and a login in
+     * the same second must not invalidate itself (JWT `iat` has second resolution).
+     *
+     * <p>No {@link JwtSessionDetails} means the request was not authenticated by a token — only
+     * {@link JwtAuthenticationFilter} attaches them, and it is the only authentication path in
+     * production. In practice that is a {@code @WithMockUser} test, and skipping keeps those
+     * cases testing authorization rather than dying on a missing claim; the revocation itself is
+     * proven with real tokens in SessionRevocationTest.
+     */
+    private boolean predatesAccount(Authentication auth, Instant sessionValidFrom) {
+        if (sessionValidFrom == null || !(auth.getDetails() instanceof JwtSessionDetails details)) {
+            return false;
+        }
+        return details.getIssuedAt().isBefore(sessionValidFrom);
+    }
+
+    /** A STUDENT principal, whose account lives in `students` rather than `users`. */
+    private boolean isStudentRequest(Authentication auth) {
+        return auth != null && auth.isAuthenticated()
+                && auth.getAuthorities().stream()
+                    .anyMatch(a -> STUDENT_AUTHORITY.equals(a.getAuthority()));
     }
 
     private void write(HttpServletResponse response, int status, String json) throws IOException {

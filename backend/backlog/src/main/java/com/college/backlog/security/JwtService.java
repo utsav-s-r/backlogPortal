@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Date;
 import java.util.Locale;
 import java.util.Set;
@@ -83,6 +84,13 @@ public class JwtService {
         return Jwts.builder()
                 .subject(username)
                 .claim("role", role)
+                // Exact issue time, because the standard `iat` is defined in SECONDS and is
+                // therefore floored. Revocation compares this against the account's
+                // session_valid_from, and at second resolution a password change and the login
+                // right after it land in the same second: either the change fails to revoke, or
+                // the fresh login is refused by the change that preceded it. Both ends of this
+                // claim are ours, so the precision is free.
+                .claim("iatMs", now)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + jwtExpirationMs))
                 .signWith(getSigningKey(), Jwts.SIG.HS256)
@@ -108,6 +116,23 @@ public class JwtService {
 
     public String getRoleFromToken(String token) {
         return extractClaim(token, claims -> (String) claims.get("role"));
+    }
+
+    /** When this token was minted. Compared against the account's session_valid_from, so a token
+     *  predating a password change, a DOB reset or a recreated username is refused
+     *  (AccountExistenceFilter). JWT `iat` has SECOND resolution — the comparison is strictly
+     *  "older than", so a token minted in the same second as the account is not killed by its
+     *  own creation. */
+    public Instant getIssuedAtFromToken(String token) {
+        Number exact = extractClaim(token, claims -> (Number) claims.get("iatMs"));
+        if (exact != null) {
+            return Instant.ofEpochMilli(exact.longValue());
+        }
+        // A token minted before iatMs existed. Second resolution is enough for it: V7 backfilled
+        // every account's session_valid_from with the migration time, so all such tokens are
+        // already older than their account and refused on the next request either way.
+        Date issuedAt = extractClaim(token, Claims::getIssuedAt);
+        return issuedAt == null ? null : issuedAt.toInstant();
     }
 
     private Date getExpirationDateFromToken(String token) {
