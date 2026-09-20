@@ -284,10 +284,23 @@ public class AdminController {
      * whose branch no longer matches — e.g. after a department code is renamed.
      */
     private String verifyingBranchOf(User caller) {
-        return caller.getRole() == UserRole.HOD || caller.getRole() == UserRole.DEPT_OFFICE
+        return VERIFYING_DEPT_ROLES.contains(caller.getRole())
                 ? callerScope.requireDepartmentCode(caller)
                 : null;
     }
+
+    /**
+     * The dept-pinned roles that may verify a registration — the set {@link #verifyingBranchOf}
+     * resolves a branch for, and the one {@link #getDepartments} counts for {@code hasVerifier}.
+     * One definition, so the page's warning can never disagree with who can actually act.
+     *
+     * <p>PROCTOR is deliberately absent even though a proctor CAN verify: their scope is their
+     * ASSIGNED students, not the department's, so counting one would report coverage the
+     * department does not have. ADMIN verifies college-wide and belongs to no department, so it
+     * cannot cover one either; PRINCIPAL is absent from the verify endpoint entirely.
+     */
+    private static final java.util.Set<UserRole> VERIFYING_DEPT_ROLES =
+            java.util.Set.of(UserRole.HOD, UserRole.DEPT_OFFICE);
 
     /** PRINCIPAL is absent from the verify endpoint's {@code @PreAuthorize} entirely, so every
      *  attempt 403s — the flag has to say so rather than leaving the page's own role test as the
@@ -343,11 +356,16 @@ public class AdminController {
     @GetMapping("/departments")
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD', 'DEPT_OFFICE', 'PROCTOR')")
     public List<DepartmentListItem> getDepartments() {
-        // One query for every branch code that has students, not one exists-check per row.
+        // One query per flag for the whole page, not an exists-check per row.
         java.util.Set<String> branchesWithStudents = studentRepository.findDistinctBranchCodes();
+        java.util.Set<Long> departmentsWithVerifier =
+                userRepository.findDepartmentIdsWithAnyOfRoles(VERIFYING_DEPT_ROLES);
         return departmentRepository.findAll(Sort.by("deptName")).stream()
-                .map(d -> DepartmentListItem.of(d, d.getCode() != null
-                        && branchesWithStudents.contains(d.getCode().toLowerCase(java.util.Locale.ROOT))))
+                .map(d -> DepartmentListItem.of(d,
+                        d.getCode() != null
+                                && branchesWithStudents.contains(
+                                        d.getCode().toLowerCase(java.util.Locale.ROOT)),
+                        departmentsWithVerifier.contains(d.getId())))
                 .toList();
     }
 

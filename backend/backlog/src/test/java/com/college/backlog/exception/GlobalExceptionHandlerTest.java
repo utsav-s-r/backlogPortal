@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
 import java.io.IOException;
+import java.sql.SQLException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -55,6 +57,24 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/aborted")
         String aborted() throws ClientAbortException {
             throw new ClientAbortException(new IOException("Broken pipe"));
+        }
+
+        // The chain a real violation arrives in, confirmed against Postgres 18: Spring's
+        // DataIntegrityViolationException wraps Hibernate's ConstraintViolationException wraps
+        // the driver's SQLException, and only the innermost one carries the SQLSTATE.
+        @GetMapping("/violation")
+        String violation(@RequestParam String sqlState) {
+            SQLException driver = new SQLException(
+                "ERROR: violates constraint \"uq_probe_secret_constraint\"", sqlState);
+            throw new DataIntegrityViolationException("could not execute statement",
+                new org.hibernate.exception.ConstraintViolationException(
+                    "could not execute statement", driver, "uq_probe_secret_constraint"));
+        }
+
+        /** Hibernate refusing before any statement runs: no SQLException anywhere in the chain. */
+        @GetMapping("/violation-no-state")
+        String violationWithoutSqlState() {
+            throw new DataIntegrityViolationException("not-null property references a null value");
         }
     }
 
@@ -141,5 +161,65 @@ class GlobalExceptionHandlerTest {
         mvc.perform(get("/probe/aborted"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(""));
+    }
+
+    // ---- DB constraint violations: only a duplicate is the caller's to fix ----
+
+    /**
+     * 23505, unique_violation. The one integrity failure a caller can act on, and the only one
+     * that stays a 409 — a duplicate course code, exam-cycle name or department code.
+     */
+    @Test
+    void aUniqueViolationIs409AndSaysSo() throws Exception {
+        mvc.perform(get("/probe/violation").param("sqlState", "23505"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                    org.hamcrest.Matchers.containsString("duplicate value")));
+    }
+
+    /**
+     * 23514, check_violation. Every CHECK in this schema mirrors a rule the application validates
+     * first, so reaching the database with data that breaks one means a write path skipped its
+     * validation. Telling the caller to "check the values" hides that in a WARN.
+     */
+    @Test
+    void aCheckViolationIs500NotAMisleadingDuplicate() throws Exception {
+        mvc.perform(get("/probe/violation").param("sqlState", "23514"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value(
+                    org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("duplicate"))));
+    }
+
+    /** 23503, foreign_key_violation — every referenced-row refusal users can legitimately cause
+     *  is already caught locally with its own message, so one reaching here is a server bug. */
+    @Test
+    void aForeignKeyViolationIs500() throws Exception {
+        mvc.perform(get("/probe/violation").param("sqlState", "23503"))
+                .andExpect(status().isInternalServerError());
+    }
+
+    /** 23502, not_null_violation. */
+    @Test
+    void aNotNullViolationIs500() throws Exception {
+        mvc.perform(get("/probe/violation").param("sqlState", "23502"))
+                .andExpect(status().isInternalServerError());
+    }
+
+    /** Nothing reached the database, so there is no duplicate to report. Unknown is unexpected. */
+    @Test
+    void aViolationCarryingNoSqlStateIs500() throws Exception {
+        mvc.perform(get("/probe/violation-no-state"))
+                .andExpect(status().isInternalServerError());
+    }
+
+    /** Constraint names and SQL are internal, on BOTH branches. */
+    @Test
+    void neitherBranchLeaksTheConstraintName() throws Exception {
+        mvc.perform(get("/probe/violation").param("sqlState", "23505"))
+                .andExpect(content().string(
+                    org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("uq_probe_secret_constraint"))));
+        mvc.perform(get("/probe/violation").param("sqlState", "23514"))
+                .andExpect(content().string(
+                    org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("uq_probe_secret_constraint"))));
     }
 }

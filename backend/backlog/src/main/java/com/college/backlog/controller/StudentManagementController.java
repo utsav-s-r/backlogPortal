@@ -190,33 +190,59 @@ public class StudentManagementController {
 
         for (StudentImportRow row : rows) {
             String roll = studentService.normalizeUsn(row.getRollNo());
-            int currentSem = firstNonNull(row.getCurrentSemester(), req.getDefaultCurrentSemester(), 0);
-            int entrySem = firstNonNull(row.getEntrySemester(), req.getDefaultEntrySemester(), 1);
+            // Null = NEITHER the row nor the batch supplied it. Deliberately carried as null to
+            // the check below rather than defaulted: entrySemester used to fall back to 1, which
+            // is a LEGAL value, so it validated and a student was created. A lateral entrant
+            // imported without one silently got a window starting at semester 1 — backlogs for
+            // semesters never studied — and createStudent's seedLinearTimeline then wrote
+            // student_semester_terms rows for them, which are write-once and only correctable by
+            // hand on the Semesters panel. currentSemester fell back to 0, which cannot validate,
+            // so that half already failed; it just blamed the wrong thing.
+            // Stays an Integer all the way onto the result row too: ProgressionRowResult.semester
+            // is nullable and BatchResultTable renders null as an em dash, so a row that named no
+            // semester reports none. There is no semester 0 to print.
+            Integer askedCurrent = row.getCurrentSemester() != null
+                    ? row.getCurrentSemester() : req.getDefaultCurrentSemester();
+            Integer askedEntry = row.getEntrySemester() != null
+                    ? row.getEntrySemester() : req.getDefaultEntrySemester();
             try {
                 // USN before scope: a malformed USN has no branch code to scope on
                 studentService.validateUsn(roll);
                 if (callerDeptCode != null && !callerDeptCode.equalsIgnoreCase(studentDeptCode(roll))) {
                     throw new IllegalArgumentException("Outside your department's scope.");
                 }
+                // Absent is its own failure, not a value. Semesters' own messages name the
+                // legal SHAPE ("must be an odd semester"), which reads as a wrong number to a
+                // caller who sent none — so say which field is missing and where it can come
+                // from. Inside the try, so a dry run reports it exactly as the real import does.
+                if (askedCurrent == null) {
+                    throw new IllegalArgumentException(
+                        "Current semester is required — set the column or the batch default.");
+                }
+                if (askedEntry == null) {
+                    throw new IllegalArgumentException(
+                        "Entry semester is required — set the column or the batch default "
+                            + "(1 for normal intake, 3, 5 or 7 for lateral entry).");
+                }
                 StudentCreateRequest create = new StudentCreateRequest();
                 create.setRollNo(roll);
                 create.setName(row.getName());
                 create.setPhone(row.getPhone());
                 create.setDateOfBirth(row.getDateOfBirth());
-                create.setCurrentSemester(currentSem);
-                create.setEntrySemester(entrySem);
+                create.setCurrentSemester(askedCurrent);
+                create.setEntrySemester(askedEntry);
                 // createStudent's own rule list, run for dry run and real import alike
                 studentService.validateNewStudent(create);
 
                 if (studentRepository.existsById(roll)) {
-                    results.add(new ProgressionRowResult(roll, currentSem, "SKIPPED_EXISTS", null));
+                    results.add(new ProgressionRowResult(roll, askedCurrent, "SKIPPED_EXISTS", null));
                     skipped++;
                 } else if (req.isDryRun()) {
-                    results.add(new ProgressionRowResult(roll, currentSem, "WOULD_CREATE", null));
+                    results.add(new ProgressionRowResult(roll, askedCurrent, "WOULD_CREATE", null));
                     created++;
                 } else {
                     studentService.createStudent(create, actor.getUsername());
-                    results.add(new ProgressionRowResult(roll, currentSem, "CREATED", null));
+                    results.add(new ProgressionRowResult(roll, askedCurrent, "CREATED", null));
                     created++;
                 }
             } catch (NumberFormatException e) {
@@ -225,27 +251,27 @@ public class StudentManagementController {
                 // malformed — a server bug dressed as a data problem, counted as a bad row instead
                 // of logged. Must precede the IAE clause; the reverse does not compile.
                 log.error("STUDENT_IMPORT_ROW_FAILED rollNo={}", roll, e);
-                results.add(new ProgressionRowResult(roll, currentSem, "ERROR", "Could not import this row."));
+                results.add(new ProgressionRowResult(roll, askedCurrent, "ERROR", "Could not import this row."));
                 errors++;
             } catch (IllegalArgumentException e) {
                 // Only this method's own validation throws IAE, with curated literal messages, so
                 // surfacing getMessage() is safe here.
-                results.add(new ProgressionRowResult(roll, currentSem, "ERROR", e.getMessage()));
+                results.add(new ProgressionRowResult(roll, askedCurrent, "ERROR", e.getMessage()));
                 errors++;
             } catch (ResponseStatusException e) {
                 // keep the nested reason (e.g. a 409 naming the conflict); the generic catch below
                 // would flatten it, since ResponseStatusException is itself a RuntimeException
-                results.add(new ProgressionRowResult(roll, currentSem, "ERROR", e.getReason()));
+                results.add(new ProgressionRowResult(roll, askedCurrent, "ERROR", e.getReason()));
                 errors++;
             } catch (DataIntegrityViolationException e) {
                 // Above the catch-all. The USN was created concurrently between existsById and the
                 // insert: the same outcome as that check. Any other constraint is a real failure.
                 if (Constraints.isViolationOf(e, Constraints.STUDENT_ROLL_NO)) {
-                    results.add(new ProgressionRowResult(roll, currentSem, "SKIPPED_EXISTS", null));
+                    results.add(new ProgressionRowResult(roll, askedCurrent, "SKIPPED_EXISTS", null));
                     skipped++;
                 } else {
                     log.error("STUDENT_IMPORT_ROW_FAILED rollNo={}", roll, e);
-                    results.add(new ProgressionRowResult(roll, currentSem, "ERROR", "Could not import this row."));
+                    results.add(new ProgressionRowResult(roll, askedCurrent, "ERROR", "Could not import this row."));
                     errors++;
                 }
             } catch (RuntimeException e) {
@@ -254,7 +280,7 @@ public class StudentManagementController {
                 // is its own REQUIRES_NEW tx, so one rollback doesn't poison the rest. Logged
                 // because the row message cannot carry a stack trace.
                 log.error("STUDENT_IMPORT_ROW_FAILED rollNo={}", roll, e);
-                results.add(new ProgressionRowResult(roll, currentSem, "ERROR", "Could not import this row."));
+                results.add(new ProgressionRowResult(roll, askedCurrent, "ERROR", "Could not import this row."));
                 errors++;
             }
         }
@@ -320,9 +346,4 @@ public class StudentManagementController {
             s.getBranch(), s.getCurrentSemester(), s.getEntrySemester());
     }
 
-    private int firstNonNull(Integer a, Integer b, int fallback) {
-        if (a != null) return a;
-        if (b != null) return b;
-        return fallback;
-    }
 }

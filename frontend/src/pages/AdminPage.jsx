@@ -171,6 +171,14 @@ function AdminPage() {
           error.response?.data?.message ||
             "Could not load registrations. Please try again.",
         );
+        // Drop the rows this filter never returned. They were fetched under the PREVIOUS filters
+        // or page, and leaving them up relabels them as this query's result with Verify, Reject
+        // and the export checkbox still live on them.
+        // The pair matters: `loadError ? null` in the render is what the spec pins (removing it
+        // makes [] claim "No registrations match", a second lie), while this line is state
+        // hygiene and survives mutation on its own — nothing renders `registrations` while
+        // loadError is set. Keep both: either alone leaves one of the two lies reachable.
+        setRegistrations([]);
         setLoading(false); // otherwise the spinner outlives the failure
       });
   }, [isAdmin, appendFilterParams, filter, page]);
@@ -521,7 +529,7 @@ function AdminPage() {
               <LoaderCircle size={16} className="animate-spin" /> Loading
               registrations...
             </p>
-          ) : registrations.length === 0 ? (
+          ) : loadError ? null : registrations.length === 0 ? (
             // Says the query came back empty. Without it the page renders a column header over
             // nothing, which reads as a broken fetch: there is no wrapper around the table to give
             // the emptiness a shape. Wording mirrors the export-scope line above so the two never

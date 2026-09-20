@@ -1,5 +1,7 @@
 package com.college.backlog.controller;
 
+import com.college.backlog.model.AdminAuditAction;
+import com.college.backlog.model.AdminAuditEvent;
 import com.college.backlog.repository.AdminAuditEventRepository;
 import com.college.backlog.repository.DepartmentRepository;
 import com.college.backlog.repository.ProctorAssignmentRepository;
@@ -467,6 +469,47 @@ class SubjectCatalogAuthorizationTest {
     private static String previewBody(Long deptId) {
         return "{\"deptId\":" + deptId + ",\"sourceYear\":" + SUBJECT_YEAR + ",\"targetYear\":"
                 + CLONE_TARGET_YEAR + "}";
+    }
+
+    /**
+     * The clone audit row must describe what HAPPENED, not what was asked for. It recorded
+     * {@code rows=<requested>} alone, so a clone that created one subject and skipped the rest
+     * was filed as though it had cloned them all — and skipping is the normal case, since clone
+     * carries a year forward onto subjects that mostly already exist.
+     *
+     * <p>Three rows, one of each outcome: a fresh code CREATES, the same code repeated is
+     * SKIPPED_EXISTS (the second pass sees the first inside this transaction), and semester 9
+     * fails {@code Semesters.assertStudiable} without touching the database.
+     */
+    @Test
+    @WithMockUser(username = ADMIN, roles = "ADMIN")
+    void theCloneAuditRowRecordsTheOutcomeNotTheRequestedCount() throws Exception {
+        String body = "{\"deptId\":" + ids.csDeptId + ",\"targetYear\":" + CLONE_TARGET_YEAR
+                + ",\"rows\":["
+                + "{\"subjectName\":\"Fresh\",\"courseCode\":\"AUD01\",\"semester\":4,\"credits\":4},"
+                + "{\"subjectName\":\"Again\",\"courseCode\":\"AUD01\",\"semester\":4,\"credits\":4},"
+                + "{\"subjectName\":\"Bad\",\"courseCode\":\"AUD02\",\"semester\":9,\"credits\":4}]}";
+
+        mockMvc.perform(post(CLONE_APPLY).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.created").value(1))
+                .andExpect(jsonPath("$.skipped").value(1))
+                .andExpect(jsonPath("$.errors").value(1));
+
+        AdminAuditEvent recorded = auditEventRepository.findAll().stream()
+                .filter(e -> e.getAction() == AdminAuditAction.SUBJECT_CLONE)
+                .reduce((first, second) -> second)
+                .orElseThrow();
+        // the outcome, each count separately: three rows in, one of each result out
+        assertThat(recorded.getDetail()).contains("created=1");
+        assertThat(recorded.getDetail()).contains("skipped=1");
+        assertThat(recorded.getDetail()).contains("errors=1");
+        // the requested count survives beside them — "asked for 3, created 1" is the reading
+        assertThat(recorded.getDetail()).contains("requested=3");
+        assertThat(recorded.getDetail()).contains("targetYear=" + CLONE_TARGET_YEAR);
+        // and never again the bare count that claimed all three were cloned
+        assertThat(recorded.getDetail()).doesNotContain("rows=3");
     }
 
     private static String applyBody(Long deptId) {

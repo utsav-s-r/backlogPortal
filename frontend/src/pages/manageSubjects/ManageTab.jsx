@@ -15,6 +15,7 @@ import Field from "../../components/ui/Field";
 import Pager from "../../components/ui/Pager";
 import DepartmentOptions from "../../components/ui/DepartmentOptions";
 import { btn } from "../../lib/buttonClasses";
+import { useAbortableRequest } from "../../hooks/useAbortableRequest";
 
 
 const PAGE_SIZE = 25;
@@ -27,6 +28,12 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
   const [fSemester, setFSemester] = useState("");
 
   const [subjects, setSubjects] = useState(null); // null = not loaded yet
+
+  // Pressing Load again aborts the load still running. The filters stay editable while one is in
+  // flight, so without this a slow reply renders the OLD filters' subjects under the NEW ones —
+  // department A's rows under a form reading B, and this table has no Department column to give
+  // it away. The trigger is deliberately NOT disabled while busy, or nothing could supersede.
+  const nextSignal = useAbortableRequest();
   // server-side pagination: mirrors the Spring Page envelope (0-based `number`)
   const [pageInfo, setPageInfo] = useState({ number: 0, totalPages: 0, totalElements: 0 });
   const [busy, setBusy] = useState(false);
@@ -51,7 +58,7 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
       if (effectiveDeptId) params.deptId = Number(effectiveDeptId);
       if (!Number.isNaN(y)) params.academicYearOffered = y;
       if (fSemester) params.semester = Number(fSemester);
-      const res = await api.get("/admin/subjects", { params });
+      const res = await api.get("/admin/subjects", { params, signal: nextSignal() });
       const data = res.data || {};
       setSubjects(Array.isArray(data.content) ? data.content : []);
       setPageInfo({
@@ -59,7 +66,12 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
         totalPages: data.totalPages ?? 0,
         totalElements: data.totalElements ?? 0,
       });
+      setBusy(false);
     } catch (err) {
+      // No `finally`: it would clear the flag for the NEWER load that superseded this one, and
+      // wipe its rows on the way past. ERR_CANCELED is ours; ECONNABORTED is axios's own timeout
+      // and still deserves a message.
+      if (err.code === "ERR_CANCELED") return;
       // back to null ("not loaded"), not []: the previous department's rows would read as this
       // department's, and [] would claim "No subjects match these filters" — both assert a result
       // the failed request never returned.
@@ -70,10 +82,9 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
             ? "Loading timed out. Narrow the filters and try again."
             : "Could not load subjects."),
       );
-    } finally {
       setBusy(false);
     }
-  }, [effectiveDeptId, fYear, fSemester]);
+  }, [effectiveDeptId, fYear, fSemester, nextSignal]);
 
   const onUpdated = (updated) =>
     setSubjects((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
@@ -145,7 +156,6 @@ function ManageTab({ departments, adminDepartment, deptLocked, pinnedDeptId }) {
           <button
             type="button"
             onClick={() => loadSubjects(0)}
-            disabled={busy}
             data-cy="subjects-load"
             className={btn()}
           >

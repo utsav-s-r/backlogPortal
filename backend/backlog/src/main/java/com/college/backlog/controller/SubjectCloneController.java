@@ -65,9 +65,19 @@ public class SubjectCloneController {
         // administrative act. NOT @Transactional here on purpose — SubjectCloneService.apply commits
         // each row separately by design, so there is no enclosing transaction to join and the audit
         // row records what actually happened, after it happened.
+        //
+        // The OUTCOME, not the request. This recorded `rows=<requested>` alone, so a 40-row clone
+        // that created 3 and skipped 37 was filed as though it had cloned a catalog — and skipping
+        // is the NORMAL case, since clone exists to carry a year forward onto subjects that are
+        // mostly already there. `requested` is kept beside them because "asked for 40, created 3"
+        // is the reading that matters; the counts come from the result the service returned, which
+        // is the same object the admin sees. Mirrors the SUBJECT_IMPORT row in SubjectController.
+        int requested = req.getRows() == null ? 0 : req.getRows().size();
         auditService.record(AdminAuditAction.SUBJECT_CLONE, actor, AuditTargetType.DEPARTMENT,
                 String.valueOf(dept.getId()),
-                "targetYear=" + req.getTargetYear() + " rows=" + (req.getRows() == null ? 0 : req.getRows().size()));
+                "targetYear=" + req.getTargetYear() + " requested=" + requested
+                    + " created=" + result.getCreated() + " skipped=" + result.getSkipped()
+                    + " errors=" + result.getErrors());
         return result;
     }
 

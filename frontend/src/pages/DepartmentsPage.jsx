@@ -293,6 +293,17 @@ function DepartmentsPage() {
                           No code set — students of this branch cannot register.
                         </p>
                       )}
+                      {/* A warning, never a block: a department may legitimately have students
+                          before anyone is appointed to it, and any setup order must work. Only
+                          the student's own department verifies their registrations, so with no
+                          HOD or office the queue has nobody watching it — an admin can still
+                          verify, but has no reason to know they need to. */}
+                      {d.hasStudents && !d.hasVerifier && (
+                        <p className="mt-1 text-xs text-alert" data-cy={`dept-no-verifier-${d.id}`}>
+                          No HOD or department office account — nobody here can verify this
+                          department&apos;s registrations. An admin must, until one is created.
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {/* Locked once students exist: the code is the branch segment of every one

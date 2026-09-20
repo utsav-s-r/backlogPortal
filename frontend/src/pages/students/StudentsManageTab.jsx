@@ -80,6 +80,10 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
       // No `finally`: it would clear the flag for the NEWER load that superseded this one.
       // ECONNABORTED is axios's own timeout and still deserves a message; ERR_CANCELED is ours.
       if (err.code === "ERR_CANCELED") return;
+      // back to null ("not loaded"), not the rows we already had: those were fetched under the
+      // PREVIOUS filters, and leaving them up relabels them as this filter's result — with Edit,
+      // Reset DOB and Delete still on them. [] would be the other lie ("no students match").
+      setStudents(null);
       setError(
         err.response?.data?.message ||
           (err.code === "ECONNABORTED"

@@ -4,8 +4,11 @@ import java.util.List;
 
 /**
  * Bulk student import, mirroring the progression CSV-import flow. Rows omitting currentSemester /
- * entrySemester fall back to the batch defaults below (entrySemester defaults to 1 = normal
- * intake). dryRun validates without writing.
+ * entrySemester fall back to the batch defaults below; if the batch does not set one either, the
+ * ROW fails rather than assuming a value. entrySemester used to assume 1 (normal intake), which
+ * is legal and therefore silent — a lateral entrant got an eligibility window starting at
+ * semester 1. The UI always sends both, so only a direct API caller could reach it.
+ * dryRun validates without writing, and refuses exactly what the real import refuses.
  */
 public class StudentImportRequest {
     private List<StudentImportRow> rows;

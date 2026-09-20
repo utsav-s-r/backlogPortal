@@ -7,6 +7,7 @@ import { reportLoadError } from "../../lib/loadError";
 import { CURRENT_SEMESTERS } from "../../lib/semesters";
 import { FIELD_CONTROL, FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
+import { useAbortableRequest } from "../../hooks/useAbortableRequest";
 
 
 const CONFIRM_WORD = "PROMOTE";
@@ -31,6 +32,11 @@ function BulkProgressionTab({ departments }) {
   const [exclusions, setExclusions] = useState("");
 
   const [preview, setPreview] = useState(null);
+  // The exact body the standing preview was computed from. Commit sends THIS, never the live
+  // form — the same rule CloneSubjectsTab follows. `expectedCount` is the server's double-run
+  // guard and only guards a run it was counted for, so the pair must travel together or an edit
+  // between Preview and Commit promotes a cohort nobody previewed.
+  const [previewedBody, setPreviewedBody] = useState(null);
   const [confirmWord, setConfirmWord] = useState("");
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -42,6 +48,16 @@ function BulkProgressionTab({ departments }) {
   const [openBatch, setOpenBatch] = useState(null);
   const [detail, setDetail] = useState(null);
   const [detailBusy, setDetailBusy] = useState(false);
+
+  // One in-flight detail fetch. The run rows are not disabled while one loads — you must be able
+  // to change your mind — so opening run #2 before #1's reply lands used to paint #1's held-back
+  // rows under #2's heading and clear the spinner a reply early.
+  const nextDetailSignal = useAbortableRequest();
+
+  // The filters stay editable while a preview runs, so an edit must CANCEL it. Without this the
+  // reply lands after resetPreview() has already cleared the card and puts the old cohort's
+  // count back up under the new filters.
+  const nextPreviewSignal = useAbortableRequest();
 
   const excludeRollNos = exclusions
     .split(/[\s,]+/)
@@ -57,7 +73,11 @@ function BulkProgressionTab({ departments }) {
   // any edit invalidates a preview — committing against a stale count is exactly what the
   // server's 409 catches, but there is no reason to let the user get that far
   const resetPreview = () => {
+    // asking for a signal aborts whatever is still running; the reply that would have
+    // re-populated the card never arrives
+    nextPreviewSignal();
     setPreview(null);
+    setPreviewedBody(null);
     setConfirmWord("");
     setResult(null);
   };
@@ -82,20 +102,30 @@ function BulkProgressionTab({ departments }) {
 
   const toggleBatch = async (batchId) => {
     if (openBatch === batchId) {
+      // collapsing abandons the load still running, or its reply reopens what was just closed
+      nextDetailSignal();
       setOpenBatch(null);
+      setDetail(null);
+      setDetailBusy(false);
       return;
     }
     setOpenBatch(batchId);
     setDetail(null);
     setDetailBusy(true);
     try {
-      const res = await api.get(`/admin/progression/bulk/${batchId}`);
+      const res = await api.get(`/admin/progression/bulk/${batchId}`, {
+        signal: nextDetailSignal(),
+      });
       setDetail(res.data);
+      setDetailBusy(false);
     } catch (err) {
+      // Cleared per path, never unconditionally: a superseded fetch must not clear the spinner
+      // the newer row now owns, nor close the panel that row just opened.
+      if (err.code === "ERR_CANCELED") return;
       setHistoryError(err.response?.data?.message || "Could not load that run.");
       setOpenBatch(null);
+      setDetailBusy(false);
     }
-    setDetailBusy(false);
   };
 
   const runPreview = async (e) => {
@@ -105,14 +135,27 @@ function BulkProgressionTab({ departments }) {
     setBusy(true);
     try {
       // paths are relative to api.js's /api baseURL — a leading /api here doubles it
-      const res = await api.post("/admin/progression/bulk/preview", body);
+      const sent = body;
+      const res = await api.post("/admin/progression/bulk/preview", sent, {
+        signal: nextPreviewSignal(),
+      });
       setPreview(res.data);
+      setPreviewedBody(sent);
       setConfirmWord("");
+      setBusy(false);
     } catch (err) {
+      // The abort here comes from an EDIT, not from a newer request, so nothing else owns the
+      // flag — clear it or Preview stays disabled with no way back. resetPreview has already
+      // cleared the card, and an error for a run the user walked away from is noise.
+      if (err.code === "ERR_CANCELED") {
+        setBusy(false);
+        return;
+      }
       setError(err.response?.data?.message || "Could not preview the run.");
       setPreview(null);
+      setPreviewedBody(null);
+      setBusy(false);
     }
-    setBusy(false);
   };
 
   const commit = async () => {
@@ -121,10 +164,11 @@ function BulkProgressionTab({ departments }) {
     try {
       const res = await api.post(
         "/admin/progression/bulk",
-        { ...body, expectedCount: preview.promoteCount },
+        { ...previewedBody, expectedCount: preview.promoteCount },
       );
       setResult(res.data);
       setPreview(null);
+      setPreviewedBody(null);
       setConfirmWord("");
       loadHistory(); // the run just made is the newest row
     } catch (err) {

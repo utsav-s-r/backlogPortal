@@ -57,9 +57,9 @@ describe("Department code edit — concurrent-edit conflict detection", () => {
       statusCode: 200,
       body: [
         { id: 1, deptName: "Computer Science", code: "CS", contactEmail: null, version: 0,
-          hasStudents: true },
+          hasStudents: true, hasVerifier: true },
         { id: 2, deptName: "Aeronautical", code: "AE", contactEmail: null, version: 0,
-          hasStudents: false },
+          hasStudents: false, hasVerifier: false },
       ],
     }).as("getDepartments");
     cy.intercept("PUT", "/api/admin/departments/1", { statusCode: 200, body: {} }).as("update");
@@ -78,6 +78,35 @@ describe("Department code edit — concurrent-edit conflict detection", () => {
     cy.get('[data-cy="dept-email-input-1"]').clear().type("cse@msrit.edu");
     cy.get('[data-cy="dept-save-1"]').click();
     cy.wait("@update").its("request.body").should("include", { code: "CS", contactEmail: "cse@msrit.edu" });
+  });
+
+  // Only the student's own department verifies their registrations, so a department holding
+  // students with no HOD or office has a queue nobody is watching — an admin can still act but
+  // has no reason to know they need to. Reported, never enforced: any setup order stays legal.
+  it("warns about a department that has students but nobody who can verify them", () => {
+    cy.intercept("GET", "/api/admin/departments*", {
+      statusCode: 200,
+      body: [
+        { id: 1, deptName: "Civil", code: "CV", contactEmail: null, version: 0,
+          hasStudents: true, hasVerifier: false },
+        // the two controls: the warning is the PAIR, so neither half alone may trigger it
+        { id: 2, deptName: "Computer Science", code: "CS", contactEmail: null, version: 0,
+          hasStudents: true, hasVerifier: true },
+        { id: 3, deptName: "Aeronautical", code: "AE", contactEmail: null, version: 0,
+          hasStudents: false, hasVerifier: false },
+      ],
+    }).as("getDepartments");
+
+    authedVisit("/admin/departments");
+    cy.wait("@getDepartments");
+
+    cy.get('[data-cy="dept-no-verifier-1"]').should("contain", "No HOD or department office");
+    cy.get('[data-cy="dept-no-verifier-2"]').should("not.exist");
+    // staffless but empty is an ordinary half-built department, not a problem
+    cy.get('[data-cy="dept-no-verifier-3"]').should("not.exist");
+    // and it warns without blocking anything — the row stays fully editable
+    cy.get('[data-cy="dept-name-input-1"]').should("not.be.disabled");
+    cy.get('[data-cy="dept-email-input-1"]').should("not.be.disabled");
   });
 
   it("saves an edited contact email through the inline row", () => {

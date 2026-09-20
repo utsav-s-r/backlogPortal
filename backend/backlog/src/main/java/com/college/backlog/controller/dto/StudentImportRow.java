@@ -5,7 +5,9 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDate;
 
 /** One row of a student CSV import. currentSemester / entrySemester are nullable — blank falls
- *  back to the batch defaults on {@link StudentImportRequest}. */
+ *  back to the batch defaults on {@link StudentImportRequest}, and is an ERROR row if the batch
+ *  omits them too. Neither is assumed: see StudentImportRequest for why entry semester in
+ *  particular cannot be. */
 public class StudentImportRow {
     private String rollNo;
     private String name;
