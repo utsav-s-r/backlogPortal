@@ -29,9 +29,9 @@ import java.util.stream.Collectors;
  *
  * <p><b>This writes {@code students.current_semester} and its own audit tables. It must NEVER touch
  * {@code student_semester_terms}.</b> The academic-year timeline has exactly two writers
- * ({@code backfillLinear} at creation, {@code overrideProgression} for a hand correction); a third
- * is what made progression disagreement possible in the deleted bulk tools. Detention corrections
- * stay on the per-student Semesters panel.
+ * ({@code seedLinearTimeline} at creation, {@code overrideProgression} for a hand correction); a
+ * third writer is what makes progression disagreement possible. Detention corrections stay on the
+ * per-student Semesters panel.
  *
  * <p>Four guards, all server-side:
  * <ol>

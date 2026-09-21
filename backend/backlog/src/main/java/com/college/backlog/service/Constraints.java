@@ -13,7 +13,7 @@ import org.springframework.dao.DataIntegrityViolationException;
  * was reported as already-existing — leaving the admin believing the target year's catalog was
  * complete.
  *
- * Sibling of {@link Semesters} / {@link AcademicYears} / {@link CourseCodes}. Matching on the name
+ * Sibling of {@link Semesters} / {@link AcademicYears}. Matching on the name
  * is string-ish, but the names are fixed by the Flyway migrations and it is strictly better than
  * asserting the cause outright: an unrecognised violation now falls through to the generic
  * "conflicts with existing data" 409 in GlobalExceptionHandler, which also logs it.
@@ -26,21 +26,48 @@ public final class Constraints {
     /** registrations (roll_no, exam_cycle_id) WHERE status='SUBMITTED' — one pending per cycle. */
     public static final String PENDING_REGISTRATION_PER_CYCLE = "uq_pending_reg_per_cycle";
 
+    /** exam_cycles (name) — cycle names are unique college-wide. */
+    public static final String EXAM_CYCLE_NAME = "uq_exam_cycles_name";
+
+    /** students (roll_no) — the USN primary key. */
+    public static final String STUDENT_ROLL_NO = "students_pkey";
+
+    /** proctor_students (roll_no) — one proctor per student. */
+    public static final String PROCTOR_ASSIGNMENT_ROLL_NO = "proctor_students_pkey";
+
     private Constraints() {}
 
     /**
      * Whether this violation was raised by the named constraint. Postgres puts the name in the
-     * message of the most specific cause; the check is case-insensitive and substring-based because
-     * the surrounding text differs between the driver, Hibernate and Spring's translation layer.
+     * message of the most specific cause, wrapped differently by the driver, Hibernate and Spring,
+     * so the match is case-insensitive and position-free — but on the WHOLE name: students_pkey is a
+     * substring of proctor_students_pkey, and a plain contains() reports one as the other.
      */
     public static boolean isViolationOf(DataIntegrityViolationException e, String constraintName) {
+        String name = constraintName.toLowerCase();
         for (Throwable t = e; t != null; t = t.getCause()) {
             String message = t.getMessage();
-            if (message != null && message.toLowerCase().contains(constraintName.toLowerCase())) {
+            if (message != null && containsWholeName(message.toLowerCase(), name)) {
                 return true;
             }
             if (t.getCause() == t) break; // self-referential cause: stop rather than spin
         }
         return false;
+    }
+
+    /** {@code name} occurring with no identifier character ([a-z0-9_]) directly on either side. */
+    private static boolean containsWholeName(String text, String name) {
+        for (int i = text.indexOf(name); i >= 0; i = text.indexOf(name, i + 1)) {
+            int end = i + name.length();
+            if ((i == 0 || !isIdentifierChar(text.charAt(i - 1)))
+                    && (end == text.length() || !isIdentifierChar(text.charAt(end)))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isIdentifierChar(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
     }
 }

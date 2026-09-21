@@ -2,17 +2,28 @@ package com.college.backlog.controller.dto;
 
 import java.util.List;
 
-// Summary of a bulk op (student import, proctor claim). With dryRun true nothing was written and
-// the counts describe what would happen.
-public class BatchResult {
+// Summary of a bulk op (student import, proctor claim, subject import). With dryRun true nothing
+// was written and the counts describe what would happen.
+//
+// Generic in the row type rather than one class per caller: the envelope is identical everywhere
+// (same four counts, same JSON field name `results`), while the row genuinely differs — it is keyed
+// by USN for students and by course code for subjects, and the frontend reads that field by name.
+public class BatchResult<R> {
     private boolean dryRun;
     private int created;
     private int skipped;
     private int errors;
-    private List<ProgressionRowResult> results;
+    private List<R> results;
 
-    public BatchResult(boolean dryRun, int created, int skipped, int errors,
-                       List<ProgressionRowResult> results) {
+    /**
+     * Null normally. Set when the operation SUCCEEDED but something after it did not — today only
+     * a failed audit write. The rows are committed and correct either way; this is the disclosure
+     * that the record of them is incomplete, so the admin can escalate instead of the gap being
+     * silent. Not an error: the result above is the truth about what happened.
+     */
+    private String warning;
+
+    public BatchResult(boolean dryRun, int created, int skipped, int errors, List<R> results) {
         this.dryRun = dryRun;
         this.created = created;
         this.skipped = skipped;
@@ -24,5 +35,8 @@ public class BatchResult {
     public int getCreated() { return created; }
     public int getSkipped() { return skipped; }
     public int getErrors() { return errors; }
-    public List<ProgressionRowResult> getResults() { return results; }
+    public List<R> getResults() { return results; }
+
+    public String getWarning() { return warning; }
+    public void setWarning(String warning) { this.warning = warning; }
 }

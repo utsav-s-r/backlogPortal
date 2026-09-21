@@ -1,19 +1,24 @@
 package com.college.backlog.service;
 
+import com.college.backlog.model.BatchLine;
+import com.college.backlog.model.ExamCycle;
 import com.college.backlog.model.Registration;
 import com.college.backlog.model.Student;
 import com.college.backlog.model.Subject;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfReader;
 import com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,6 +32,25 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PdfServiceTest {
 
     private final PdfService service = new PdfService();
+
+    private TimeZone defaultZone;
+
+    /**
+     * Forces the JVM default to UTC, which is what Render runs. Without it a
+     * {@code ZoneId.systemDefault()} implementation would pass on any machine already in IST —
+     * i.e. every developer's — and fail only in production, which is exactly how the original bug
+     * survived.
+     */
+    @BeforeEach
+    void pretendToBeTheProductionServer() {
+        defaultZone = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+    }
+
+    @AfterEach
+    void restoreTheDefaultZone() {
+        TimeZone.setDefault(defaultZone);
+    }
 
     private static Registration sampleRegistration() {
         Student student = new Student();
@@ -58,7 +82,17 @@ class PdfServiceTest {
         reg.setRegId("REG-TEST-0001");
         reg.setStudent(student);
         reg.setSubjects(List.of(s1, s2));
-        reg.setRegisteredAt(LocalDateTime.of(2026, 8, 10, 9, 30));
+        // 21:00 UTC on the 10th is 02:30 IST on the 11th. Deliberate: the form must print the
+        // college's date (11/08/2026), and every wrong implementation — the old LocalDateTime, or
+        // a systemDefault() zone under the UTC default this class forces — prints the 10th.
+        reg.setRegisteredAt(Instant.parse("2026-08-10T21:00:00Z"));
+        // The cycle's month (June) deliberately differs from the month of registration (August):
+        // the form used to print the latter, so equal values would let that bug pass.
+        ExamCycle cycle = new ExamCycle("June 2026 Backlog Exams", "2026-06");
+        cycle.setBatchLines(List.of(
+                new BatchLine("B.E. I to VII Semester", "2021"),
+                new BatchLine("M.TECH./MBA/MCA/M.ARCH. I to IV Semester", "2022 & 2023")));
+        reg.setExamCycle(cycle);
         // The form reads the SNAPSHOT, never the live student row — snap_name/semester/
         // year_of_joining/branch are NOT NULL as of V7, and the fallbacks that used to read the
         // live row are gone (they printed today's values on an old registration).
@@ -111,6 +145,93 @@ class PdfServiceTest {
         int labelAt = text.indexOf("CURRENT SEMESTER");
         assertThat(labelAt).isGreaterThan(-1);
         assertThat(text.substring(labelAt, Math.min(labelAt + 60, text.length()))).contains("5");
+    }
+
+    // ---- the date line: the college's calendar day, not the server's ----
+
+    @Test
+    void printsTheRegistrationDateInTheCollegesZone() throws Exception {
+        String text = textOf(service.generateRegistrationPdf(sampleRegistration()));
+
+        assertThat(text).contains("11/08/2026");
+        // The bug: 21:00 UTC on the 10th printed as the 10th, so anything registered between
+        // 00:00 and 05:30 IST was dated a day early on a form that gets signed.
+        assertThat(text).doesNotContain("10/08/2026");
+    }
+
+    // ---- batch list: the CYCLE's lines, not eight years hardcoded here ----
+
+    @Test
+    void printsTheCyclesBatchLinesWithTheirPunctuationSuppliedByTheForm() throws Exception {
+        String text = textOf(service.generateRegistrationPdf(sampleRegistration()));
+
+        // The stored halves plus the chrome the renderer owns — "(", " Batch Students)".
+        assertThat(text).contains("B.E. I to VII Semester (2021 Batch Students)");
+        // Free text, so a batch is not always one year.
+        assertThat(text).contains("M.TECH./MBA/MCA/M.ARCH. I to IV Semester (2022 & 2023 Batch Students)");
+    }
+
+    /** The years that used to be compiled in. A cycle carrying two lines must print two — not
+     *  these — or the hardcoded block is still in there somewhere. */
+    @Test
+    void printsNoBatchLineTheCycleDoesNotCarry() throws Exception {
+        String text = textOf(service.generateRegistrationPdf(sampleRegistration()));
+
+        // Not 2023: this fixture's own PG line ends "2022 & 2023 Batch Students", so asserting
+        // its absence would fail on the fixture rather than on the hardcoded block.
+        assertThat(text).doesNotContain("2024 Batch Students");
+        assertThat(text).doesNotContain("2025 Batch Students");
+        assertThat(text).doesNotContain("B.Arch. I to VIII Semester");
+    }
+
+    /** Informational section: no lines means no block, never a refusal — a student must still be
+     *  able to print their form. */
+    @Test
+    void omitsTheBatchBlockWhenTheCycleHasNoLines() throws Exception {
+        Registration reg = sampleRegistration();
+        reg.getExamCycle().setBatchLines(List.of());
+
+        String text = textOf(service.generateRegistrationPdf(reg));
+
+        assertThat(text).doesNotContain("Batch Students");
+        assertThat(text).contains("1MS22CS001");   // the rest of the form is intact
+    }
+
+    // ---- examination month: the CYCLE's, never the month the student happened to register in ----
+
+    @Test
+    void printsTheCyclesExamMonthNotTheRegistrationMonth() throws Exception {
+        String text = textOf(service.generateRegistrationPdf(sampleRegistration()));
+
+        int labelAt = text.indexOf("Examination Month");
+        assertThat(labelAt).isGreaterThan(-1);
+        String field = text.substring(labelAt, Math.min(labelAt + 80, text.length()));
+        assertThat(field).contains("June 2026");
+        // The regression itself: August is registeredAt's month.
+        assertThat(field).doesNotContain("August");
+    }
+
+    /** Cycles created before the YYYY-MM rule hold free text. No rule recovers a month from it, so
+     *  it prints verbatim — visibly wrong on the form, where a guessed month would not be. */
+    @Test
+    void printsALegacyFreeTextCycleMonthVerbatim() throws Exception {
+        Registration reg = sampleRegistration();
+        reg.setExamCycle(new ExamCycle("Testing", "Not a valid month/year"));
+
+        assertThat(textOf(service.generateRegistrationPdf(reg))).contains("Not a valid month/year");
+    }
+
+    /** exam_cycle_id is NOT NULL in the schema, so this is a backstop, not a live case: the box is
+     *  left blank and the form still renders, rather than falling back to the registration date. */
+    @Test
+    void leavesTheExamMonthBlankWhenTheRegistrationHasNoCycle() throws Exception {
+        Registration reg = sampleRegistration();
+        reg.setExamCycle(null);
+
+        String text = textOf(service.generateRegistrationPdf(reg));
+
+        assertThat(text).contains("Examination Month");
+        assertThat(text).doesNotContain("August 2026").doesNotContain("June 2026");
     }
 
     @Test

@@ -6,13 +6,35 @@ spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/database_name}
 spring.datasource.username=${DB_USER:postgres}
 spring.datasource.password=${DB_PASSWORD:YOUR_PASSWORD_HERE}
 spring.datasource.hikari.maximum-pool-size=${DB_POOL_MAX_SIZE:5}
-spring.datasource.hikari.minimum-idle=${DB_POOL_MIN_IDLE:1}
+# 0, NOT 1 — to Neon an idle pooled connection IS activity, so it defeats the 5-min autosuspend and
+# bills compute 24/7. Only bites a long-lived process: a local run dies and closes the connection,
+# the Render container never does (the GET / keep-alive cron stops it sleeping). min-idle=1 is a
+# 100% duty cycle -> ~186 CU-h/month against the 100 CU-h/PROJECT/month free allowance, which
+# SUSPENDS the production database around day 17 and presents as a boot failure. The keep-alive
+# itself is innocent — it touches no DB.
+spring.datasource.hikari.minimum-idle=${DB_POOL_MIN_IDLE:0}
+# Must stay BELOW Neon's 5-min autosuspend timer or min-idle=0 buys nothing: Hikari's own default is
+# 10 MINUTES, so the connection would outlive the quiet window that lets the compute sleep. Applies
+# only while minimum-idle < maximum-pool-size, i.e. it goes inert if min-idle is raised back to 5.
+spring.datasource.hikari.idle-timeout=${DB_POOL_IDLE_TIMEOUT_MS:30000}
+# Serverless Postgres (Neon) auto-suspends when idle and takes a second or two to wake. Hikari's
+# own default is already 30s; stated explicitly so it is tunable per environment. It is also what
+# absorbs the resume that min-idle=0 makes routine on the first query after a quiet spell.
+spring.datasource.hikari.connection-timeout=${DB_CONNECTION_TIMEOUT_MS:30000}
+# FLYWAY is what actually hits a sleeping database first — it migrates at boot, before Hikari
+# serves anything, so Hikari timeouts alone do NOT stop a cold start from dying on a suspended
+# Neon. Retries default to 0 (Flyway's own default) so LOCAL behaviour is unchanged: a genuinely
+# stopped test container still fails immediately instead of hanging for 20s, which is the
+# "ApplicationContext failure threshold -> check Docker first" path. Set FLYWAY_CONNECT_RETRIES
+# on a deployed host (10 is reasonable) so a wake-up is ridden out rather than crashing the boot.
+spring.flyway.connect-retries=${FLYWAY_CONNECT_RETRIES:0}
+spring.flyway.connect-retries-interval=${FLYWAY_CONNECT_RETRIES_INTERVAL:2}
 
 # Boot behavior. Flyway owns the schema (src/main/resources/db/migration); Hibernate only
 # VALIDATES it, never mutates. Leave these at the defaults.
 #   JPA_DDL_AUTO=validate  -> assert entities match the DB, never auto-migrate
 #   JPA_SHOW_SQL=true      -> log every SQL statement (debugging only; off by default)
-#   SQL_INIT_MODE=never    -> schema.sql/data.sql are retired; Flyway builds the schema
+#   SQL_INIT_MODE=never    -> schema.sql/data.sql are unused; Flyway builds the schema
 spring.jpa.hibernate.ddl-auto=${JPA_DDL_AUTO:validate}
 spring.jpa.show-sql=${JPA_SHOW_SQL:false}
 spring.jpa.properties.hibernate.format_sql=${JPA_FORMAT_SQL:false}
@@ -31,26 +53,89 @@ spring.flyway.baseline-on-migrate=true
 spring.flyway.baseline-version=1
 
 app.cors.allowed-origins=${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174}
-app.jwt.secret=${JWT_SECRET:CHANGE_ME_TO_A_LONG_RANDOM_BASE64_SECRET}
+# NO fallback value on purpose: a placeholder default passes JwtService's 32-byte floor, so an
+# unset JWT_SECRET would boot green on a signing key published in this repo. Empty means the blank
+# check fails the boot instead. JwtService ALSO rejects the known placeholder by value, which covers
+# gitignored application.properties files generated from an older copy of this template.
+app.jwt.secret=${JWT_SECRET:}
 # Hard session length for everyone, student and admin: 1h from login, non-renewable (there is no
 # refresh endpoint). Past it every request is anonymous -> 401 -> the SPA signs the user out.
 app.jwt.expiration-ms=${JWT_EXPIRATION_MS:3600000}
 # Session cookie Secure flag. MUST stay true in production (https); false ONLY for local http dev,
 # else the browser drops the httpOnly session cookie.
 app.cookie.secure=${APP_COOKIE_SECURE:true}
+# Session cookie SameSite: Lax | Strict | None (any casing). VALIDATED AT BOOT — anything else, or
+# None without app.cookie.secure=true, fails the app fast instead of silently shipping a downgraded
+# cookie policy. LEAVE AT Lax unless the SPA and API end up on different registrable domains; this
+# is settable so it needs no rebuild, not because it should be changed. Strict logs students out on
+# inbound links from email/the college site for no real CSRF gain (the double-submit token already
+# covers cross-site POST). None stays available on purpose for a future cross-origin deployment.
+app.cookie.same-site=${APP_COOKIE_SAME_SITE:Lax}
 
-# Initial admin-account seed passwords, set via env. No fallback default: a blank value means the
-# account is NOT created on a fresh DB, so there is nothing guessable. Only ADMIN and PRINCIPAL are
-# seedable — HOD/DEPT_OFFICE/PROCTOR need a department, so create those via Manage Users.
-admin.password.principal=${ADMIN_PASSWORD_PRINCIPAL:}
+# PDF rate limiting (PdfRateLimitService). OFF by default so local runs and tests need no Redis.
+# Set RATELIMIT_ENABLED=true and REDIS_URL on a deployed host to switch it on.
+# Limits the two iText endpoints ONLY — /api/admin/export-pdf and the student registration PDF.
+# LOGIN IS DELIBERATELY NOT LIMITED and no login path may ever return 429: throttling there is a
+# declined feature. Do not add login paths here.
+app.ratelimit.enabled=${RATELIMIT_ENABLED:false}
+app.ratelimit.pdf.max-per-window=${RATELIMIT_PDF_MAX:10}
+app.ratelimit.pdf.window-minutes=${RATELIMIT_PDF_WINDOW_MINUTES:60}
+# Redis connection is set ONLY as an environment variable on the deployed host:
+#     SPRING_DATA_REDIS_URL=rediss://default:<password>@<host>.upstash.io:6379
+# (Upstash TCP tab. `rediss://` — two s — is TLS. The REST tab's URL+TOKEN are an HTTP API and are
+# NOT usable here; Spring Data Redis speaks the RESP protocol over TCP.)
+#
+# There is deliberately NO `spring.data.redis.url=` line: Spring VALIDATES the URL eagerly at
+# startup and an empty string throws `RedisUrlSyntaxException: Invalid Redis URL ''`, which kills
+# the whole context and every context test with it. With the property absent,
+# Redis auto-config falls back to localhost, Lettuce connects lazily, and PdfRateLimitService's
+# fail-open path handles the unreachable connection — so local runs and tests need no Redis at all.
+# Nothing else uses Redis, so scanning JPA repositories as Redis repositories is pure noise:
+spring.data.redis.repositories.enabled=false
+
+# Initial admin-account seed password, set via env. No fallback default: a blank value means the
+# account is NOT created on a fresh DB, so there is nothing guessable. ADMIN is the ONLY seedable
+# role — it creates every other one from Manage Users, PRINCIPAL included; HOD/DEPT_OFFICE/PROCTOR
+# additionally need a department a seeder cannot assign.
 admin.password.admin=${ADMIN_PASSWORD_ADMIN:}
 
 spring.application.name=backlog
-server.port=8080
+# ${PORT:8080} so a hosting platform that assigns a port at runtime (Render, Cloud Run, Heroku and
+# most PaaS set PORT) is obeyed, while local runs and docker-compose keep 8080 unchanged.
+server.port=${PORT:8080}
 server.error.include-message=never
+
+# Honour X-Forwarded-* from the platform proxy. Render terminates TLS and forwards plain HTTP, so
+# WITHOUT this the app considers every request insecure and Spring Security emits NO
+# Strict-Transport-Security header — absent even when X-Forwarded-Proto: https is sent.
+# Easy to miss because the session cookie is Secure by its own property
+# (app.cookie.secure), so TLS looks handled. `framework` = Spring's ForwardedHeaderFilter, portable
+# across containers; `native` would instead need the container's own proxy valve configured.
+# Only safe because the app is reachable ONLY through that proxy — a directly-reachable instance
+# would let any client spoof the scheme. Nothing here reads the client address (PdfRateLimitService
+# keys on the authenticated principal, deliberately), so the changed remote-address view is inert.
+server.forward-headers-strategy=${FORWARD_HEADERS_STRATEGY:framework}
 
 # Gzip API responses; Boot's default mime-type list already covers application/json. Registration
 # and subject list payloads compress ~5-10x. PDFs are already compressed and stay untouched, since
 # application/pdf isn't listed.
 server.compression.enabled=true
 server.compression.min-response-size=1024
+
+# ---- Request size limits. Without them container defaults apply and a single large POST can
+# exhaust heap on the 512 MB free instance.
+# The cap is enforced by RequestSizeLimitFilter, which checks Content-Length BEFORE reading and
+# also counts a chunked body as it streams. Deliberately GENEROUS, not tight: the bulk student
+# import POSTs the whole parsed CSV as one JSON array (~120 bytes/row), so 8 MB still carries tens
+# of thousands of rows, and a cap that breaks a legitimate import is worse than no cap.
+app.request.max-body-bytes=${APP_MAX_REQUEST_BYTES:8388608}
+# Defence in depth, enforced by Tomcat itself and covering shapes the filter does not parse.
+# Form posts are not used by the SPA (everything is JSON), so this is a floor, not a constraint.
+server.tomcat.max-http-form-post-size=2MB
+# No upload endpoint exists; these keep it that way rather than inheriting Boot's 1MB/10MB should
+# one ever be added without thinking about size.
+spring.servlet.multipart.max-file-size=1MB
+spring.servlet.multipart.max-request-size=2MB
+# How much of a REJECTED request body Tomcat will still read before closing. Without a bound, a
+# client that ignores the 413 can keep sending. 2MB is enough to let normal aborts finish cleanly.
+server.tomcat.max-swallow-size=2MB

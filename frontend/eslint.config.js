@@ -34,7 +34,11 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]|motion' }],
+      // Capitalised bindings are exempt because eslint-plugin-react is NOT installed, so nothing
+      // teaches no-unused-vars that `<Foo />` uses `Foo`. Without this every component and icon
+      // import reports as unused. The cost: a genuinely unused capitalised import is invisible here
+      // — tightening this needs the react plugin first.
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
 ])

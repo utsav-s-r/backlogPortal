@@ -20,6 +20,7 @@ import com.college.backlog.service.PdfService;
 import com.college.backlog.service.Usn;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -153,7 +154,7 @@ public class StudentController {
             .map(reg -> new RegistrationSummaryResponse(
                 reg.getRegId(),
                 reg.getStudent().getRollNo(),
-                // snapshot only, never the live student row: these are NOT NULL as of V7, and
+                // snapshot only, never the live student row: these columns are NOT NULL, and
                 // falling back would print today's values on an old registration
                 reg.getSnapName(),
                 reg.getSnapSemester(),
@@ -164,7 +165,9 @@ public class StudentController {
                 reg.getStatus().name(),
                 reg.getRegisteredAt().toString(),
                 reg.getVerifiedBy(),
-                reg.getExamCycle() != null ? reg.getExamCycle().getName() : null))
+                reg.getExamCycle() != null ? reg.getExamCycle().getName() : null,
+                // A student never verifies anything; the field exists for the admin list.
+                false))
             .collect(Collectors.toList());
     }
 
@@ -185,8 +188,11 @@ public class StudentController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment",
-            "backlog-registration-" + reg.getStudent().getRollNo() + ".pdf");
+        // attachment (RFC 6266), not setContentDispositionFormData: that builds a multipart PART
+        // header, "form-data; name=...", which is not a response disposition
+        headers.setContentDisposition(ContentDisposition.attachment()
+            .filename("backlog-registration-" + reg.getStudent().getRollNo() + ".pdf")
+            .build());
 
         return ResponseEntity.ok().headers(headers).body(pdfBytes);
     }

@@ -1,6 +1,9 @@
-// Phone-width regression coverage from the 2026-07 mobile audit. Both bugs it guards were
-// page-level horizontal overflow at 375px: a long subject name blowing out the registration list
-// (missing min-w-0 on a flex label), and the admin header nav clipping buttons (missing flex-wrap).
+// Phone-width (375px) regression coverage. NOT all about horizontal overflow — four distinct bugs:
+//   - a long subject name blowing out the registration list (missing min-w-0 on a flex label)
+//   - the admin header nav clipping buttons (missing flex-wrap)
+//   - form controls under 16px, which make iOS Safari auto-zoom on focus and never zoom back
+//   - the history dialog growing past the viewport, clipped at BOTH ends by `items-center` with no
+//     scrollbar (a fixed overlay does not scroll), taking its close button off-screen
 
 const expectNoHorizontalScroll = () =>
   cy.document().its("documentElement").should((el) => {
@@ -18,8 +21,10 @@ describe("Mobile viewport (375x812)", () => {
     cy.intercept("GET", "/api/registration-status", { open: false }).as("regStatus");
     cy.visit("/");
     cy.contains("Register for your backlog exam").should("be.visible");
-    // the brand logo and the theme toggle share the sticky header row
-    cy.get('button[aria-label="Toggle theme"]').should("be.visible");
+    // the brand logo and the theme toggle share the sticky header row. The toggle is the WORDS
+    // "Dark Mode" next to a switch, so its accessible name is "Dark Mode" — there is no icon to
+    // label, which is the whole point of the design.
+    cy.get('button[aria-label="Dark Mode"]').should("be.visible");
     expectNoHorizontalScroll();
   });
 
@@ -76,7 +81,87 @@ describe("Mobile viewport (375x812)", () => {
     expectNoHorizontalScroll();
   });
 
-  it("admin header nav wraps so every button stays reachable", () => {
+  // Electron can never reproduce the iOS zoom, so the font size IS the contract — assert the
+  // computed px, not a visual outcome.
+  it("form controls are at least 16px so iOS does not zoom on focus", () => {
+    cy.visit("/student/login");
+    ["student-usn", "student-dob"].forEach((cy_) =>
+      cy.get(`[data-cy="${cy_}"]`).should(($el) => {
+        expect(parseFloat(getComputedStyle($el[0]).fontSize), `${cy_} font-size`).to.be.at.least(16);
+      }),
+    );
+  });
+
+  it("history dialog stays inside the viewport when the audit trail is long", () => {
+    const row = {
+      regId: "REG-2026-1001",
+      rollNo: "1MS22CS001",
+      studentName: "Student One",
+      semester: 4,
+      yearOfJoining: 2022,
+      subjects: ["Data Structures"],
+      status: "VERIFIED",
+      verifiedBy: "hod.cse",
+      registeredAt: "2026-04-20T10:20:00Z",
+    };
+    // every endpoint AdminPage fires on mount — an unstubbed /api/admin call 401s and signs the
+    // session out mid-test
+    cy.intercept("GET", "/api/admin/registrations*", {
+      statusCode: 200,
+      body: { content: [row], totalElements: 1, totalPages: 1, number: 0 },
+    });
+    cy.intercept("GET", "/api/admin/registrations/summary-counts*", {
+      statusCode: 200,
+      body: { total: 1, submitted: 0, verified: 1, rejected: 0 },
+    });
+    cy.intercept("GET", "/api/admin/exam-cycles*", { statusCode: 200, body: [] });
+    cy.intercept("GET", "/api/admin/subjects-for-filter*", { statusCode: 200, body: [] });
+    cy.intercept("GET", "/api/admin/departments", { statusCode: 200, body: [] });
+    // 15 events: comfortably past the ~8 that overflowed before the max-h cap
+    cy.intercept("GET", `/api/admin/registrations/${row.regId}/events`, {
+      statusCode: 200,
+      body: Array.from({ length: 15 }, (_, i) => ({
+        action: i === 0 ? "SUBMITTED" : "VERIFIED",
+        actor: "hod.cse",
+        actorRole: "HOD",
+        timestamp: "2026-04-20T10:20:00",
+        note: `Event ${i + 1}`,
+      })),
+    }).as("getEvents");
+
+    cy.visitAsAdmin("/admin");
+    cy.get(`[data-cy="history-${row.regId}"]`).click();
+    cy.wait("@getEvents");
+
+    // `window` in spec scope is the RUNNER's, whose innerHeight is 0 — every `at.most(...)` would
+    // then be vacuous. Measure against the app's.
+    cy.window().then((win) => {
+      cy.get('[data-cy="history-dialog"]').should(($d) => {
+        const r = $d[0].getBoundingClientRect();
+        expect(r.top, "dialog top is on screen").to.be.at.least(0);
+        expect(r.bottom, "dialog bottom is on screen").to.be.at.most(win.innerHeight);
+        // the cap is useless without a scroll container to reach the clipped events
+        const scroller = $d[0].querySelector(".overflow-y-auto");
+        expect(scroller, "content has a scroll container").to.not.be.null;
+        expect(scroller.scrollHeight, "content actually scrolls").to.be.greaterThan(
+          scroller.clientHeight,
+        );
+      });
+      // the close button was the casualty: it went off the top with the header
+      cy.get('[data-cy="history-close"]').should(($b) => {
+        const r = $b[0].getBoundingClientRect();
+        expect(r.top, "close button is on screen").to.be.at.least(0);
+        expect(r.bottom, "close button is on screen").to.be.at.most(win.innerHeight);
+      });
+    });
+    expectNoHorizontalScroll();
+  });
+
+  // Admin navigation is a full-screen drawer at this width, not a wrapping row of header pills:
+  // closed it must not be reachable at all, opened it must cover the screen and offer every
+  // destination. Asserting the drawer is CLOSED first is what keeps this honest — without it the
+  // test would pass on a drawer that never opened, since the rail's rows exist either way.
+  it("admin nav drawer opens full-screen and offers every destination", () => {
     cy.intercept("POST", "/api/auth/login", {
       statusCode: 200,
       body: { message: "Login success", role: "ADMIN", token: "admin-jwt-token" },
@@ -101,10 +186,46 @@ describe("Mobile viewport (375x812)", () => {
     cy.wait("@adminLogin");
     cy.wait("@getRegistrations");
 
-    // all nav buttons visible — the row wraps instead of clipping
-    ["Exam Cycles", "Subjects", "Departments", "Users", "Students", "Logout"].forEach(
-      (label) => cy.contains(label).should("be.visible"),
-    );
+    // closed: the rail is display:none below md, so nothing in it is reachable
+    cy.contains("a", "Exam cycles").should("not.be.visible");
+
+    cy.get('[data-cy="nav-open"]').click();
+
+    // Full-screen means BOTH dimensions — a partial panel with a scrim was explicitly rejected.
+    // Measured against the LAYOUT VIEWPORT, never against the cy.viewport() numbers: a classic
+    // scrollbar (Linux CI) takes 15px off the width that macOS's overlay scrollbars do not, so
+    // asserting the literal 375 passes locally and fails on the runner for a reason that has
+    // nothing to do with the drawer.
+    cy.window().then((win) => {
+      // documentElement.client{Width,Height} — the LAYOUT viewport, which is what a full-bleed
+      // fixed element fills. NOT window.inner{Width,Height}: those INCLUDE the scrollbar, so on a
+      // runner with classic scrollbars (Linux CI) innerWidth reads 375 while the drawer is 360.
+      // NOT the cy.viewport() literals either, for the same reason. macOS overlay scrollbars are
+      // 0px wide, so all three agree locally and only CI can tell them apart.
+      const vw = win.document.documentElement.clientWidth;
+      const vh = win.document.documentElement.clientHeight;
+      cy.get("aside").then(([el]) => {
+        const r = el.getBoundingClientRect();
+        expect(r.width, "drawer width").to.equal(vw);
+        expect(r.height, "drawer height").to.equal(vh);
+        expect(r.top, "drawer top").to.equal(0);
+        expect(r.left, "drawer left").to.equal(0);
+      });
+    });
+
+    // every destination an ADMIN gets, plus the utilities, all reachable in the open drawer
+    [
+      "Registrations",
+      "Students",
+      "Subjects",
+      "Exam cycles",
+      "Departments",
+      "Users",
+      "My password",
+      "Home",
+      "Log out",
+    ].forEach((label) => cy.contains(label).should("be.visible"));
+
     expectNoHorizontalScroll();
   });
 });

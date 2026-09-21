@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Writes for "student X studied semester N in academic year Y". Two producers only:
- * {@link #backfillLinear} seeds the full entry..8 timeline at student creation (write-once, onto an
+ * {@link #seedLinearTimeline} seeds the full entry..8 timeline at student creation (write-once, onto an
  * empty timeline), and {@link #overrideProgression} corrects one semester (overwrites, audited).
  * See docs/adr/backlog-progression.md.
  */
@@ -28,7 +28,7 @@ public class ProgressionService {
     private StudentSemesterTermRepository termRepository;
 
     /** Correct an existing (or missing) row — OVERWRITES the academic year, unlike the write-once
-     *  {@link #backfillLinear}. Audited. Does not touch currentSemester. */
+     *  {@link #seedLinearTimeline}. Audited. Does not touch currentSemester. */
     @Transactional
     public void overrideProgression(String rollNo, int semester, int academicYear, String actor) {
         validate(rollNo, semester, academicYear);
@@ -42,7 +42,7 @@ public class ProgressionService {
     }
 
     /**
-     * Linear-default seed for one student: assume no detention and stamp every semester from
+     * Assumes no detention: stamps every semester from
      * entry through 8 as {@code sem k -> admissionYear + floor((k - entrySem)/2)} — e.g. a 2024
      * intake with entry 1 gets 1-2:2024, 3-4:2025, 5-6:2026, 7-8:2027. A lateral entrant anchors
      * at their entry year; pre-entry semesters are never invented (they never sat them).
@@ -56,7 +56,7 @@ public class ProgressionService {
      * @return number of rows created
      */
     @Transactional
-    public int backfillLinear(String rollNo) {
+    public int seedLinearTimeline(String rollNo) {
         Student student = studentRepository.findByRollNo(rollNo).orElse(null);
         if (student == null) {
             throw new IllegalArgumentException("Student not found: " + rollNo);
@@ -66,8 +66,8 @@ public class ProgressionService {
             throw new IllegalArgumentException("Cannot derive admission year from USN: " + rollNo);
         }
         int entry = Math.max(1, student.getEntrySemester());
-        // one query for existing rows, not an exists-probe round trip per semester
-        // (bulk backfill multiplies them)
+        // one query for existing rows, not an exists-probe round trip per semester — student CSV
+        // import runs this once per row, so the probes would multiply by the batch (see Batches)
         java.util.Set<Integer> recorded = termRepository.findByRollNo(rollNo).stream()
                 .map(StudentSemesterTerm::getSemester)
                 .collect(java.util.stream.Collectors.toSet());

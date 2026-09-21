@@ -30,7 +30,8 @@ class AcademicYearsTest {
         // exactly what the no-op @NotNull on SubjectCreateRequest used to let through.
         assertThat(AcademicYears.isInRange(0)).isFalse();
         assertThat(AcademicYears.isInRange(-1)).isFalse();
-        // and a far-future year, which CourseCodes.matchesYear happily accepts as "99..."
+        // and a far-future year: nothing else constrains the binding key, so this range is the
+        // only guard against a typo creating an offering no backlog can resolve to
         assertThat(AcademicYears.isInRange(9999)).isFalse();
     }
 

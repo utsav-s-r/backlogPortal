@@ -42,12 +42,105 @@ public class StudentManagementService {
 
     /**
      * Create one student, in its own transaction so a bad row can't poison a bulk import.
-     * The caller has already enforced USN uniqueness and department scope.
+     * The caller has already checked department scope and pre-checked the USN.
      *
+     * @param actor username of the staff account making the change — logged, never persisted
      * @throws IllegalArgumentException on any validation failure
+     * @throws org.springframework.dao.DataIntegrityViolationException on
+     *         {@link Constraints#STUDENT_ROLL_NO} when the same USN was created concurrently
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public Student createStudent(StudentCreateRequest req) {
+    public Student createStudent(StudentCreateRequest req, String actor) {
+        String rollNo = normalizeUsn(req.getRollNo());
+        Department dept = validateNewStudent(req);
+        String phone = Phones.normalizeOptional(req.getPhone());
+
+        Student s = new Student();
+        s.setRollNo(rollNo);
+        s.setName(req.getName().trim());
+        // email is system-managed, never client-supplied
+        s.setEmail(institutionalEmail(rollNo));
+        s.setPhone(phone);
+        s.setDateOfBirth(req.getDateOfBirth());
+        s.setCurrentSemester(req.getCurrentSemester());
+        s.setEntrySemester(req.getEntrySemester());
+        // the stable 2-letter CODE, not the editable dept name: it survives a rename and is what
+        // the delete guard matches on (existsByBranchIgnoreCase)
+        s.setBranch(dept.getCode());
+        s.setYearOfJoining(Usn.admissionYear(rollNo));
+
+        // Flushed now: Student.isNew() makes this an INSERT, and a USN created concurrently must
+        // fail HERE on students_pkey, before the timeline is seeded, not at commit.
+        Student saved = studentRepository.saveAndFlush(s);
+        log.info("STUDENT_CREATE actor={} rollNo={} currentSem={} entrySem={}",
+                actor, rollNo, saved.getCurrentSemester(), saved.getEntrySemester());
+
+        // Seeds entry..8 up front, not just to currentSemester, and does NOT touch currentSemester
+        // (set on the form, advanced on the Progression page) — so a year-back is fixed by editing
+        // the affected sems there. The CSV import funnels through here too.
+        progressionService.seedLinearTimeline(rollNo);
+        return saved;
+    }
+
+    /** Apply an edit to an already-loaded student. DOB and USN are not touched here.
+     *  {@code actor} is the staff username, logged for attribution. */
+    @Transactional
+    public Student updateStudent(Student existing, StudentUpdateRequest req, String actor) {
+        validateSemesters(req.getCurrentSemester(), req.getEntrySemester());
+        if (req.getName() == null || req.getName().isBlank()) {
+            throw new IllegalArgumentException("Name is required.");
+        }
+        // validated before any setter: `existing` is managed, so a half-applied edit is dirty state
+        String phone = Phones.normalizeOptional(req.getPhone());
+        existing.setName(req.getName().trim());
+        // email stays system-managed; re-derive so legacy rows self-heal
+        existing.setEmail(institutionalEmail(existing.getRollNo()));
+        existing.setPhone(phone);
+        existing.setCurrentSemester(req.getCurrentSemester());
+        existing.setEntrySemester(req.getEntrySemester());
+        Student saved = studentRepository.save(existing);
+        log.info("STUDENT_UPDATE actor={} rollNo={} currentSem={} entrySem={}",
+                actor, saved.getRollNo(), saved.getCurrentSemester(), saved.getEntrySemester());
+        return saved;
+    }
+
+    /** Reset the login credential (DOB). The value is never logged — only who reset it, for whom. */
+    @Transactional
+    public void resetDob(Student existing, LocalDate dateOfBirth, String actor) {
+        if (dateOfBirth == null) {
+            throw new IllegalArgumentException("Date of birth is required.");
+        }
+        existing.setDateOfBirth(dateOfBirth);
+        // The date of birth IS the student's login credential, so resetting one must end the
+        // sessions it opened — otherwise the old DOB keeps working for up to an hour.
+        existing.revokeExistingSessions();
+        studentRepository.save(existing);
+        log.info("STUDENT_DOB_RESET actor={} rollNo={}", actor, existing.getRollNo());
+    }
+
+    /** Delete a student that no registration references; otherwise reject.
+     *  {@code actor} is the staff username: this is the one irreversible action here. */
+    @Transactional
+    public void deleteStudent(Student existing, String actor) {
+        if (registrationRepository.existsByStudent_RollNo(existing.getRollNo())) {
+            throw new IllegalStateException(
+                "This student has registrations and cannot be deleted.");
+        }
+        studentRepository.delete(existing);
+        log.info("STUDENT_DELETE actor={} rollNo={}", actor, existing.getRollNo());
+    }
+
+    // ---- validation helpers (also reused by the controller for dry-run import) ----
+
+    /**
+     * Every data rule a create enforces, and the ONLY list: import's dry run calls this too, so
+     * Preview can't say WOULD_CREATE for a row Import rejects. Add a new create rule here, never
+     * inline in {@link #createStudent} or the controller. Read-only apart from the branch lookup.
+     *
+     * @return the department resolved from the USN's branch code
+     * @throws IllegalArgumentException on the first rule the request breaks
+     */
+    public Department validateNewStudent(StudentCreateRequest req) {
         String rollNo = normalizeUsn(req.getRollNo());
         validateUsn(rollNo);
         Department dept = resolveBranchDept(rollNo);
@@ -58,76 +151,9 @@ public class StudentManagementService {
         if (req.getName() == null || req.getName().isBlank()) {
             throw new IllegalArgumentException("Name is required.");
         }
-
-        Student s = new Student();
-        s.setRollNo(rollNo);
-        s.setName(req.getName().trim());
-        // email is system-managed, never client-supplied
-        s.setEmail(institutionalEmail(rollNo));
-        s.setPhone(trimToNull(req.getPhone()));
-        s.setDateOfBirth(req.getDateOfBirth());
-        s.setCurrentSemester(req.getCurrentSemester());
-        s.setEntrySemester(req.getEntrySemester());
-        // the stable 2-letter CODE, not the editable dept name: it survives a rename and is what
-        // the delete guard matches on (existsByBranchIgnoreCase)
-        s.setBranch(dept.getCode());
-        s.setYearOfJoining(Usn.admissionYear(rollNo));
-
-        Student saved = studentRepository.save(s);
-        log.info("STUDENT_CREATE rollNo={} currentSem={} entrySem={}",
-                rollNo, saved.getCurrentSemester(), saved.getEntrySemester());
-
-        // Seed the FULL timeline up front: entry..8, mapped linearly from the admission year
-        // (1-2 -> join year, 3-4 -> +1, ...); pre-entry sems stay empty for lateral entrants.
-        // Write-once and does NOT touch currentSemester (set on the form, advanced on the
-        // Progression page), so a year-back is fixed by editing the affected sems there.
-        // The CSV import funnels through here too.
-        progressionService.backfillLinear(rollNo);
-        return saved;
+        Phones.normalizeOptional(req.getPhone());
+        return dept;
     }
-
-    /** Apply an edit to an already-loaded student. DOB and USN are not touched here. */
-    @Transactional
-    public Student updateStudent(Student existing, StudentUpdateRequest req) {
-        validateSemesters(req.getCurrentSemester(), req.getEntrySemester());
-        if (req.getName() == null || req.getName().isBlank()) {
-            throw new IllegalArgumentException("Name is required.");
-        }
-        existing.setName(req.getName().trim());
-        // email stays system-managed; re-derive so legacy rows self-heal
-        existing.setEmail(institutionalEmail(existing.getRollNo()));
-        existing.setPhone(trimToNull(req.getPhone()));
-        existing.setCurrentSemester(req.getCurrentSemester());
-        existing.setEntrySemester(req.getEntrySemester());
-        Student saved = studentRepository.save(existing);
-        log.info("STUDENT_UPDATE rollNo={} currentSem={} entrySem={}",
-                saved.getRollNo(), saved.getCurrentSemester(), saved.getEntrySemester());
-        return saved;
-    }
-
-    /** Reset the login credential (DOB). The value is never logged. */
-    @Transactional
-    public void resetDob(Student existing, LocalDate dateOfBirth) {
-        if (dateOfBirth == null) {
-            throw new IllegalArgumentException("Date of birth is required.");
-        }
-        existing.setDateOfBirth(dateOfBirth);
-        studentRepository.save(existing);
-        log.info("STUDENT_DOB_RESET rollNo={}", existing.getRollNo());
-    }
-
-    /** Delete a student that no registration references; otherwise reject. */
-    @Transactional
-    public void deleteStudent(Student existing) {
-        if (registrationRepository.existsByStudent_RollNo(existing.getRollNo())) {
-            throw new IllegalStateException(
-                "This student has registrations and cannot be deleted.");
-        }
-        studentRepository.delete(existing);
-        log.info("STUDENT_DELETE rollNo={}", existing.getRollNo());
-    }
-
-    // ---- validation helpers (also reused by the controller for dry-run import) ----
 
     public String normalizeUsn(String rollNo) {
         return rollNo == null ? "" : rollNo.trim().toUpperCase();

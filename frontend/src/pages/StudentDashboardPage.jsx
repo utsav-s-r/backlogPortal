@@ -12,17 +12,21 @@ import {
 } from "lucide-react";
 import AlertBanner from "../components/AlertBanner";
 import { Link, useNavigate } from "react-router-dom";
-import BrandHeader from "../components/layout/BrandHeader";
-import MagneticCta from "../components/ui/MagneticCta";
-import ThemeToggle from "../components/ui/ThemeToggle";
-import api, { getStudentHeaders, logoutStudent } from "../lib/api";
+import PageLayout from "../components/layout/PageLayout";
+import { btn } from "../lib/buttonClasses";
+import PrimaryCta from "../components/ui/PrimaryCta";
+import api, { logoutStudent } from "../lib/api";
 import { saveBlob, readBlobErrorMessage } from "../lib/download";
+import ReadOnlyField from "../components/ui/ReadOnlyField";
+import HeaderPill from "../components/ui/HeaderPill";
+import { FIELD_CONTROL, FIELD_LABEL } from "../lib/formClasses";
+import { PHONE_ERROR, PHONE_RE, cleanPhoneInput } from "../lib/phone";
 
 function statusBadgeClass(status) {
   if (status === "VERIFIED")
-    return "border-primary/30 bg-primary-tint text-primary-ink";
-  if (status === "REJECTED") return "border-red-200 bg-red-50 text-red-600";
-  return "border-stroke bg-surface-muted text-ink";
+    return "bg-success-tint text-success";
+  if (status === "REJECTED") return "bg-alert-tint text-alert";
+  return "bg-surface-muted text-ink";
 }
 
 function StudentDashboardPage() {
@@ -46,8 +50,8 @@ function StudentDashboardPage() {
     setError("");
     try {
       const [meRes, regRes] = await Promise.all([
-        api.get("/student/me", { headers: getStudentHeaders() }),
-        api.get("/student/registrations", { headers: getStudentHeaders() }),
+        api.get("/student/me"),
+        api.get("/student/registrations"),
       ]);
       setProfile(meRes.data);
       setRegistrations(Array.isArray(regRes.data) ? regRes.data : []);
@@ -87,18 +91,14 @@ function StudentDashboardPage() {
   };
 
   const savePhone = async () => {
-    if (!/^[0-9]{10}$/.test(phoneInput)) {
-      setPhoneError("Phone number must be exactly 10 digits.");
+    if (!PHONE_RE.test(phoneInput)) {
+      setPhoneError(PHONE_ERROR);
       return;
     }
     setSavingPhone(true);
     setPhoneError("");
     try {
-      const res = await api.put(
-        "/student/me/phone",
-        { phone: phoneInput },
-        { headers: getStudentHeaders() },
-      );
+      const res = await api.put("/student/me/phone", { phone: phoneInput });
       setProfile(res.data);
       setEditingPhone(false);
     } catch (err) {
@@ -113,7 +113,6 @@ function StudentDashboardPage() {
     setDownloadError(null); // a retry shouldn't sit under the previous attempt's message
     try {
       const res = await api.get(`/student/registrations/${regId}/pdf`, {
-        headers: getStudentHeaders(),
         responseType: "blob",
       });
       saveBlob(res.data, `backlog-registration-${profile?.rollNo || regId}.pdf`, "application/pdf");
@@ -121,7 +120,7 @@ function StudentDashboardPage() {
       // only 401 is handled globally (sign-out); 403 belongs here like any other denial
       if (err.response?.status !== 401) {
         // the server's reason is the actionable part (e.g. a 409 telling the student which detail
-        // is missing and to contact the department office) — a generic alert threw it away
+        // is missing and to contact the department office) — a generic alert throws it away
         setDownloadError({
           regId,
           message: await readBlobErrorMessage(
@@ -142,27 +141,20 @@ function StudentDashboardPage() {
     : "";
 
   return (
-    <div className="min-h-screen bg-surface-1 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-4xl">
-        <BrandHeader className="mb-6">
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Link
-              to="/"
-              className="inline-flex items-center gap-1 rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              <ArrowLeft size={15} /> Home
-            </Link>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              <LogOut size={15} /> Log out
-            </button>
-          </div>
-        </BrandHeader>
-
+    <PageLayout
+      containerClassName="max-w-4xl"
+      actions={
+        <>
+          <HeaderPill as={Link} to="/">
+            <ArrowLeft size={15} /> Home
+          </HeaderPill>
+          <HeaderPill onClick={handleLogout}>
+            <LogOut size={15} /> Log out
+          </HeaderPill>
+        </>
+      }
+    >
+      <div>
         {loading ? (
           <p className="inline-flex items-center gap-2 text-sm text-ink-muted">
             <LoaderCircle size={18} className="animate-spin" /> Loading your dashboard...
@@ -175,7 +167,7 @@ function StudentDashboardPage() {
           <>
             {/* Profile */}
             <section
-              className="mb-6 rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6"
+              className="mb-6 py-5 sm:py-6"
             >
               <h1 className="mb-1 text-2xl font-semibold text-secondary-ink">
                 {profile?.name || "Student"}
@@ -183,36 +175,36 @@ function StudentDashboardPage() {
               <p className="mb-4 text-sm text-ink-muted">{profile?.rollNo}</p>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Email" value={profile?.email} />
-                <Field label="Branch" value={branchLabel} />
-                <Field
+                <ReadOnlyField label="Email" value={profile?.email} />
+                <ReadOnlyField label="Branch" value={branchLabel} />
+                <ReadOnlyField
                   label="Current Semester"
                   value={profile?.currentSemester ? `Semester ${profile.currentSemester}` : ""}
                 />
 
                 {/* Phone — the only editable field */}
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">
-                    Phone
-                  </span>
+                  {/* Not <Field>: this holds an input plus two buttons when editing, the
+                      multi-interactive case Field must not wrap. Shares FIELD_LABEL so it stays
+                      level with the ReadOnlyFields beside it in this grid. */}
+                  <span className={`${FIELD_LABEL} text-ink-muted`}>Phone</span>
                   {editingPhone ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <input
                         value={phoneInput}
-                        onChange={(e) =>
-                          setPhoneInput(e.target.value.replace(/\D/g, "").slice(0, 10))
-                        }
+                        onChange={(e) => setPhoneInput(cleanPhoneInput(e.target.value))}
+                        type="tel"
                         inputMode="numeric"
                         maxLength={10}
                         placeholder="10 digit number"
-                        className="w-44 rounded-xl border border-stroke bg-surface-1 px-3.5 py-2 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        className={`${FIELD_CONTROL} w-44`}
                         data-cy="phone-input"
                       />
                       <button
                         type="button"
                         onClick={savePhone}
                         disabled={savingPhone}
-                        className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                        className={btn("accent")}
                         data-cy="phone-save"
                       >
                         {savingPhone ? (
@@ -225,7 +217,7 @@ function StudentDashboardPage() {
                       <button
                         type="button"
                         onClick={() => setEditingPhone(false)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-2 text-sm font-semibold text-ink"
+                        className={btn()}
                       >
                         <X size={14} /> Cancel
                       </button>
@@ -233,7 +225,7 @@ function StudentDashboardPage() {
                   ) : (
                     <div className="flex items-center gap-3">
                       <span
-                        className={`inline-flex items-center gap-1.5 text-sm ${
+                        className={`inline-flex items-center gap-1.5 text-sm font-medium ${
                           profile?.phone ? "text-ink" : "text-ink-muted"
                         }`}
                         data-cy="phone-value"
@@ -243,7 +235,7 @@ function StudentDashboardPage() {
                       <button
                         type="button"
                         onClick={startEditPhone}
-                        className="inline-flex items-center gap-1 text-sm font-semibold text-primary-ink hover:underline"
+                        className={btn("neutral", "sm")}
                         data-cy="phone-edit"
                       >
                         <Pencil size={13} /> {profile?.phone ? "Edit" : "Add phone"}
@@ -251,7 +243,7 @@ function StudentDashboardPage() {
                     </div>
                   )}
                   {phoneError ? (
-                    <p className="text-xs text-red-600">{phoneError}</p>
+                    <p className="text-xs text-alert">{phoneError}</p>
                   ) : !profile?.phone ? (
                     <p className="text-xs text-ink-muted">
                       Add your phone number before registering for backlog exams.
@@ -261,25 +253,25 @@ function StudentDashboardPage() {
               </div>
 
               <div className="mt-6 border-t border-stroke pt-5">
-                <MagneticCta
+                <PrimaryCta
                   onClick={() => navigate("/register")}
-                  className="gap-2 rounded-xl"
+                  className="gap-2"
                   data-cy="register-cta"
                 >
                   Register for backlog subjects <ArrowRight size={16} />
-                </MagneticCta>
+                </PrimaryCta>
               </div>
             </section>
 
             {/* Submissions */}
             <section
-              className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6"
+              className="py-5 sm:py-6"
             >
               <h2 className="mb-4 text-xl font-semibold text-ink">
                 Your Submissions
               </h2>
               {registrations.length === 0 ? (
-                <p className="rounded-xl border border-stroke bg-surface-muted px-4 py-3 text-sm text-ink">
+                <p className="rounded-lg bg-surface-muted px-4 py-3 text-sm text-ink">
                   You have no registrations yet.
                 </p>
               ) : (
@@ -287,12 +279,12 @@ function StudentDashboardPage() {
                   {registrations.map((reg) => (
                     <li
                       key={reg.regId}
-                      className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-stroke bg-surface-muted p-4 sm:flex-row sm:items-start"
+                      className="flex flex-col items-start justify-between gap-3 rounded-lg bg-surface-muted p-4 sm:flex-row sm:items-start"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="mb-1 flex items-center gap-2">
                           <span
-                            className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusBadgeClass(
+                            className={`inline-flex rounded-lg px-2.5 py-0.5 text-xs font-semibold ${statusBadgeClass(
                               reg.status,
                             )}`}
                           >
@@ -326,7 +318,7 @@ function StudentDashboardPage() {
                         type="button"
                         onClick={() => downloadPdf(reg.regId)}
                         disabled={downloadingId === reg.regId}
-                        className="inline-flex shrink-0 items-center gap-2 self-stretch justify-center rounded-xl border border-stroke bg-surface-1 px-4 py-2 text-sm font-semibold text-secondary-ink transition-colors hover:border-primary hover:text-primary-ink disabled:opacity-60 sm:self-start sm:justify-start"
+                        className={`${btn()} shrink-0 self-stretch sm:self-start`}
                         data-cy="download-pdf"
                       >
                         {downloadingId === reg.regId ? (
@@ -344,18 +336,7 @@ function StudentDashboardPage() {
           </>
         )}
       </div>
-    </div>
-  );
-}
-
-function Field({ label, value }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">
-        {label}
-      </span>
-      <span className="text-sm text-ink">{value || "—"}</span>
-    </div>
+    </PageLayout>
   );
 }
 

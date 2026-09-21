@@ -1,6 +1,7 @@
 package com.college.backlog.exception;
 
 import jakarta.validation.ConstraintViolationException;
+import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -16,9 +17,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import com.college.backlog.web.RequestBodyTooLargeException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.sql.SQLException;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -56,12 +59,32 @@ public class GlobalExceptionHandler {
     // picks the most specific handler, and the catch-all only wins when nothing else matches.
     // Messages stay generic: the exception text carries class names, field paths and parse offsets.
 
+    /** A body that outran the size cap mid-read (chunked, so RequestSizeLimitFilter could not
+     *  reject it on Content-Length). 413, not 400 — the submission is not malformed, it is too big,
+     *  and telling the client "not valid JSON" would send them debugging the wrong thing. */
+    @ExceptionHandler(RequestBodyTooLargeException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public Map<String, String> handleBodyTooLarge(RequestBodyTooLargeException ex) {
+        logger.debug("Request body over the cap: {}", ex.getMessage());
+        return Map.of("message", "Request body is too large.");
+    }
+
     /** Malformed JSON, or a JSON value of the wrong type for its field. */
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Map<String, String> handleUnreadableBody(HttpMessageNotReadableException ex) {
+    public ResponseEntity<Map<String, String>> handleUnreadableBody(HttpMessageNotReadableException ex) {
+        // Jackson wraps whatever the stream threw, so an over-limit body arrives here disguised as
+        // malformed JSON. Unwrap before deciding — without this the cap answers 400 and reads as a
+        // client formatting bug.
+        for (Throwable t = ex.getCause(); t != null; t = t.getCause()) {
+            if (t instanceof RequestBodyTooLargeException) {
+                logger.debug("Request body over the cap: {}", t.getMessage());
+                return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                        .body(Map.of("message", "Request body is too large."));
+            }
+        }
         logger.debug("Unreadable request body: {}", ex.getMessage());
-        return Map.of("message", "Request body is missing or not valid JSON.");
+        return ResponseEntity.badRequest()
+                .body(Map.of("message", "Request body is missing or not valid JSON."));
     }
 
     /** A path variable or query parameter that won't convert (e.g. ?page=abc). Naming the
@@ -108,17 +131,67 @@ public class GlobalExceptionHandler {
         return Map.of("message", "Access denied.");
     }
 
-    // Fallback for DB-constraint violations no endpoint caught locally — a duplicate
-    // (course_code, academic_year_offered) on subject create, a duplicate exam-cycle name.
-    // Endpoints with a specific message still catch it first; the rest become 409, not 500.
-    // The raw exception is logged, never returned — constraint names and SQL don't belong in
-    // API responses.
+    /** Postgres unique_violation — see the SQLSTATE table in the Postgres error-codes appendix. */
+    private static final String PG_UNIQUE_VIOLATION = "23505";
+
+    // Fallback for DB-constraint violations no endpoint caught locally. Endpoints with a specific
+    // message still catch it first (see Constraints); this decides what the rest mean.
+    //
+    // ONLY a unique violation is the caller's to fix. Every other integrity failure — a foreign
+    // key, a NOT NULL, a CHECK — means code reached the database with data its own validation
+    // should have refused, so answering 409 "conflicts with existing data (for example, a
+    // duplicate value)" told the caller to correct values that were never the problem, and hid a
+    // server bug in a WARN with no stack trace. That is the same mistake the catch-all below
+    // documents: relabelling a server bug as a client error puts it out of ERROR's reach.
+    //
+    // Classified by SQLSTATE, deliberately NOT by constraint name: the name registry would have
+    // to list every unique index or a legitimate duplicate would start answering 500, and it is
+    // already incomplete — a racing duplicate department code raises Hibernate's generated
+    // `uka98yj7l53srcy6e08grm1tw90`, which no registry ever named. SQLSTATE needs no upkeep and a
+    // new migration cannot make it stale.
+    //
+    // No SQLSTATE at all (Hibernate rejecting before the statement runs) counts as unexpected:
+    // nothing reached the database, so there is no duplicate to report.
+    //
+    // The raw exception is logged, never returned — constraint names and SQL don't belong in API
+    // responses.
     @ExceptionHandler(DataIntegrityViolationException.class)
-    @ResponseStatus(HttpStatus.CONFLICT)
-    public Map<String, String> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        logger.warn("Data integrity violation: {}", ex.getMessage());
-        return Map.of("message",
-            "This change conflicts with existing data (for example, a duplicate value). Check the values and try again.");
+    public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(
+            DataIntegrityViolationException ex) {
+        if (PG_UNIQUE_VIOLATION.equals(sqlStateOf(ex))) {
+            logger.warn("Data integrity violation: {}", ex.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message",
+                "This change conflicts with existing data (for example, a duplicate value). Check the values and try again."));
+        }
+        logger.error("Unexpected database constraint violation", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message",
+            "An unexpected internal error occurred. Please try again later or contact support."));
+    }
+
+    /** The driver's SQLSTATE, or null when no {@link SQLException} is in the chain. The code is
+     *  carried by the PSQLException that Hibernate and Spring each wrap, so the whole chain is
+     *  walked — guarding a self-referential cause, as Constraints does. */
+    private static String sqlStateOf(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof SQLException sql && sql.getSQLState() != null) {
+                return sql.getSQLState();
+            }
+            if (t.getCause() == t) break;
+        }
+        return null;
+    }
+
+    // The client hung up mid-response (browser refresh, navigate away, cancelled download). NOT an
+    // application error, so it must not reach the catch-all below: that logged every closed tab at
+    // ERROR with a full stack trace, and then failed itself with "No converter for ... with preset
+    // Content-Type 'image/png'" — by the time bytes are streaming (a static asset, or a PDF), the
+    // response is committed with a binary content type and a JSON body can no longer be written.
+    // Returning void writes nothing, which is right: there is no one left to write to.
+    // Spring dispatches to the most specific handler by exception type, so this wins over
+    // Exception.class regardless of declaration order.
+    @ExceptionHandler(ClientAbortException.class)
+    public void handleClientAbort(ClientAbortException ex) {
+        logger.debug("Client disconnected before the response finished: {}", ex.getMessage());
     }
 
     // Last resort: log in full, return nothing specific. Deliberately NOT extended to

@@ -60,8 +60,8 @@ output as candidates to triage, not a verdict.
 
 - `Tab` reaches the skip link on each major page.
 - `Tab` moves through navigation, form controls, and action buttons in a predictable order.
-- Focus states are visible on links, buttons, inputs, and selects (global `:focus-visible` outline
-  in `index.css`, plus a `focus-visible` ring on `MagneticCta`).
+- Focus states are visible on links, buttons, inputs, and selects — the global `:focus-visible`
+  outline in `index.css`, which is the only focus indicator; no component defines its own.
 - Submit and verify actions are operable by keyboard without pointer input.
 - Mobile bottom navigation stays available without blocking primary content.
 
@@ -71,9 +71,7 @@ output as candidates to triage, not a verdict.
   animation and transition durations to `0.01ms`.
 - CTA buttons give press feedback via `active:scale-[0.98]`.
 
-> Corrected 2026-08-10: this file previously described a "subtle magnetic effect" on CTA buttons.
-> `framer-motion` and the `useMagnetic` hook were removed in the 2026-07 UI pass; `MagneticCta`
-> keeps the name but has no magnetic translate.
+> `PrimaryCta`'s hover and press feedback is CSS only — this project uses no motion library.
 
 ## Notes
 

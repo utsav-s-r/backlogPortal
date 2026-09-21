@@ -3,7 +3,11 @@ package com.college.backlog.controller;
 import com.college.backlog.controller.dto.*;
 import com.college.backlog.model.ProctorAssignment;
 import com.college.backlog.model.Student;
+import com.college.backlog.model.AdminAuditAction;
+import com.college.backlog.model.AuditTargetType;
 import com.college.backlog.model.User;
+import com.college.backlog.service.AdminAuditService;
+import org.springframework.transaction.annotation.Transactional;
 import com.college.backlog.model.UserRole;
 import com.college.backlog.repository.ProctorAssignmentRepository;
 import com.college.backlog.repository.StudentRepository;
@@ -11,7 +15,11 @@ import com.college.backlog.repository.UserRepository;
 import com.college.backlog.service.StudentManagementService;
 import com.college.backlog.service.StudentSpecification;
 import com.college.backlog.service.Usn;
+import com.college.backlog.service.Batches;
 import com.college.backlog.service.CallerScope;
+import com.college.backlog.service.Constraints;
+import org.springframework.dao.DataIntegrityViolationException;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +53,9 @@ import java.util.stream.Collectors;
 public class ProctorAssignmentController {
 
     @Autowired
+    private AdminAuditService auditService;
+
+    @Autowired
     private CallerScope callerScope;
 
     private static final Logger log = LoggerFactory.getLogger(ProctorAssignmentController.class);
@@ -53,7 +64,6 @@ public class ProctorAssignmentController {
     private static final int MAX_PAGE_SIZE = 200;
     private static final int DEFAULT_PAGE_SIZE = 25;
     // Same bound as bulk progression: a claim batch is an explicit, bounded list.
-    private static final int MAX_BATCH = 500;
 
     @Autowired private ProctorAssignmentRepository assignmentRepository;
     @Autowired private StudentRepository studentRepository;
@@ -90,7 +100,7 @@ public class ProctorAssignmentController {
             return new ClaimableStudentResponse(
                 s.getRollNo(), s.getName(), s.getCurrentSemester(),
                 a != null,
-                a != null && a.getProctorUsername().equals(target.getUsername()));
+                a != null && a.getProctorUserId().equals(target.getId()));
         });
     }
 
@@ -102,7 +112,7 @@ public class ProctorAssignmentController {
         User actor = callerScope.requireActor(auth);
         User target = resolveTargetProctor(actor, proctor.orElse(null));
         List<ProctorAssignment> assignments =
-            assignmentRepository.findByProctorUsername(target.getUsername());
+            assignmentRepository.findByProctorUserId(target.getId());
         if (assignments.isEmpty()) return List.of();
 
         Map<String, Student> students = studentRepository.findByRollNoInOrderByRollNo(
@@ -126,19 +136,16 @@ public class ProctorAssignmentController {
     // ---- claim / assign (batch) ----
 
     @PostMapping("/assignments")
-    public BatchResult assign(@RequestBody ProctorAssignRequest req, Authentication auth) {
+    public BatchResult<ProgressionRowResult> assign(@Valid @RequestBody ProctorAssignRequest req, Authentication auth) {
         User actor = callerScope.requireActor(auth);
         User target = resolveTargetProctor(actor, req.getProctor());
         String deptCode = requireDeptCode(target);
 
-        List<String> rollNos = req.getRollNos() == null ? List.of() : req.getRollNos();
-        if (rollNos.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No students selected.");
-        }
-        if (rollNos.size() > MAX_BATCH) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "At most " + MAX_BATCH + " students per batch.");
-        }
+        // Null and empty are refused at binding by @NotEmpty on the DTO (400,
+        // {"message": "No students selected."}). @Valid is what makes that annotation live;
+        // dropping it turns an empty batch into a 200 no-op.
+        List<String> rollNos = req.getRollNos();
+        Batches.assertWithinLimit(rollNos.size(), "students");
 
         List<ProgressionRowResult> results = new ArrayList<>();
         int assigned = 0, skipped = 0, errors = 0;
@@ -153,23 +160,55 @@ public class ProctorAssignmentController {
                 }
                 Optional<ProctorAssignment> existing = assignmentRepository.findById(roll);
                 if (existing.isPresent()) {
-                    if (existing.get().getProctorUsername().equals(target.getUsername())) {
-                        results.add(new ProgressionRowResult(roll, null, "SKIPPED_EXISTS",
-                            "already under this proctor"));
-                        skipped++;
-                    } else {
-                        // the one place the current holder is named — the proctor needs to know
-                        // who to ask, or the HOD who to reassign from
-                        results.add(new ProgressionRowResult(roll, null, "ERROR",
-                            "Already assigned to " + existing.get().getProctorUsername() + "."));
-                        errors++;
-                    }
+                    ProgressionRowResult row = alreadyAssigned(roll, existing.get(), target);
+                    results.add(row);
+                    if ("SKIPPED_EXISTS".equals(row.getStatus())) skipped++; else errors++;
                     continue;
                 }
-                assignmentRepository.save(new ProctorAssignment(roll, target.getUsername(), actor.getUsername()));
+                // Flushed now: ProctorAssignment.isNew() makes this an INSERT, so a claim that
+                // raced this one fails HERE on proctor_students_pkey instead of overwriting it.
+                assignmentRepository.saveAndFlush(
+                    new ProctorAssignment(roll, target.getId(), actor.getUsername()));
                 results.add(new ProgressionRowResult(roll, null, "CREATED", null));
                 assigned++;
+            } catch (DataIntegrityViolationException e) {
+                // Another claim committed between findById and the insert: report it exactly as the
+                // check above would have. Any other constraint, or a holder already gone again, is a
+                // real failure. The re-read works only because assign() has NO enclosing transaction —
+                // Postgres aborts a transaction after a key violation, so inside one every later
+                // statement (this read, the next rows) fails.
+                ProgressionRowResult row = null;
+                if (Constraints.isViolationOf(e, Constraints.PROCTOR_ASSIGNMENT_ROLL_NO)) {
+                    // Guarded: code inside a catch is outside its siblings, so a throw here would
+                    // escape the loop and 500 the batch with earlier rows already committed.
+                    try {
+                        row = assignmentRepository.findById(roll)
+                            .map(holder -> alreadyAssigned(roll, holder, target))
+                            .orElse(null);
+                    } catch (RuntimeException readFailure) {
+                        log.error("PROCTOR_ASSIGN_HOLDER_READ_FAILED rollNo={}", roll, readFailure);
+                    }
+                }
+                if (row != null) {
+                    results.add(row);
+                    if ("SKIPPED_EXISTS".equals(row.getStatus())) skipped++; else errors++;
+                } else {
+                    log.error("PROCTOR_ASSIGN_ROW_FAILED rollNo={}", roll, e);
+                    results.add(new ProgressionRowResult(roll, null, "ERROR",
+                        "Could not assign this student."));
+                    errors++;
+                }
+            } catch (NumberFormatException e) {
+                // NFE extends IllegalArgumentException, so without this clause it lands below and
+                // its raw message reaches the admin as if the ROW were bad — a server bug dressed as
+                // a data problem. Must precede the IAE clause; the reverse does not compile.
+                log.error("PROCTOR_ASSIGN_ROW_FAILED rollNo={}", roll, e);
+                results.add(new ProgressionRowResult(roll, null, "ERROR",
+                    "Could not assign this student."));
+                errors++;
             } catch (IllegalArgumentException e) {
+                // Only this loop's own validation throws IAE, with curated literal messages, so
+                // surfacing getMessage() is safe here.
                 results.add(new ProgressionRowResult(roll, null, "ERROR", e.getMessage()));
                 errors++;
             } catch (ResponseStatusException e) {
@@ -178,22 +217,22 @@ public class ProctorAssignmentController {
                 results.add(new ProgressionRowResult(roll, null, "ERROR", e.getReason()));
                 errors++;
             } catch (RuntimeException e) {
-                // e.g. two proctors racing on one student: the PK on roll_no makes the second save
-                // a constraint violation — reported per-row, never aborting the batch. Logged: the
-                // race is the expected cause, but nothing else would record any other cause.
+                // Anything else unexpected (e.g. a dropped Neon connection) is reported per-row,
+                // never aborting the batch. Logged: the row message cannot carry a stack trace.
                 log.error("PROCTOR_ASSIGN_ROW_FAILED rollNo={}", roll, e);
                 results.add(new ProgressionRowResult(roll, null, "ERROR",
-                    "Could not assign this student (it may have just been claimed)."));
+                    "Could not assign this student."));
                 errors++;
             }
         }
-        return new BatchResult(false, assigned, skipped, errors, results);
+        return new BatchResult<>(false, assigned, skipped, errors, results);
     }
 
     // ---- remove from supervision ----
 
     @DeleteMapping("/assignments/{rollNo}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
     public void unassign(@PathVariable String rollNo, Authentication auth) {
         User actor = callerScope.requireActor(auth);
         String roll = studentService.normalizeUsn(rollNo);
@@ -202,7 +241,7 @@ public class ProctorAssignmentController {
                 "This student has no proctor assignment."));
 
         if (actor.getRole() == UserRole.PROCTOR
-                && !assignment.getProctorUsername().equals(actor.getUsername())) {
+                && !assignment.getProctorUserId().equals(actor.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                 "This student is not under your supervision.");
         }
@@ -213,10 +252,39 @@ public class ProctorAssignmentController {
                     "Outside your department's scope.");
             }
         }
+        // Records which proctor lost the student — the assignment row is about to be gone, and the
+        // audit row carries no FK precisely so it survives that.
+        auditService.record(AdminAuditAction.PROCTOR_UNASSIGN, actor,
+                AuditTargetType.PROCTOR_ASSIGNMENT, roll,
+                "proctor=" + holderName(assignment));
         assignmentRepository.delete(assignment);
     }
 
     // ---- helpers ----
+
+    /**
+     * The row for a student who already has a proctor: skipped if it is this target, else an error
+     * naming the holder — the one place the holder is named, so the proctor knows who to ask or the
+     * HOD who to reassign from. Shared by the pre-check and the lost-race path so both agree.
+     */
+    private ProgressionRowResult alreadyAssigned(String roll, ProctorAssignment existing, User target) {
+        if (existing.getProctorUserId().equals(target.getId())) {
+            return new ProgressionRowResult(roll, null, "SKIPPED_EXISTS", "already under this proctor");
+        }
+        return new ProgressionRowResult(roll, null, "ERROR",
+            "Already assigned to " + holderName(existing) + ".");
+    }
+
+    /**
+     * The username behind an assignment's {@code proctor_user_id} (V4), for messages and audit
+     * detail that must name a person rather than an id. Falls back to the id if the row is gone —
+     * the FK cascades, so that is not reachable today, but a message is the wrong place to 500.
+     */
+    private String holderName(ProctorAssignment assignment) {
+        return userRepository.findById(assignment.getProctorUserId())
+            .map(User::getUsername)
+            .orElseGet(() -> "#" + assignment.getProctorUserId());
+    }
 
     /** Whose assignment list is read/written: PROCTOR only themselves, HOD proctors of their own
      *  department, ADMIN/PRINCIPAL any proctor. */
@@ -233,7 +301,7 @@ public class ProctorAssignmentController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "A target proctor is required.");
         }
-        User target = userRepository.findById(proctorParam.trim())
+        User target = userRepository.findByUsername(proctorParam.trim())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Proctor not found."));
         if (target.getRole() != UserRole.PROCTOR) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,

@@ -11,15 +11,21 @@ import {
 } from "lucide-react";
 import AlertBanner from "../components/AlertBanner";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import BrandHeader from "../components/layout/BrandHeader";
-import MagneticCta from "../components/ui/MagneticCta";
+import PageLayout from "../components/layout/PageLayout";
+import PrimaryCta from "../components/ui/PrimaryCta";
 import api, { getAdminToken, logoutAdmin } from "../lib/api";
 import { rememberExpiry } from "../lib/session";
-
-const DEPT_ROLES = new Set(["HOD", "DEPT_OFFICE", "PROCTOR"]);
+import { safeRedirect } from "../lib/redirect";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
+import { DEPT_PINNED, STAFF_ROLES } from "../lib/roles";
+import { FIELD_INPUT, FIELD_LABEL } from "../lib/formClasses";
+import DepartmentOptions from "../components/ui/DepartmentOptions";
+import SkipLink from "../components/ui/SkipLink";
+import { btn } from "../lib/buttonClasses";
 
 // The five designation cards. Titles are load-bearing: several Cypress specs select a card by its
-// exact text, and `role` is what the login request sends.
+// exact text, and `role` is what the login request sends. Local `ROLES`, distinct from lib/roles —
+// this is UI copy keyed by role, not the role vocabulary.
 const ROLES = [
   { role: "ADMIN", title: "Administrator", blurb: "Full system access", Icon: ShieldCheck },
   {
@@ -64,6 +70,10 @@ function AdminLoginPage() {
   const [departmentsError, setDepartmentsError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Pressing Login again ABORTS the attempt still running, so the reply that lands is always the
+  // one for the credentials on screen, and the button is not disabled while loading. See
+  // StudentLoginPage.
+  const nextSignal = useAbortableRequest();
 
   // Already signed in (e.g. back via "Admin Access") — skip the form and return to the dashboard.
   // The marker is only a presence hint: if the cookie really expired, the dashboard's 401
@@ -81,9 +91,9 @@ function AdminLoginPage() {
         setDepartments(res.data);
         setDepartmentsError("");
       })
-      // Swallowing this made HOD/DEPT_OFFICE/PROCTOR unable to sign in at all: with no options the
-      // department <select> stays empty, so the "Please select your department." guard below can
-      // never be satisfied and blames the user for a server-side failure.
+      // Swallowing this locks HOD/DEPT_OFFICE/PROCTOR out entirely: with no options the department
+      // <select> stays empty, so the "Please select your department." guard below can never be
+      // satisfied and blames the user for a server-side failure.
       .catch(() => {
         setDepartments([]);
         setDepartmentsError(
@@ -99,12 +109,14 @@ function AdminLoginPage() {
     setError("");
   };
 
-  const handleLogin = async () => {
+  // Submit event: the fields are in a <form>, so the iOS keyboard offers "Go". See StudentLoginPage.
+  const handleLogin = async (e) => {
+    e?.preventDefault();
     if (!username || !password) {
       setError("Username and password are required.");
       return;
     }
-    if (DEPT_ROLES.has(selectedRole) && !departmentId) {
+    if (DEPT_PINNED.includes(selectedRole) && !departmentId) {
       setError("Please select your department.");
       return;
     }
@@ -114,14 +126,13 @@ function AdminLoginPage() {
 
     try {
       const payload = { username, password };
-      if (DEPT_ROLES.has(selectedRole) && departmentId) {
+      if (DEPT_PINNED.includes(selectedRole) && departmentId) {
         payload.departmentId = departmentId;
       }
 
-      const res = await api.post("/auth/login", payload);
+      const res = await api.post("/auth/login", payload, { signal: nextSignal() });
 
-      const validRoles = ["ADMIN", "PRINCIPAL", "HOD", "DEPT_OFFICE", "PROCTOR"];
-      if (validRoles.includes(res.data.role)) {
+      if (STAFF_ROLES.includes(res.data.role)) {
         // the server set the JWT in an httpOnly cookie; store only a presence marker, UI state,
         // and the sign-out deadline (expiresIn)
         sessionStorage.setItem("adminRole", res.data.role);
@@ -141,44 +152,32 @@ function AdminLoginPage() {
           sessionStorage.removeItem("adminDepartmentId");
         }
 
-        const redirectUrl = searchParams.get("redirect");
-        if (redirectUrl) {
-          navigate(redirectUrl);
-        } else {
-          navigate("/admin");
-        }
+        // Validated, never trusted: the param is attacker-controllable on a real login link.
+        navigate(safeRedirect(searchParams.get("redirect"), "/admin"));
       } else {
         // login succeeded server-side (cookie set) but the role is unexpected — clear the
         // cookie too, not just local state
         logoutAdmin();
         setError("Unauthorized role.");
+        setLoading(false);
       }
     } catch (apiError) {
+      // No `finally`: it would also run on the early return below, clearing the spinner for the
+      // NEWER attempt that superseded this one. The success path leaves it set — the page is
+      // navigating away.
+      if (apiError.code === "ERR_CANCELED") return; // superseded by a newer press
       setError(apiError.response?.data?.message || "Login failed.");
-    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-surface-1 px-4 py-10 sm:px-6 lg:px-8">
-      <a
-        href="#admin-login-main"
-        className="sr-only left-4 top-4 z-[60] rounded-md bg-cta px-4 py-2 text-sm font-semibold text-cta-text focus:not-sr-only focus:fixed"
-      >
-        Skip to admin login
-      </a>
+    <PageLayout containerClassName="max-w-md">
+      <SkipLink href="#admin-login-main">Skip to admin login</SkipLink>
 
-      <div
-        id="admin-login-main"
-        className="mx-auto w-full max-w-md rounded-3xl border border-stroke bg-surface-1 p-6 shadow-soft sm:p-8"
-      >
+      <div id="admin-login-main" className="py-6 sm:py-8">
         <div className="mb-6 text-left">
-          <BrandHeader className="mb-4" />
-          <p className="mb-2 inline-flex rounded-full border border-primary/30 bg-surface-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
-            Restricted Access
-          </p>
-          <h1 className="admin-login-heading text-3xl font-semibold text-secondary-ink">
+          <h1 className="text-3xl font-semibold text-secondary-ink">
             {step === 1 ? "Select Designation" : "Staff Login"}
           </h1>
           <p className="mt-2 text-sm text-ink">
@@ -207,25 +206,26 @@ function AdminLoginPage() {
             {ROLES.map((card) => (
               <button
                 key={card.role}
+                type="button"
                 onClick={() => handleRoleSelect(card.title, card.role)}
                 data-cy={`role-${card.role.toLowerCase().replace("_", "-")}`}
-                className="flex items-center gap-4 rounded-2xl border border-stroke bg-surface-muted p-4 text-left transition-all duration-200 hover:border-primary hover:bg-primary-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                className="flex items-center gap-4 rounded-lg bg-surface-muted p-4 text-left transition-all duration-200 hover:bg-accent-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-1 text-primary-ink shadow-sm">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-1 text-accent">
                   <card.Icon size={24} />
                 </div>
                 <div>
-                  <h3 className="admin-login-heading font-semibold text-secondary-ink">{card.title}</h3>
+                  <h3 className="font-semibold text-secondary-ink">{card.title}</h3>
                   <p className="mt-0.5 text-xs text-ink">{card.blurb}</p>
                 </div>
               </button>
             ))}
           </div>
         ) : (
-          <div className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4">
             <label
               htmlFor="admin-username"
-              className="block text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink"
+              className={`block text-left ${FIELD_LABEL} text-ink`}
             >
               Username
             </label>
@@ -233,14 +233,19 @@ function AdminLoginPage() {
               id="admin-username"
               placeholder="Username"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring"
+              // Editing clears the banner. `departmentsError` is deliberately untouched — it
+              // reports a failed fetch, not a failed attempt.
+              onChange={(e) => {
+                setUsername(e.target.value);
+                setError("");
+              }}
+              className={FIELD_INPUT}
               data-cy="admin-username"
             />
 
             <label
               htmlFor="admin-password"
-              className="block text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink"
+              className={`block text-left ${FIELD_LABEL} text-ink`}
             >
               Password
             </label>
@@ -249,32 +254,34 @@ function AdminLoginPage() {
               type="password"
               placeholder="Password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring"
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError("");
+              }}
+              className={FIELD_INPUT}
               data-cy="admin-password"
             />
 
-            {DEPT_ROLES.has(selectedRole) && (
+            {DEPT_PINNED.includes(selectedRole) && (
               <>
                 <label
                   htmlFor="admin-department"
-                  className="block text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink"
+                  className={`block text-left ${FIELD_LABEL} text-ink`}
                 >
                   Department
                 </label>
                 <select
                   id="admin-department"
                   value={departmentId}
-                  onChange={(e) => setDepartmentId(e.target.value)}
-                  className="w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  onChange={(e) => {
+                    setDepartmentId(e.target.value);
+                    setError("");
+                  }}
+                  className={FIELD_INPUT}
                   data-cy="admin-department"
                 >
                   <option value="">Select department</option>
-                  {departments.map((d) => (
-                    <option key={d.id} value={String(d.id)}>
-                      {d.deptName}
-                    </option>
-                  ))}
+                  <DepartmentOptions departments={departments} />
                 </select>
                 {departmentsError ? (
                   <AlertBanner
@@ -294,10 +301,9 @@ function AdminLoginPage() {
               </AlertBanner>
             ) : null}
 
-            <MagneticCta
-              onClick={handleLogin}
-              className="mt-2 w-full gap-2 rounded-xl"
-              disabled={loading}
+            <PrimaryCta
+              type="submit"
+              className="mt-2 w-full"
               data-cy="admin-login-submit"
               aria-label="Admin login"
             >
@@ -307,7 +313,7 @@ function AdminLoginPage() {
                 <Lock size={16} />
               )}{" "}
               Login
-            </MagneticCta>
+            </PrimaryCta>
 
             <button
               type="button"
@@ -319,23 +325,23 @@ function AdminLoginPage() {
                 setSelectedRole("");
                 setError("");
               }}
-              className="mt-4 flex w-full items-center justify-center gap-2 text-sm font-medium text-ink hover:text-primary-ink"
+              className={`${btn()} mt-4 w-full`}
             >
               <ArrowLeft size={14} /> Back to role selection
             </button>
-          </div>
+          </form>
         )}
 
         <div className="mt-4 text-center">
           <Link
             to="/"
-            className="login-back-link inline-flex items-center gap-1 text-sm font-medium text-secondary-ink underline-offset-4 hover:underline"
+            className={`${btn()} w-full`}
           >
             <ArrowLeft size={14} /> Back to home
           </Link>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }
 

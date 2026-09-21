@@ -21,8 +21,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * The fail-closed contract these controllers used to get wrong nine times over. Every case below
- * was previously a permissive {@code null} that call sites read as "unrestricted ADMIN/PRINCIPAL".
+ * The fail-closed contract. Every case below must refuse rather than resolve a permissive
+ * {@code null}, which call sites read as "unrestricted ADMIN/PRINCIPAL".
  */
 class CallerScopeTest {
 
@@ -56,7 +56,7 @@ class CallerScopeTest {
     /** The deleted-account case: JwtAuthenticationFilter is stateless, so the token outlives the row. */
     @Test
     void aTokenWhoseAccountIsGoneIs401NotAPermissiveNull() {
-        when(userRepository.findById("ghost")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
         ResponseStatusException ex = thrownBy(() -> callerScope.requireActor(authFor("ghost")));
 
@@ -69,7 +69,7 @@ class CallerScopeTest {
     @Test
     void anAccountWithNoRoleIs403NotAnNpe() {
         User roleless = new User("broken", "hash", null);
-        when(userRepository.findById("broken")).thenReturn(Optional.of(roleless));
+        when(userRepository.findByUsername("broken")).thenReturn(Optional.of(roleless));
 
         ResponseStatusException ex = thrownBy(() -> callerScope.requireActor(authFor("broken")));
 
@@ -80,7 +80,7 @@ class CallerScopeTest {
     @Test
     void aKnownAccountIsReturned() {
         User hod = new User("hodcse", "hash", UserRole.HOD);
-        when(userRepository.findById("hodcse")).thenReturn(Optional.of(hod));
+        when(userRepository.findByUsername("hodcse")).thenReturn(Optional.of(hod));
 
         assertThat(callerScope.requireActor(authFor("hodcse"))).isSameAs(hod);
     }

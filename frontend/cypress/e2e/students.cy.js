@@ -29,7 +29,10 @@ describe("Students page", () => {
     cy.wait("@getDepartments");
     cy.get('[data-cy="students-load"]').click();
     cy.wait("@getStudents");
-    cy.contains("Asha Rao").should("be.visible");
+    // Scoped to the ROW, not the cell: the list is a table inside an overflow-x-auto scroller, so
+    // a <td> can be clipped at a narrow viewport (or on a runner whose font metrics widen the
+    // columns) and Cypress rightly calls it not visible. The <tr> spans the table.
+    cy.contains("tr", "Asha Rao").should("be.visible");
   };
 
   it("edits a student's name and semester", () => {
@@ -51,7 +54,19 @@ describe("Students page", () => {
       currentSemester: 6,
       entrySemester: 1,
     });
-    cy.contains("Asha R").should("be.visible");
+    cy.contains("tr", "Asha R").should("be.visible");
+  });
+
+  it("refuses a partial phone on edit without sending it", () => {
+    cy.intercept("PUT", "/api/admin/students/1MS22CS001", cy.spy().as("updateSpy"));
+
+    visitManageAndLoad();
+
+    cy.get('[data-cy="student-edit-1MS22CS001"]').click();
+    cy.get('[data-cy="student-edit-phone"]').clear().type("999999999");
+    cy.get('[data-cy="student-save"]').click();
+    cy.get('[data-cy="student-edit-error"]').should("contain", "exactly 10 digits");
+    cy.get("@updateSpy").should("not.have.been.called");
   });
 
   it("views and edits a student's semester timeline from the Manage tab", () => {
@@ -105,6 +120,35 @@ describe("Students page", () => {
     cy.get('[data-cy="prog-term-year-4"]').should("have.value", "2023-24");
   });
 
+  it("refuses an inconsistent academic-year span on the semester timeline", () => {
+    cy.intercept("GET", "/api/admin/progression/1MS22CS001", {
+      statusCode: 200,
+      body: {
+        rollNo: "1MS22CS001",
+        name: "Asha Rao",
+        currentSemester: 4,
+        entrySemester: 1,
+        terms: [{ semester: 1, academicYear: 2022 }],
+      },
+    }).as("progression");
+    cy.intercept("PUT", "/api/admin/progression/1MS22CS001/semester/*", {
+      statusCode: 500,
+      body: { message: "must not be reached" },
+    }).as("setSem");
+
+    visitManageAndLoad();
+    cy.get('[data-cy="student-sems-1MS22CS001"]').click();
+    cy.wait("@progression");
+
+    // "2025-24" read leniently saved 2025 — the year-binding key — with nothing on screen to show it
+    cy.get('[data-cy="prog-term-year-4"]').type("2025-24");
+    cy.get('[data-cy="prog-term-save-4"]').click();
+    cy.get('[data-cy="student-sems-panel-1MS22CS001"]')
+      .find('[role="alert"]')
+      .should("contain", "e.g. 2024-25");
+    cy.get("@setSem.all").should("have.length", 0);
+  });
+
   it("blocks deletion of a student referenced by registrations", () => {
     cy.intercept("DELETE", "/api/admin/students/1MS22CS001", {
       statusCode: 409,
@@ -117,7 +161,10 @@ describe("Students page", () => {
     cy.get('[data-cy="student-delete-1MS22CS001"]').click();
     cy.wait("@deleteStudent");
     cy.get('[data-cy="student-error-1MS22CS001"]').should("contain", "cannot be deleted");
-    cy.contains("Asha Rao").should("be.visible"); // still there
+    // Scoped to the ROW: the manage list is a table inside an overflow-x-auto scroller, so an
+    // individual <td> can be clipped at this viewport and Cypress rightly calls it not visible.
+    // The <tr> spans the table, which is what "the row survived the failed delete" actually means.
+    cy.contains("tr", "Asha Rao").should("be.visible"); // still there
   });
 
   it("deletes an unreferenced student", () => {
@@ -155,6 +202,23 @@ describe("Students page", () => {
     cy.get('[data-cy="student-created-complete"]').should("contain", "full semester timeline seeded");
   });
 
+  it("refuses a partial phone on the Add tab without sending it", () => {
+    cy.intercept("POST", "/api/admin/students", cy.spy().as("createSpy"));
+
+    stubDepartments();
+    cy.visitAsAdmin("/admin/students?tab=add");
+    cy.wait("@getDepartments");
+
+    cy.get('[data-cy="student-usn"]').type("1ms22cs001");
+    cy.get('[data-cy="student-name"]').type("Asha Rao");
+    cy.get('[data-cy="student-phone"]').type("999999999");
+    cy.get('[data-cy="student-dob"]').type("2004-05-01");
+    cy.get('[data-cy="student-add-submit"]').click();
+
+    cy.get('[data-cy="student-add-error"]').should("contain", "exactly 10 digits");
+    cy.get("@createSpy").should("not.have.been.called");
+  });
+
   it("previews a bulk import (dry-run) on the Import tab", () => {
     cy.intercept("POST", "/api/admin/students/import", {
       statusCode: 200,
@@ -172,16 +236,86 @@ describe("Students page", () => {
     cy.wait("@getDepartments");
 
     cy.get('[data-cy="students-import-csv"]').type(
-      "1MS24CS001,Asha Rao,9999999999,2006-04-12,2,1",
+      "1MS24CS001,Asha Rao,2006-04-12,9999999999,2,1",
     );
     cy.get('[data-cy="students-import-preview"]').click();
 
+    // rows is asserted in full: the CSV is parsed POSITIONALLY, so nothing else here would fail if
+    // the column order and the destructure disagreed
     cy.wait("@importStudents").its("request.body").should("deep.include", {
       dryRun: true,
       defaultCurrentSemester: 2,
       defaultEntrySemester: 1,
+      rows: [
+        {
+          rollNo: "1MS24CS001",
+          name: "Asha Rao",
+          dateOfBirth: "2006-04-12",
+          phone: "9999999999",
+          currentSemester: 2,
+          entrySemester: 1,
+        },
+      ],
     });
     cy.get('[data-cy="students-import-result"]').should("contain", "1 created");
+  });
+
+  // Both import tabs render through the shared CsvImportPanel, so a prop-wiring slip here (wrong
+  // dataCyPrefix, missing parse or endpoint) ships silently — the subject specs still pass. These
+  // cover the controls the dry-run test above never touches.
+  it("wires the shared import panel's own controls on the students side", () => {
+    stubDepartments();
+    cy.visitAsAdmin("/admin/students?tab=import");
+    cy.wait("@getDepartments");
+
+    cy.get('[data-cy="students-import-template"]').should("be.visible");
+    cy.get('[data-cy="students-import-default-current"]').should("have.value", "2");
+    cy.get('[data-cy="students-import-default-entry"]').should("have.value", "1");
+    cy.get('[data-cy="students-import-apply"]').should("be.visible");
+    cy.get('[data-cy="students-import-error"]').should("not.exist");
+  });
+
+  it("reports a bad paste on the students side instead of sending it", () => {
+    cy.intercept("POST", "/api/admin/students/import", cy.spy().as("importSpy"));
+    stubDepartments();
+    cy.visitAsAdmin("/admin/students?tab=import");
+    cy.wait("@getDepartments");
+
+    // empty textarea -> the shared panel's own refusal, quoting this tab's header line
+    cy.get('[data-cy="students-import-preview"]').click();
+    cy.get('[data-cy="students-import-error"]').should("contain", "Paste at least one row");
+    cy.get('[data-cy="students-import-error"]').should("contain", "USN,name,dateOfBirth");
+
+    // malformed quoting -> parse throws, and the message reaches the banner unchanged
+    cy.get('[data-cy="students-import-csv"]').type('1MS24CS001,"unterminated,2006-04-12', {
+      parseSpecialCharSequences: false,
+    });
+    cy.get('[data-cy="students-import-preview"]').click();
+    cy.get('[data-cy="students-import-error"]').should("contain", "Unclosed quote");
+
+    cy.get("@importSpy").should("not.have.been.called");
+  });
+
+  it("sends dryRun false from the students Import button", () => {
+    cy.intercept("POST", "/api/admin/students/import", {
+      statusCode: 200,
+      body: { dryRun: false, created: 1, skipped: 0, errors: 0,
+        results: [{ rollNo: "1MS24CS001", semester: 2, status: "CREATED", message: null }] },
+    }).as("importStudents");
+    stubDepartments();
+    cy.visitAsAdmin("/admin/students?tab=import");
+    cy.wait("@getDepartments");
+
+    cy.get('[data-cy="students-import-csv"]').type("1MS24CS001,Asha Rao,2006-04-12,9999999999,2,1");
+    cy.get('[data-cy="students-import-apply"]').click();
+
+    cy.wait("@importStudents").its("request.body.dryRun").should("eq", false);
+    // "Imported", not "Preview" — the verb prop, which only a real run shows
+    cy.get('[data-cy="students-import-result"]').should("contain", "Imported");
+    // idKey="rollNo" actually resolves: a wrong one renders blanks, and BatchResultTable keys its
+    // rows by index, so nothing else complains
+    cy.get('[data-cy="students-import-result"]').should("contain", "USN");
+    cy.get('[data-cy="students-import-result"]').should("contain", "1MS24CS001");
   });
 
   it("switches between the Manage, Add and Import tabs", () => {

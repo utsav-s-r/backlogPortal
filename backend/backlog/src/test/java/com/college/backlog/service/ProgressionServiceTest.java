@@ -71,15 +71,15 @@ class ProgressionServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    // ---- backfillLinear: the seed path, run once at student creation ----
+    // ---- seedLinearTimeline: the seed path, run once at student creation ----
 
     @Test
-    void backfillLinearSeedsMissingSemestersWithDerivedYears() {
+    void seedLinearTimelineSeedsMissingSemestersWithDerivedYears() {
         Student s = student("1MS24CS191", 4); // admission 2024 from USN
         when(studentRepository.findByRollNo("1MS24CS191")).thenReturn(Optional.of(s));
         when(termRepository.findByRollNo("1MS24CS191")).thenReturn(List.of()); // no rows yet
 
-        int created = service.backfillLinear("1MS24CS191");
+        int created = service.seedLinearTimeline("1MS24CS191");
 
         // the full plan (1..8) is seeded, not just up to currentSemester
         assertThat(created).isEqualTo(8);
@@ -101,13 +101,13 @@ class ProgressionServiceTest {
     }
 
     @Test
-    void backfillLinearForLateralEntryStartsAtEntrySemesterAndAnchorsYearThere() {
+    void seedLinearTimelineForLateralEntryStartsAtEntrySemesterAndAnchorsYearThere() {
         Student s = student("1MS24CS191", 6); // admission 2024 from USN
         s.setEntrySemester(3);                // lateral entrant: started at sem 3
         when(studentRepository.findByRollNo("1MS24CS191")).thenReturn(Optional.of(s));
         when(termRepository.findByRollNo("1MS24CS191")).thenReturn(List.of()); // no rows yet
 
-        int created = service.backfillLinear("1MS24CS191");
+        int created = service.seedLinearTimeline("1MS24CS191");
 
         // no sems 1-2 (never sat them); entry sem 3 anchors the admission year, plan runs to 8
         assertThat(created).isEqualTo(6);
@@ -126,7 +126,7 @@ class ProgressionServiceTest {
     }
 
     @Test
-    void backfillLinearPreservesExistingRowsWriteOnce() {
+    void seedLinearTimelinePreservesExistingRowsWriteOnce() {
         Student s = student("1MS24CS191", 4); // admission 2024, entry sem 1
         when(studentRepository.findByRollNo("1MS24CS191")).thenReturn(Optional.of(s));
         // sems 1 and 3 already recorded, e.g. hand-corrected after a year-back
@@ -134,7 +134,7 @@ class ProgressionServiceTest {
                 new StudentSemesterTerm("1MS24CS191", 1, 2024),
                 new StudentSemesterTerm("1MS24CS191", 3, 2026)));
 
-        int created = service.backfillLinear("1MS24CS191");
+        int created = service.seedLinearTimeline("1MS24CS191");
 
         // only the six missing rows are written; the existing two are never touched
         assertThat(created).isEqualTo(6);

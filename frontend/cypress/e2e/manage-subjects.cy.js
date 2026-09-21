@@ -1,5 +1,5 @@
-// The Manage Subjects page: load the catalog, edit a subject (academic year locked, and the code
-// prefix with it), and delete — blocked when referenced by registrations, allowed otherwise.
+// The Manage Subjects page: load the catalog, edit a subject (the academic year stays locked — it
+// is the year-binding key), and delete — blocked when referenced by registrations, allowed otherwise.
 describe("Manage Subjects page", () => {
   const subject = {
     id: 10,
@@ -13,7 +13,7 @@ describe("Manage Subjects page", () => {
     eligibleDepartments: [],
   };
 
-  const visitAndLoad = () => {
+  const visitAndLoad = (row = subject) => {
     cy.intercept("GET", "/api/departments", {
       statusCode: 200,
       body: [{ id: 1, deptName: "Computer Science" }],
@@ -21,14 +21,34 @@ describe("Manage Subjects page", () => {
     // the list endpoint returns a Spring Page envelope, not a bare array
     cy.intercept("GET", "/api/admin/subjects*", {
       statusCode: 200,
-      body: { content: [subject], number: 0, totalPages: 1, totalElements: 1 },
+      body: { content: [row], number: 0, totalPages: 1, totalElements: 1 },
     }).as("getSubjects");
     cy.visitAsAdmin("/admin/manage-subjects");
     cy.wait("@getDepartments");
     cy.get('[data-cy="subjects-load"]').click();
     cy.wait("@getSubjects");
-    cy.contains("Data Structures").should("be.visible");
+    // Scoped to the ROW, not the cell: the list is a table inside an overflow-x-auto scroller, so
+    // a <td> can be clipped at a narrow viewport (or on a runner whose font metrics widen the
+    // columns) and Cypress rightly calls it not visible. The <tr> spans the table.
+    cy.contains("tr", "Data Structures").should("be.visible");
   };
+
+  it("refuses an unreadable year filter instead of loading the whole catalog", () => {
+    visitAndLoad();
+
+    // "2025-24" is not a span (26 would follow 25); read leniently it filtered on 2025, and an
+    // unparseable year was dropped, loading everything under a filter box still showing text
+    cy.get('[data-cy="subjects-year"]').type("2025-24");
+    cy.get('[data-cy="subjects-load"]').click();
+    cy.get('[data-cy="subjects-error"]').should("contain", "e.g. 2024-25");
+    cy.get("@getSubjects.all").should("have.length", 1);
+
+    // a valid span goes through as the start-year int
+    cy.get('[data-cy="subjects-year"]').clear().type("2022-23");
+    cy.get('[data-cy="subjects-load"]').click();
+    cy.wait("@getSubjects").its("request.query.academicYearOffered").should("equal", "2022");
+    cy.get('[data-cy="subjects-error"]').should("not.exist");
+  });
 
   it("edits a subject's credits, keeping the locked course code", () => {
     cy.intercept("PUT", "/api/admin/subjects/10", {
@@ -53,7 +73,34 @@ describe("Manage Subjects page", () => {
         eligibleDeptIds: [],
       });
 
-    cy.contains("3 credits").should("be.visible");
+    cy.contains("tr", "3 credits").should("be.visible");
+  });
+
+  // The four fields a registration displays live off the subject row. The server 409s an edit to
+  // them once one exists; `registered` on the list row is what lets the form say so BEFORE a save.
+  it("locks the printed fields once a registration references the subject", () => {
+    visitAndLoad({ ...subject, registered: true });
+
+    cy.get('[data-cy="subject-edit-10"]').click();
+    cy.get('[data-cy="subject-locked-note"]').should("contain", "locked");
+    cy.get('[data-cy="subject-name"]').should("be.disabled");
+    cy.get('[data-cy="subject-code"]').should("be.disabled");
+    cy.get('[data-cy="subject-semester"]').should("be.disabled");
+    cy.get('[data-cy="subject-credits"]').should("be.disabled");
+    // Type and eligibility are future eligibility, not printed history — freezing them would lock
+    // an elective's departments for a whole year, with no second offering possible under
+    // UNIQUE(course_code, academic_year_offered).
+    cy.get('[data-cy="subject-type"]').should("not.be.disabled");
+  });
+
+  // The control: without it the case above passes on a form whose fields are always disabled.
+  it("leaves the fields editable while nothing references the subject", () => {
+    visitAndLoad();
+
+    cy.get('[data-cy="subject-edit-10"]').click();
+    cy.get('[data-cy="subject-locked-note"]').should("not.exist");
+    cy.get('[data-cy="subject-name"]').should("not.be.disabled");
+    cy.get('[data-cy="subject-credits"]').should("not.be.disabled");
   });
 
   it("blocks deletion of a subject referenced by registrations", () => {
@@ -68,7 +115,7 @@ describe("Manage Subjects page", () => {
     cy.get('[data-cy="subject-delete-10"]').click();
     cy.wait("@deleteSubject");
     cy.get('[data-cy="subject-error-10"]').should("contain", "referenced by existing registrations");
-    cy.contains("Data Structures").should("be.visible"); // still there
+    cy.contains("tr", "Data Structures").should("be.visible"); // still there
   });
 
   it("deletes an unreferenced subject", () => {
@@ -99,5 +146,51 @@ describe("Manage Subjects page", () => {
 
     cy.get('[data-cy="tab-clone"]').click();
     cy.get('[data-cy="clone-preview"]').should("be.visible");
+  });
+
+  // Guards the ARIA tabs pattern (WCAG 4.1.2): role="tab" without aria-controls, a tabpanel and a
+  // roving tabindex announces "tab, 1 of 4" with no route to the panel. Asserts the RELATIONSHIP
+  // RESOLVES, not just that the attribute exists — a dangling aria-controls is the same bug
+  // wearing a passing test.
+  it("wires the tabs to their panel (WCAG 4.1.2) with a roving tabindex", () => {
+    cy.intercept("GET", "/api/departments", {
+      statusCode: 200,
+      body: [{ id: 1, deptName: "Computer Science" }],
+    }).as("getDepartments");
+    cy.visitAsAdmin("/admin/manage-subjects");
+    cy.wait("@getDepartments");
+
+    cy.get('[role="tabpanel"]').should("have.length", 1);
+    // tracks the TABS array in ManageSubjectsPage — Manage / Add / Clone / Import
+    cy.get('[role="tab"]').should("have.length", 4);
+
+    cy.document().then((doc) => {
+      const tabs = [...doc.querySelectorAll('[role="tab"]')];
+      const panel = doc.querySelector('[role="tabpanel"]');
+      tabs.forEach((t) => {
+        expect(t.id, "every tab needs an id for aria-labelledby").to.not.equal("");
+        // the relationship must RESOLVE — a dangling id reference reads as wired and isn't
+        expect(doc.getElementById(t.getAttribute("aria-controls")), `${t.id} -> panel`).to.equal(
+          panel,
+        );
+      });
+      expect(doc.getElementById(panel.getAttribute("aria-labelledby")), "panel -> active tab")
+        .to.equal(tabs.find((t) => t.getAttribute("aria-selected") === "true"));
+      // roving tabindex: exactly one tab stop, and it is the selected tab
+      expect(tabs.filter((t) => t.tabIndex === 0).map((t) => t.dataset.cy)).to.deep.equal([
+        "tab-manage",
+      ]);
+    });
+
+    // ArrowRight selects the next tab and takes focus with it (automatic activation)
+    cy.get('[data-cy="tab-manage"]').focus().trigger("keydown", { key: "ArrowRight" });
+    cy.get('[data-cy="tab-add"]')
+      .should("have.attr", "aria-selected", "true")
+      .and("have.focus");
+    // and the panel's label follows the selection rather than pointing at the old tab
+    cy.get('[role="tabpanel"]').should("have.attr", "aria-labelledby", "admin-tab-add");
+    // End jumps to the LAST tab, wrapping rules aside — Import since the CSV tab was added
+    cy.get('[data-cy="tab-add"]').trigger("keydown", { key: "End" });
+    cy.get('[data-cy="tab-import"]').should("have.attr", "aria-selected", "true");
   });
 });

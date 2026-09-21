@@ -1,14 +1,18 @@
 import { useState } from "react";
-import { ArrowLeft, KeyRound, LoaderCircle, Lock } from "lucide-react";
+import { ArrowLeft, LoaderCircle, Lock, UserPen } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import BrandIdentity from "../components/layout/BrandIdentity";
-import MagneticCta from "../components/ui/MagneticCta";
-import api, { getAdminHeaders } from "../lib/api";
+import AdminLayout from "../components/layout/AdminLayout";
+import PrimaryCta from "../components/ui/PrimaryCta";
+import api, { clearAdminSession } from "../lib/api";
 import AlertBanner from "../components/AlertBanner";
+import { FIELD_INPUT } from "../lib/formClasses";
+import Field from "../components/ui/Field";
+import { btn } from "../lib/buttonClasses";
 
-// One flow: a signed-in admin-type user changing their own password. Nothing forces them here —
-// accounts start on the derived default (username + "4321") and stay on it until they choose
-// otherwise, so every role reaches this from the dashboard header.
+// Self-service account settings for a signed-in admin-type user: their password and their own
+// username. Nothing forces them here; accounts start on the derived default (username + "4321")
+// and stay on it until they choose otherwise, so every role reaches this from the sidebar's
+// "My password" row.
 function ChangePasswordPage() {
   const navigate = useNavigate();
 
@@ -17,6 +21,13 @@ function ChangePasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Rename form. Its own error slot, as ManageUsersPage keeps departmentsError separate: one
+  // shared slot lets whichever form submitted last silently clear the other's message.
+  const [newUsername, setNewUsername] = useState("");
+  const [renamePassword, setRenamePassword] = useState("");
+  const [renameError, setRenameError] = useState("");
+  const [renaming, setRenaming] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,12 +48,12 @@ function ChangePasswordPage() {
 
     setLoading(true);
     try {
-      await api.post(
-        "/auth/change-password",
-        { currentPassword, newPassword },
-        { headers: getAdminHeaders() },
-      );
-      navigate("/admin");
+      await api.post("/auth/change-password", { currentPassword, newPassword });
+      // Changing your own password ENDS every session it opened, this tab included: the server
+      // stamps the account and clears the cookie, exactly as the rename below does. Drop the
+      // cached identity too, or the login page shows a stale adminRole/adminUsername.
+      clearAdminSession();
+      navigate("/admin/login");
     } catch (apiError) {
       setError(apiError.response?.data?.message || "Could not change password.");
     } finally {
@@ -50,88 +61,103 @@ function ChangePasswordPage() {
     }
   };
 
-  const inputClass =
-    "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring";
+  // Renaming yourself ENDS the session: the JWT subject is the username, so the server clears the
+  // cookie and the token stops resolving. Nothing to recover from — sign back in under the new
+  // name. The password is deliberately left alone, so an account still on the derived default
+  // keeps `oldusername4321`.
+  const handleRename = async (e) => {
+    e.preventDefault();
+    setRenameError("");
+
+    if (!renamePassword || !newUsername.trim()) {
+      setRenameError("All fields are required.");
+      return;
+    }
+    if (newUsername.trim().length < 4) {
+      setRenameError("Username must be at least 4 characters.");
+      return;
+    }
+
+    setRenaming(true);
+    try {
+      await api.post(
+        "/auth/change-username",
+        { currentPassword: renamePassword, newUsername: newUsername.trim() },
+      );
+      // The cookie is already gone server-side; drop the cached identity too, or the login page
+      // would still show a stale adminRole/adminUsername.
+      clearAdminSession();
+      navigate("/admin/login");
+    } catch (apiError) {
+      setRenameError(apiError.response?.data?.message || "Could not change username.");
+    } finally {
+      setRenaming(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-surface-1 px-4 py-10 sm:px-6 lg:px-8">
-      <div
-        className="mx-auto w-full max-w-md rounded-3xl border border-stroke bg-surface-1 p-6 shadow-soft sm:p-8"
-      >
+    <AdminLayout>
+      <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-6 text-left">
-          <BrandIdentity compact onSurface />
-          <p className="mb-2 mt-4 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-surface-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
-            <KeyRound size={12} /> Change Password
+          <h1 className="text-3xl font-semibold text-secondary-ink">Account Settings</h1>
+          <p className="mt-2 text-sm text-ink">
+            Update your own sign-in details. Role and department are set by an administrator and
+            cannot be changed here.
           </p>
-          <h1 className="text-3xl font-semibold text-secondary-ink">Change Password</h1>
-          <p className="mt-2 text-sm text-ink">Update the password for your account.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="current-password"
-              className="text-xs font-semibold uppercase tracking-[0.08em] text-ink"
-            >
-              Current Password
-            </label>
+        <h2 className="mb-4 text-xl font-semibold text-secondary-ink">Change Password</h2>
+
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Field label="Current Password" htmlFor="current-password" labelClassName="text-ink">
             <input
               id="current-password"
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="Enter current password"
               autoComplete="current-password"
             />
-          </div>
+          </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="new-password"
-              className="text-xs font-semibold uppercase tracking-[0.08em] text-ink"
-            >
-              New Password
-            </label>
+          <Field label="New Password" htmlFor="new-password" labelClassName="text-ink">
             <input
               id="new-password"
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="At least 8 characters"
               autoComplete="new-password"
             />
-          </div>
+          </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="confirm-password"
-              className="text-xs font-semibold uppercase tracking-[0.08em] text-ink"
-            >
-              Confirm New Password
-            </label>
+          <Field label="Confirm New Password" htmlFor="confirm-password" labelClassName="text-ink">
             <input
               id="confirm-password"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="Re-enter new password"
               autoComplete="new-password"
             />
+          </Field>
+
           </div>
 
           {error && (
-            <AlertBanner tone="error" role="alert">
+            <AlertBanner tone="error" role="alert" className="mt-4">
               {error}
             </AlertBanner>
           )}
 
-          <MagneticCta
+          <PrimaryCta
             type="submit"
             disabled={loading}
-            className="mt-2 w-full gap-2 rounded-xl"
+            className="mt-4 gap-2"
             aria-label="Change password"
           >
             {loading ? (
@@ -140,19 +166,81 @@ function ChangePasswordPage() {
               <Lock size={16} />
             )}{" "}
             Save New Password
-          </MagneticCta>
+          </PrimaryCta>
+        </form>
+
+        <hr className="my-7 border-stroke" />
+
+        <div className="mb-4 text-left">
+          <h2 className="text-xl font-semibold text-secondary-ink">Change Username</h2>
+          {/* Stated up front, not discovered: the username is the session identity, so changing it
+              necessarily ends the session. */}
+          <p className="mt-2 text-sm text-ink">
+            You sign in with this name. Changing it{" "}
+            <strong>signs you out immediately</strong> — sign back in with the new username. Your
+            password does not change.
+          </p>
+        </div>
+
+        <form onSubmit={handleRename}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="New Username" htmlFor="new-username" labelClassName="text-ink">
+            <input
+              id="new-username"
+              type="text"
+              value={newUsername}
+              onChange={(e) => setNewUsername(e.target.value)}
+              className={FIELD_INPUT}
+              placeholder="At least 4 characters"
+              autoComplete="username"
+            />
+          </Field>
+
+          <Field label="Current Password" htmlFor="rename-password" labelClassName="text-ink">
+            <input
+              id="rename-password"
+              type="password"
+              value={renamePassword}
+              onChange={(e) => setRenamePassword(e.target.value)}
+              className={FIELD_INPUT}
+              placeholder="Confirm with your password"
+              autoComplete="current-password"
+            />
+          </Field>
+
+          </div>
+
+          {renameError && (
+            <AlertBanner tone="error" role="alert" className="mt-4">
+              {renameError}
+            </AlertBanner>
+          )}
+
+          <PrimaryCta
+            type="submit"
+            disabled={renaming}
+            className="mt-4 gap-2"
+            aria-label="Change username"
+          >
+            {renaming ? (
+              <LoaderCircle size={16} className="animate-spin" />
+            ) : (
+              <UserPen size={16} />
+            )}{" "}
+            Save New Username
+          </PrimaryCta>
         </form>
 
         <div className="mt-4 text-center">
           <Link
             to="/admin"
-            className="inline-flex items-center gap-1 text-sm font-medium text-secondary-ink underline-offset-4 hover:underline"
+            className={btn()}
           >
             <ArrowLeft size={14} /> Back to dashboard
           </Link>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }
 

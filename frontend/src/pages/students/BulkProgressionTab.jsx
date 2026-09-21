@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { History, LoaderCircle, TrendingUp, TriangleAlert } from "lucide-react";
-import MagneticCta from "../../components/ui/MagneticCta";
+import PrimaryCta from "../../components/ui/PrimaryCta";
 import AlertBanner from "../../components/AlertBanner";
-import api, { getAdminHeaders } from "../../lib/api";
+import api from "../../lib/api";
 import { reportLoadError } from "../../lib/loadError";
 import { CURRENT_SEMESTERS } from "../../lib/semesters";
+import { FIELD_CONTROL, FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
+import Field from "../../components/ui/Field";
+import { useAbortableRequest } from "../../hooks/useAbortableRequest";
 
-const inputClass =
-  "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60";
 
 const CONFIRM_WORD = "PROMOTE";
 
@@ -31,6 +32,11 @@ function BulkProgressionTab({ departments }) {
   const [exclusions, setExclusions] = useState("");
 
   const [preview, setPreview] = useState(null);
+  // The exact body the standing preview was computed from. Commit sends THIS, never the live
+  // form — the same rule CloneSubjectsTab follows. `expectedCount` is the server's double-run
+  // guard and only guards a run it was counted for, so the pair must travel together or an edit
+  // between Preview and Commit promotes a cohort nobody previewed.
+  const [previewedBody, setPreviewedBody] = useState(null);
   const [confirmWord, setConfirmWord] = useState("");
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -42,6 +48,16 @@ function BulkProgressionTab({ departments }) {
   const [openBatch, setOpenBatch] = useState(null);
   const [detail, setDetail] = useState(null);
   const [detailBusy, setDetailBusy] = useState(false);
+
+  // One in-flight detail fetch. The run rows are not disabled while one loads — you must be able
+  // to change your mind — so opening run #2 before #1's reply lands used to paint #1's held-back
+  // rows under #2's heading and clear the spinner a reply early.
+  const nextDetailSignal = useAbortableRequest();
+
+  // The filters stay editable while a preview runs, so an edit must CANCEL it. Without this the
+  // reply lands after resetPreview() has already cleared the card and puts the old cohort's
+  // count back up under the new filters.
+  const nextPreviewSignal = useAbortableRequest();
 
   const excludeRollNos = exclusions
     .split(/[\s,]+/)
@@ -57,14 +73,18 @@ function BulkProgressionTab({ departments }) {
   // any edit invalidates a preview — committing against a stale count is exactly what the
   // server's 409 catches, but there is no reason to let the user get that far
   const resetPreview = () => {
+    // asking for a signal aborts whatever is still running; the reply that would have
+    // re-populated the card never arrives
+    nextPreviewSignal();
     setPreview(null);
+    setPreviewedBody(null);
     setConfirmWord("");
     setResult(null);
   };
 
   const loadHistory = useCallback(() => {
     api
-      .get("/admin/progression/bulk", { headers: getAdminHeaders(), params: { page: 0, size: 10 } })
+      .get("/admin/progression/bulk", { params: { page: 0, size: 10 } })
       .then((res) => {
         // Spring Page envelope, not a bare array
         setHistory(res.data?.content ?? []);
@@ -82,20 +102,30 @@ function BulkProgressionTab({ departments }) {
 
   const toggleBatch = async (batchId) => {
     if (openBatch === batchId) {
+      // collapsing abandons the load still running, or its reply reopens what was just closed
+      nextDetailSignal();
       setOpenBatch(null);
+      setDetail(null);
+      setDetailBusy(false);
       return;
     }
     setOpenBatch(batchId);
     setDetail(null);
     setDetailBusy(true);
     try {
-      const res = await api.get(`/admin/progression/bulk/${batchId}`, { headers: getAdminHeaders() });
+      const res = await api.get(`/admin/progression/bulk/${batchId}`, {
+        signal: nextDetailSignal(),
+      });
       setDetail(res.data);
+      setDetailBusy(false);
     } catch (err) {
+      // Cleared per path, never unconditionally: a superseded fetch must not clear the spinner
+      // the newer row now owns, nor close the panel that row just opened.
+      if (err.code === "ERR_CANCELED") return;
       setHistoryError(err.response?.data?.message || "Could not load that run.");
       setOpenBatch(null);
+      setDetailBusy(false);
     }
-    setDetailBusy(false);
   };
 
   const runPreview = async (e) => {
@@ -105,16 +135,27 @@ function BulkProgressionTab({ departments }) {
     setBusy(true);
     try {
       // paths are relative to api.js's /api baseURL — a leading /api here doubles it
-      const res = await api.post("/admin/progression/bulk/preview", body, {
-        headers: getAdminHeaders(),
+      const sent = body;
+      const res = await api.post("/admin/progression/bulk/preview", sent, {
+        signal: nextPreviewSignal(),
       });
       setPreview(res.data);
+      setPreviewedBody(sent);
       setConfirmWord("");
+      setBusy(false);
     } catch (err) {
+      // The abort here comes from an EDIT, not from a newer request, so nothing else owns the
+      // flag — clear it or Preview stays disabled with no way back. resetPreview has already
+      // cleared the card, and an error for a run the user walked away from is noise.
+      if (err.code === "ERR_CANCELED") {
+        setBusy(false);
+        return;
+      }
       setError(err.response?.data?.message || "Could not preview the run.");
       setPreview(null);
+      setPreviewedBody(null);
+      setBusy(false);
     }
-    setBusy(false);
   };
 
   const commit = async () => {
@@ -123,11 +164,11 @@ function BulkProgressionTab({ departments }) {
     try {
       const res = await api.post(
         "/admin/progression/bulk",
-        { ...body, expectedCount: preview.promoteCount },
-        { headers: getAdminHeaders() },
+        { ...previewedBody, expectedCount: preview.promoteCount },
       );
       setResult(res.data);
       setPreview(null);
+      setPreviewedBody(null);
       setConfirmWord("");
       loadHistory(); // the run just made is the newest row
     } catch (err) {
@@ -136,7 +177,10 @@ function BulkProgressionTab({ departments }) {
     setBusy(false);
   };
 
-  const card = "rounded-2xl border border-stroke bg-surface-1 p-4 shadow-soft";
+  // A REPEATED list item, so spacing alone does not separate it — consecutive rows just run
+  // together. The hairline is the no-box rule's third mechanism and the one that fits a list;
+  // `first:border-t-0` keeps a rule off the top of the list, where there is nothing to divide.
+  const card = "border-t border-stroke py-4 first:border-t-0";
 
   return (
     <div className="flex flex-col gap-4">
@@ -155,13 +199,10 @@ function BulkProgressionTab({ departments }) {
 
       <form onSubmit={runPreview} className={card}>
         <div className="mb-3 flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="bulk-sem" className="text-xs font-semibold uppercase tracking-[0.08em]">
-              Semester
-            </label>
+          <Field label="Semester" htmlFor="bulk-sem">
             <select
               id="bulk-sem"
-              className={`${inputClass} w-40`}
+              className={`${FIELD_CONTROL} w-40`}
               value={semester}
               onChange={(e) => {
                 setSemester(e.target.value);
@@ -176,14 +217,11 @@ function BulkProgressionTab({ departments }) {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="bulk-dept" className="text-xs font-semibold uppercase tracking-[0.08em]">
-              Department
-            </label>
+          </Field>
+          <Field label="Department" htmlFor="bulk-dept">
             <select
               id="bulk-dept"
-              className={`${inputClass} w-52`}
+              className={`${FIELD_CONTROL} w-52`}
               value={deptCode}
               onChange={(e) => {
                 setDeptCode(e.target.value);
@@ -192,22 +230,22 @@ function BulkProgressionTab({ departments }) {
               data-cy="bulk-dept"
             >
               <option value="">All departments</option>
+              {/* NOT components/ui/DepartmentOptions, which keys by d.id: this filters on the branch
+                  CODE (StudentRepository's `lower(s.branch)`, a functional index). Swapping it in
+                  would send an id where a code is expected and the preview would look empty. */}
               {departments.map((d) => (
                 <option key={d.id} value={d.code}>
                   {d.deptName}
                 </option>
               ))}
             </select>
-          </div>
+          </Field>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="bulk-exclude" className="text-xs font-semibold uppercase tracking-[0.08em]">
-            Hold back these USNs
-          </label>
+        <Field label="Hold back these USNs" htmlFor="bulk-exclude">
           <textarea
             id="bulk-exclude"
-            className={`${inputClass} min-h-24 font-mono`}
+            className={`${FIELD_INPUT} min-h-24 font-mono`}
             value={exclusions}
             placeholder="1MS24CS001, 1MS24CS002 — separated by spaces, commas or new lines"
             onChange={(e) => {
@@ -221,12 +259,12 @@ function BulkProgressionTab({ departments }) {
             must never silently promote someone you meant to hold back.
             {excludeRollNos.length > 0 && ` ${excludeRollNos.length} listed.`}
           </p>
-        </div>
+        </Field>
 
-        <MagneticCta as="button" type="submit" disabled={busy} className="mt-3" data-cy="bulk-preview">
+        <PrimaryCta as="button" type="submit" disabled={busy} className="mt-3" data-cy="bulk-preview">
           {busy ? <LoaderCircle size={15} className="animate-spin" /> : <TrendingUp size={15} />}
           Preview
-        </MagneticCta>
+        </PrimaryCta>
       </form>
 
       {preview && (
@@ -240,10 +278,10 @@ function BulkProgressionTab({ departments }) {
           </p>
           {preview.notPromoted.length > 0 && (
             <div className="mt-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">
+              <p className={`mb-2 ${FIELD_LABEL} text-ink-muted`}>
                 Needs your attention ({preview.notPromoted.length})
               </p>
-              <div className="max-h-64 overflow-y-auto rounded-xl border border-stroke">
+              <div className="max-h-64 overflow-y-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-surface-muted text-xs uppercase tracking-[0.08em] text-ink-muted">
                     <tr>
@@ -270,18 +308,18 @@ function BulkProgressionTab({ departments }) {
 
           {preview.promoteCount > 0 && (
             <div className="mt-4 border-t border-stroke pt-3">
-              <label htmlFor="bulk-confirm" className="text-xs font-semibold uppercase tracking-[0.08em]">
+              <label htmlFor="bulk-confirm" className={FIELD_LABEL}>
                 Type {CONFIRM_WORD} to run
               </label>
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 <input
                   id="bulk-confirm"
-                  className={`${inputClass} w-48 font-mono`}
+                  className={`${FIELD_CONTROL} w-48 font-mono`}
                   value={confirmWord}
                   onChange={(e) => setConfirmWord(e.target.value.toUpperCase())}
                   data-cy="bulk-confirm-word"
                 />
-                <MagneticCta
+                <PrimaryCta
                   as="button"
                   type="button"
                   onClick={commit}
@@ -290,7 +328,7 @@ function BulkProgressionTab({ departments }) {
                 >
                   {busy ? <LoaderCircle size={15} className="animate-spin" /> : <TrendingUp size={15} />}
                   Promote {preview.promoteCount}
-                </MagneticCta>
+                </PrimaryCta>
               </div>
             </div>
           )}
@@ -316,7 +354,9 @@ function BulkProgressionTab({ departments }) {
             {historyError}
           </AlertBanner>
         )}
-        {history && history.length === 0 && !historyError && (
+        {/* null until loaded, so a load failure never reaches here — no !historyError guard
+            needed; the success path clears the error on the same tick. */}
+        {history && history.length === 0 && (
           <p className="text-xs text-ink-muted" data-cy="bulk-history-empty">
             No promotions have been run yet.
           </p>
@@ -324,7 +364,7 @@ function BulkProgressionTab({ departments }) {
         {history && history.length > 0 && (
           <ul className="flex flex-col gap-2">
             {history.map((b) => (
-              <li key={b.batchId} className="rounded-xl border border-stroke">
+              <li key={b.batchId} className="rounded-lg bg-surface-muted">
                 <button
                   type="button"
                   onClick={() => toggleBatch(b.batchId)}

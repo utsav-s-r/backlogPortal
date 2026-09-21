@@ -18,7 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -85,17 +85,28 @@ public class RegistrationService {
      * The paginated query deliberately does not fetch-join {@code subjects} (a collection fetch
      * makes Hibernate paginate in memory instead of emitting SQL LIMIT), so {@code getSubjects()}
      * is a lazy load; mapping in the controller would only work with open-in-view, which is off.
-     * {@code @BatchSize(30)} collapses the per-row loads. {@code readOnly} skips dirty-check/flush.
+     * {@code @BatchSize(1000)} collapses the per-row loads. {@code readOnly} skips dirty-check/flush.
+     */
+    /**
+     * @param mayVerifyAtAll false for a role the verify endpoint refuses outright — PRINCIPAL is
+     *     absent from its {@code @PreAuthorize}, so every attempt 403s and no row is actionable.
+     * @param verifyingBranch the caller's department CODE when only their own students' rows may
+     *     be actioned (HOD / DEPT_OFFICE), or null for a caller who may action every row they can
+     *     see — ADMIN, and PROCTOR, whose rows are by construction their own assigned students
+     *     (assignment refuses a roll number outside the proctor's department).
      */
     @Transactional(readOnly = true)
-    public Page<RegistrationSummaryResponse> listSummaries(Specification<Registration> spec, Pageable pageable) {
-        return registrationRepository.findAll(spec, pageable).map(this::toSummary);
+    public Page<RegistrationSummaryResponse> listSummaries(Specification<Registration> spec, Pageable pageable,
+                                                           boolean mayVerifyAtAll, String verifyingBranch) {
+        return registrationRepository.findAll(spec, pageable)
+                .map(reg -> toSummary(reg, mayVerifyAtAll, verifyingBranch));
     }
 
     /** Private on purpose: touches lazy state, so it must not be reachable from a controller
      *  (see {@link #listSummaries}). */
-    private RegistrationSummaryResponse toSummary(Registration reg) {
-        // Snapshot columns only — NOT NULL as of V7. The old `snap != null ? snap : student.get()`
+    private RegistrationSummaryResponse toSummary(Registration reg, boolean mayVerifyAtAll,
+                                                  String verifyingBranch) {
+        // Snapshot columns only — NOT NULL in the schema. The old `snap != null ? snap : student.get()`
         // fallbacks silently printed the LIVE student row on an old registration, inverting the
         // immutable-history convention this table exists to uphold.
         return new RegistrationSummaryResponse(
@@ -110,7 +121,22 @@ public class RegistrationService {
             reg.getStatus().name(),
             reg.getRegisteredAt().toString(),
             reg.getVerifiedBy(),
-            reg.getExamCycle() != null ? reg.getExamCycle().getName() : null);
+            reg.getExamCycle() != null ? reg.getExamCycle().getName() : null,
+            canVerify(reg, mayVerifyAtAll, verifyingBranch));
+    }
+
+    /** Mirrors RegistrationController.checkDeptAccess — the SERVER-side rule is that one; this
+     *  only tells the UI which rows to offer the buttons on. They must agree, or the page shows a
+     *  button that 403s (or hides one that would have worked). */
+    private boolean canVerify(Registration reg, boolean mayVerifyAtAll, String verifyingBranch) {
+        if (!mayVerifyAtAll) {
+            return false;
+        }
+        if (verifyingBranch == null) {
+            return true;
+        }
+        String branch = reg.getStudent() != null ? reg.getStudent().getBranch() : null;
+        return branch != null && verifyingBranch.equalsIgnoreCase(branch);
     }
 
     // One transaction for the insert AND its SUBMITTED audit event, so history can never gain a
@@ -147,7 +173,7 @@ public class RegistrationService {
         // phone is set only from the dashboard; server-side guard, not bypassable by a crafted request.
         // 409, not 400 — the submission is well-formed; it's the ACCOUNT that isn't ready. See the
         // status rule on this method.
-        if (student.getPhone() == null || !student.getPhone().matches("^[0-9]{10}$")) {
+        if (!Phones.isValid(student.getPhone())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "Add your phone number in your profile before registering.");
         }
@@ -238,7 +264,7 @@ public class RegistrationService {
         reg.setRegId(UUID.randomUUID().toString());
         reg.setStudent(student);
         reg.setSubjects(subjects);
-        reg.setRegisteredAt(LocalDateTime.now());
+        reg.setRegisteredAt(Instant.now());
         reg.setStatus(RegistrationStatus.SUBMITTED);
         reg.setExamCycle(cycle);
         reg.setSnapName(student.getName());

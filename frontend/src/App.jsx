@@ -4,6 +4,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import ProtectedStudentRoute from "./components/ProtectedStudentRoute";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
+import RouteFallback from "./components/ui/RouteFallback";
 
 // Route-level code splitting: each page loads as its own chunk on first visit, so a student never
 // downloads the admin pages or vice versa. The route guards and theme provider stay in the entry
@@ -29,9 +30,9 @@ function App() {
     <ThemeProvider>
       <BrowserRouter>
         <ErrorBoundary>
-          {/* blank full-height fallback: page chunks load near-instantly, so no
-            spinner flash; min-h-screen keeps the layout from collapsing mid-swap */}
-          <Suspense fallback={<div className="min-h-screen" />}>
+          {/* RouteFallback stays invisible for its first 300ms, so a fast chunk still shows no
+            spinner flash while a slow one stops reading as a dead button. */}
+          <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/student/login" element={<StudentLoginPage />} />

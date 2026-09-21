@@ -2,15 +2,23 @@ package com.college.backlog.controller.dto;
 
 import java.util.List;
 
-// Outcome of an apply: per-row CREATED / SKIPPED_EXISTS / ERROR plus tallies, mirroring the
-// progression BatchResult shape.
+// Outcome of a clone apply: per-row CREATED / SKIPPED_EXISTS / ERROR plus tallies, mirroring the
+// progression BatchResult shape. Rows are SubjectRowResult, shared with the CSV importer.
 public class SubjectCloneResult {
     private int created;
     private int skipped;
     private int errors;
-    private List<ResultRow> rows;
+    private List<SubjectRowResult> rows;
 
-    public SubjectCloneResult(int created, int skipped, int errors, List<ResultRow> rows) {
+    /**
+     * Null normally. Set when the operation SUCCEEDED but something after it did not — today only
+     * a failed audit write. The rows are committed and correct either way; this is the disclosure
+     * that the record of them is incomplete, so the admin can escalate instead of the gap being
+     * silent. Not an error: the result above is the truth about what happened.
+     */
+    private String warning;
+
+    public SubjectCloneResult(int created, int skipped, int errors, List<SubjectRowResult> rows) {
         this.created = created;
         this.skipped = skipped;
         this.errors = errors;
@@ -20,24 +28,8 @@ public class SubjectCloneResult {
     public int getCreated() { return created; }
     public int getSkipped() { return skipped; }
     public int getErrors() { return errors; }
-    public List<ResultRow> getRows() { return rows; }
+    public List<SubjectRowResult> getRows() { return rows; }
 
-    public static class ResultRow {
-        private String courseCode;
-        private int semester;
-        private String status;   // CREATED | SKIPPED_EXISTS | ERROR
-        private String message;
-
-        public ResultRow(String courseCode, int semester, String status, String message) {
-            this.courseCode = courseCode;
-            this.semester = semester;
-            this.status = status;
-            this.message = message;
-        }
-
-        public String getCourseCode() { return courseCode; }
-        public int getSemester() { return semester; }
-        public String getStatus() { return status; }
-        public String getMessage() { return message; }
-    }
+    public String getWarning() { return warning; }
+    public void setWarning(String warning) { this.warning = warning; }
 }

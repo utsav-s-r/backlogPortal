@@ -3,8 +3,6 @@ import {
   AlertTriangle,
   CalendarClock,
   Check,
-  ChevronLeft,
-  ChevronRight,
   KeyRound,
   LoaderCircle,
   Pencil,
@@ -14,8 +12,9 @@ import {
   X,
 } from "lucide-react";
 import AlertBanner from "../../components/AlertBanner";
-import api, { getAdminHeaders } from "../../lib/api";
+import api from "../../lib/api";
 import { reportLoadError } from "../../lib/loadError";
+import { useAbortableRequest } from "../../hooks/useAbortableRequest";
 import { parseAcademicYear } from "../../lib/academicYear";
 import {
   ALL_SEMESTERS,
@@ -25,9 +24,13 @@ import {
   withLegacyValue,
 } from "../../lib/semesters";
 import { SemesterTimeline } from "./SemesterTimeline";
-
-const inputClass =
-  "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60";
+import { ROLE } from "../../lib/roles";
+import { FIELD_INPUT } from "../../lib/formClasses";
+import Field from "../../components/ui/Field";
+import Pager from "../../components/ui/Pager";
+import { PHONE_ERROR, cleanPhoneInput, isValidOptionalPhone } from "../../lib/phone";
+import DepartmentOptions from "../../components/ui/DepartmentOptions";
+import { btn } from "../../lib/buttonClasses";
 
 const PAGE_SIZE = 25;
 
@@ -35,7 +38,7 @@ const PAGE_SIZE = 25;
 // departments and the dept-lock context. For a PROCTOR the server already limits the list to
 // assigned students, and "delete" means unassign from supervision, never an account delete.
 function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked, pinnedDeptId }) {
-  const proctorMode = adminRole === "PROCTOR";
+  const proctorMode = adminRole === ROLE.PROCTOR;
   const [fDeptId, setFDeptId] = useState("");
   const [fYear, setFYear] = useState("");
   const [fSemester, setFSemester] = useState("");
@@ -48,10 +51,13 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
   const [error, setError] = useState("");
 
   const effectiveDeptId = deptLocked ? pinnedDeptId : fDeptId;
+  // Pressing Load again aborts the load still running. The filters stay editable while one is in
+  // flight, so without this a slow reply renders the OLD filter's students under the NEW
+  // selection — and the trigger is not disabled, or nothing could supersede it.
+  const nextSignal = useAbortableRequest();
 
   // The endpoint returns a Page ({content, totalPages, ...}), never a bare array — loading the
-  // whole roster unfiltered used to time the client out. Each call pulls one page; filters reset
-  // to page 0.
+  // whole roster unfiltered times the client out. Each call pulls one page; filters reset to page 0.
   const load = useCallback(async (targetPage = 0) => {
     setError("");
     setBusy(true);
@@ -61,7 +67,7 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
       if (fYear && /^\d{4}$/.test(fYear.trim())) params.admissionYear = Number(fYear.trim());
       if (fSemester) params.semester = Number(fSemester);
       if (fQuery.trim()) params.query = fQuery.trim();
-      const res = await api.get("/admin/students", { headers: getAdminHeaders(), params });
+      const res = await api.get("/admin/students", { params, signal: nextSignal() });
       const data = res.data || {};
       setStudents(Array.isArray(data.content) ? data.content : []);
       setPageInfo({
@@ -69,17 +75,24 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
         totalPages: data.totalPages ?? 0,
         totalElements: data.totalElements ?? 0,
       });
+      setBusy(false);
     } catch (err) {
+      // No `finally`: it would clear the flag for the NEWER load that superseded this one.
+      // ECONNABORTED is axios's own timeout and still deserves a message; ERR_CANCELED is ours.
+      if (err.code === "ERR_CANCELED") return;
+      // back to null ("not loaded"), not the rows we already had: those were fetched under the
+      // PREVIOUS filters, and leaving them up relabels them as this filter's result — with Edit,
+      // Reset DOB and Delete still on them. [] would be the other lie ("no students match").
+      setStudents(null);
       setError(
         err.response?.data?.message ||
           (err.code === "ECONNABORTED"
             ? "Loading timed out. Narrow the filters and try again."
             : "Could not load students."),
       );
-    } finally {
       setBusy(false);
     }
-  }, [effectiveDeptId, fYear, fSemester, fQuery]);
+  }, [effectiveDeptId, fYear, fSemester, fQuery, nextSignal]);
 
   const onUpdated = (updated) =>
     setStudents((prev) => prev.map((s) => (s.rollNo === updated.rollNo ? updated : s)));
@@ -88,45 +101,38 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
 
   return (
     <>
-      <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
+      <section className="py-5 sm:py-6">
         {deptLocked && adminDepartment && (
-          <p className="mb-4 text-xs font-semibold text-primary-ink">
+          <p className="mb-4 text-xs font-semibold text-ink-muted">
             Scoped to {adminDepartment}
           </p>
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Department</label>
+          <Field label="Department">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={effectiveDeptId}
               onChange={(e) => setFDeptId(e.target.value)}
               disabled={deptLocked}
               data-cy="students-dept"
             >
               <option value="">All departments</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.deptName}
-                </option>
-              ))}
+              <DepartmentOptions departments={departments} />
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Admission year</label>
+          </Field>
+          <Field label="Admission year">
             <input
-              className={inputClass}
+              className={FIELD_INPUT}
               type="text"
               placeholder="e.g. 2024"
               value={fYear}
               onChange={(e) => setFYear(e.target.value)}
               data-cy="students-year"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Semester</label>
+          </Field>
+          <Field label="Semester">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={fSemester}
               onChange={(e) => setFSemester(e.target.value)}
               data-cy="students-sem"
@@ -141,22 +147,21 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">USN / name</label>
+          </Field>
+          <Field label="USN / name">
             <input
-              className={inputClass}
+              className={FIELD_INPUT}
               type="text"
               placeholder="search"
               value={fQuery}
               onChange={(e) => setFQuery(e.target.value)}
               data-cy="students-query"
             />
-          </div>
+          </Field>
         </div>
 
         {error && (
-          <p className="mt-3 text-sm text-red-600" role="alert" data-cy="students-error">
+          <p className="mt-3 text-sm text-alert" role="alert" data-cy="students-error">
             {error}
           </p>
         )}
@@ -165,9 +170,8 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
           <button
             type="button"
             onClick={() => load(0)}
-            disabled={busy}
             data-cy="students-load"
-            className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-2 text-sm font-semibold transition-colors hover:border-primary disabled:opacity-60"
+            className={btn()}
           >
             {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />} Load students
           </button>
@@ -178,66 +182,46 @@ function StudentsManageTab({ departments, adminRole, adminDepartment, deptLocked
         <section className="mt-6 flex flex-col gap-3">
           {students.length === 0 ? (
             <p
-              className="rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm"
+              className="rounded-lg bg-surface-muted px-4 py-3 text-sm"
               data-cy="students-empty"
             >
               No students match these filters.
             </p>
           ) : (
             <>
-              {students.map((student) => (
-                <StudentRow
-                  key={student.rollNo}
-                  student={student}
-                  proctorMode={proctorMode}
-                  onUpdated={onUpdated}
-                  onRemoved={onRemoved}
-                />
-              ))}
-              {pageInfo.totalPages > 1 && (
-                <Pager pageInfo={pageInfo} busy={busy} onGo={load} noun="students" />
-              )}
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-stroke text-xs uppercase tracking-[0.08em] text-ink-muted">
+                      <th className="px-4 py-3 font-semibold">USN</th>
+                      <th className="px-4 py-3 font-semibold">Name</th>
+                      <th className="px-4 py-3 font-semibold">Dept</th>
+                      <th className="px-4 py-3 font-semibold">Sem</th>
+                      <th className="px-4 py-3 font-semibold">Entry</th>
+                      <th className="px-4 py-3 font-semibold">Email</th>
+                      <th className="px-4 py-3 font-semibold">Phone</th>
+                      <th className="px-4 py-3 font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {students.map((student) => (
+                      <StudentRow
+                        key={student.rollNo}
+                        student={student}
+                        proctorMode={proctorMode}
+                        onUpdated={onUpdated}
+                        onRemoved={onRemoved}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pager pageInfo={pageInfo} busy={busy} onGo={load} noun="students" />
             </>
           )}
         </section>
       )}
     </>
-  );
-}
-
-// Prev/next pager over a Spring Page envelope. `onGo(pageIndex)` re-fetches, keeping the current
-// filters (the loader reads them from state).
-function Pager({ pageInfo, busy, onGo, noun }) {
-  const { number, totalPages, totalElements } = pageInfo;
-  return (
-    <div
-      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm"
-      data-cy={`${noun}-pager`}
-    >
-      <span className="text-ink-muted">
-        Page {number + 1} of {totalPages} · {totalElements} {noun}
-      </span>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => onGo(number - 1)}
-          disabled={busy || number <= 0}
-          data-cy={`${noun}-prev`}
-          className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary disabled:opacity-40"
-        >
-          <ChevronLeft size={13} /> Prev
-        </button>
-        <button
-          type="button"
-          onClick={() => onGo(number + 1)}
-          disabled={busy || number >= totalPages - 1}
-          data-cy={`${noun}-next`}
-          className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary disabled:opacity-40"
-        >
-          Next <ChevronRight size={13} />
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -273,6 +257,10 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
       setError("Name is required.");
       return;
     }
+    if (!isValidOptionalPhone(phone)) {
+      setError(PHONE_ERROR);
+      return;
+    }
     if (Number(entrySemester) > Number(currentSemester)) {
       setError("Entry semester cannot be after the current semester.");
       return;
@@ -288,7 +276,6 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
           currentSemester: Number(currentSemester),
           entrySemester: Number(entrySemester),
         },
-        { headers: getAdminHeaders() },
       );
       onUpdated(res.data);
       setMode("view");
@@ -307,11 +294,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
     setBusy(true);
     setError("");
     try {
-      await api.post(
-        `/admin/students/${student.rollNo}/reset-dob`,
-        { dateOfBirth: dob },
-        { headers: getAdminHeaders() },
-      );
+      await api.post(`/admin/students/${student.rollNo}/reset-dob`, { dateOfBirth: dob });
       setDob("");
       setMode("view");
       setNotice("Date of birth updated.");
@@ -333,11 +316,9 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
     setError("");
     try {
       if (proctorMode) {
-        await api.delete(`/admin/proctor/assignments/${student.rollNo}`, {
-          headers: getAdminHeaders(),
-        });
+        await api.delete(`/admin/proctor/assignments/${student.rollNo}`);
       } else {
-        await api.delete(`/admin/students/${student.rollNo}`, { headers: getAdminHeaders() });
+        await api.delete(`/admin/students/${student.rollNo}`);
       }
       onRemoved(student.rollNo);
     } catch (err) {
@@ -346,10 +327,9 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
     }
   };
 
-  const card = "rounded-2xl border border-stroke bg-surface-1 p-4 shadow-soft";
-  // students sit in even semesters and join at odd ones — two different lists, not one.
-  // Legacy rows predate the parity rule, so a stored invalid value joins its list rather than
-  // rendering as a blank select that submits something the admin never saw.
+  // TWO option lists, not one: students sit in even semesters and join at odd ones. A legacy row
+  // violating the parity rule has its stored value added to its own list, rather than rendering as
+  // a blank <select> that submits something the admin never saw.
   const currentOptions = withLegacyValue(CURRENT_SEMESTERS, student.currentSemester);
   const entryOptions = withLegacyValue(
     entrySemestersUpTo(currentSemester),
@@ -361,87 +341,97 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
 
   if (mode === "view") {
     return (
-      <div className={card}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-semibold text-ink">
-              {student.name}{" "}
-              <span className="font-mono text-xs text-ink-muted">{student.rollNo}</span>
-            </p>
-            <p className="text-xs text-ink-muted">
-              {student.branch || "—"} · Sem {student.currentSemester}
-              {student.entrySemester > 1 ? ` · entry sem ${student.entrySemester}` : ""}
-              {student.email ? ` · ${student.email}` : ""}
-              {student.phone ? ` · ${student.phone}` : ""}
-            </p>
-            {notice && <p className="mt-1.5 text-xs font-semibold text-primary-ink">{notice}</p>}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setShowSems((v) => !v)}
-              data-cy={`student-sems-${student.rollNo}`}
-              aria-expanded={showSems}
-              className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                showSems
-                  ? "border-primary text-primary-ink"
-                  : "border-stroke hover:border-primary"
-              }`}
-            >
-              <CalendarClock size={13} /> Semesters
-            </button>
-            <button
-              type="button"
-              onClick={startEdit}
-              data-cy={`student-edit-${student.rollNo}`}
-              className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary"
-            >
-              <Pencil size={13} /> Edit
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setDob("");
-                setError("");
-                setNotice("");
-                setMode("dob");
-              }}
-              data-cy={`student-dob-${student.rollNo}`}
-              className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary"
-            >
-              <KeyRound size={13} /> Reset DOB
-            </button>
-            <button
-              type="button"
-              onClick={remove}
-              disabled={busy}
-              data-cy={`student-delete-${student.rollNo}`}
-              className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
-            >
-              {busy ? (
-                <LoaderCircle size={13} className="animate-spin" />
-              ) : proctorMode ? (
-                <UserMinus size={13} />
-              ) : (
-                <Trash2 size={13} />
-              )}{" "}
-              {proctorMode ? "Remove" : "Delete"}
-            </button>
-          </div>
-        </div>
-        {error && (
-          <p className="mt-2 text-xs text-red-600" role="alert" data-cy={`student-error-${student.rollNo}`}>
-            {error}
-          </p>
+      <>
+        <tr className="border-t border-stroke align-top transition-colors hover:bg-surface-muted">
+          <td className="px-4 py-3 font-mono text-xs font-semibold text-ink">{student.rollNo}</td>
+          <td className="px-4 py-3 font-semibold text-ink">
+            {student.name}
+            {notice && (
+              <p className="mt-1 text-xs font-semibold text-success">{notice}</p>
+            )}
+            {error && (
+              <p
+                className="mt-1 text-xs text-alert"
+                role="alert"
+                data-cy={`student-error-${student.rollNo}`}
+              >
+                {error}
+              </p>
+            )}
+          </td>
+          <td className="px-4 py-3">{student.branch || "\u2014"}</td>
+          <td className="px-4 py-3">{student.currentSemester}</td>
+          <td className="px-4 py-3">{student.entrySemester}</td>
+          <td className="px-4 py-3 text-ink-muted">{student.email || "\u2014"}</td>
+          <td className="px-4 py-3 text-ink-muted">{student.phone || "\u2014"}</td>
+          <td className="px-4 py-3">
+            <div className="flex gap-1.5 whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() => setShowSems((v) => !v)}
+                data-cy={`student-sems-${student.rollNo}`}
+                aria-expanded={showSems}
+                className={btn(showSems ? "accent" : "neutral", "sm")}
+              >
+                <CalendarClock size={13} /> Semesters
+              </button>
+              <button
+                type="button"
+                onClick={startEdit}
+                data-cy={`student-edit-${student.rollNo}`}
+                className={btn("neutral", "sm")}
+              >
+                <Pencil size={13} /> Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDob("");
+                  setError("");
+                  setNotice("");
+                  setMode("dob");
+                }}
+                data-cy={`student-dob-${student.rollNo}`}
+                className={btn("neutral", "sm")}
+              >
+                <KeyRound size={13} /> Reset DOB
+              </button>
+              <button
+                type="button"
+                onClick={remove}
+                disabled={busy}
+                data-cy={`student-delete-${student.rollNo}`}
+                className={btn("danger", "sm")}
+              >
+                {busy ? (
+                  <LoaderCircle size={13} className="animate-spin" />
+                ) : proctorMode ? (
+                  <UserMinus size={13} />
+                ) : (
+                  <Trash2 size={13} />
+                )}{" "}
+                {proctorMode ? "Remove" : "Delete"}
+              </button>
+            </div>
+          </td>
+        </tr>
+        {/* The timeline is its own full-width row: it is a panel about the student above it, not a
+            value belonging to any one column. */}
+        {showSems && (
+          <tr className="border-t border-stroke">
+            <td colSpan={8} className="px-4 pb-4">
+              <StudentSemesters rollNo={student.rollNo} />
+            </td>
+          </tr>
         )}
-        {showSems && <StudentSemesters rollNo={student.rollNo} />}
-      </div>
+      </>
     );
   }
 
   if (mode === "dob") {
     return (
-      <div className={card}>
+      <tr className="border-t border-stroke">
+        <td colSpan={8} className="px-4 py-4">
         <p className="mb-2 text-sm font-semibold">
           Reset date of birth — {student.name} ({student.rollNo})
         </p>
@@ -451,7 +441,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="date"
-            className={`${inputClass} max-w-xs`}
+            className={`${FIELD_INPUT} max-w-xs`}
             value={dob}
             onChange={(e) => setDob(e.target.value)}
             data-cy={`student-dob-input-${student.rollNo}`}
@@ -461,30 +451,32 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
             onClick={saveDob}
             disabled={busy}
             data-cy={`student-dob-save-${student.rollNo}`}
-            className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            className={btn("accent")}
           >
             {busy ? <LoaderCircle size={14} className="animate-spin" /> : <Check size={14} />} Save
           </button>
           <button
             type="button"
             onClick={() => setMode("view")}
-            className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-2 text-sm font-semibold transition-colors hover:border-primary"
+            className={btn()}
           >
             <X size={14} /> Cancel
           </button>
         </div>
         {error && (
-          <p className="mt-2 text-xs text-red-600" role="alert">
+          <p className="mt-2 text-xs text-alert" role="alert">
             {error}
           </p>
         )}
-      </div>
+        </td>
+      </tr>
     );
   }
 
   // edit mode
   return (
-    <div className={card}>
+    <tr className="border-t border-stroke">
+      <td colSpan={8} className="px-4 py-4">
       <p className="mb-3 text-sm font-semibold">
         Edit {student.rollNo}{" "}
         <span className="text-xs font-normal text-ink-muted">
@@ -492,32 +484,30 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
         </span>
       </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">Name</label>
-          <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} data-cy="student-edit-name" />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">
-            Email <span className="font-normal normal-case text-ink-muted">(auto, from USN)</span>
-          </label>
-          <input className={inputClass} value={email} readOnly tabIndex={-1} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-[0.08em]">Phone</label>
+        <Field label="Name">
+          <input className={FIELD_INPUT} value={name} onChange={(e) => setName(e.target.value)} data-cy="student-edit-name" />
+        </Field>
+        <Field
+          label={<>Email <span className="font-normal normal-case text-ink-muted">(auto, from USN)</span></>}
+        >
+          <input className={FIELD_INPUT} value={email} readOnly tabIndex={-1} />
+        </Field>
+        <Field label="Phone">
           <input
-            className={inputClass}
+            className={FIELD_INPUT}
             type="tel"
             inputMode="numeric"
             maxLength={10}
+            placeholder="optional, 10 digits"
             value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+            onChange={(e) => setPhone(cleanPhoneInput(e.target.value))}
+            data-cy="student-edit-phone"
           />
-        </div>
+        </Field>
         <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Current sem</label>
+          <Field label="Current sem">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={currentSemester}
               onChange={(e) => {
                 const v = e.target.value;
@@ -533,11 +523,10 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Entry sem</label>
+          </Field>
+          <Field label="Entry sem">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={entrySemester}
               onChange={(e) => setEntrySemester(e.target.value)}
               data-cy="student-edit-entry-sem"
@@ -548,7 +537,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
                 </option>
               ))}
             </select>
-          </div>
+          </Field>
         </div>
       </div>
 
@@ -579,7 +568,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
       )}
 
       {error && (
-        <p className="mt-3 text-sm text-red-600" role="alert" data-cy="student-edit-error">
+        <p className="mt-3 text-sm text-alert" role="alert" data-cy="student-edit-error">
           {error}
         </p>
       )}
@@ -590,19 +579,20 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
           onClick={save}
           disabled={busy}
           data-cy="student-save"
-          className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          className={btn("accent")}
         >
           {busy ? <LoaderCircle size={14} className="animate-spin" /> : <Check size={14} />} Save
         </button>
         <button
           type="button"
           onClick={() => setMode("view")}
-          className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-2 text-sm font-semibold transition-colors hover:border-primary"
+          className={btn()}
         >
           <X size={14} /> Cancel
         </button>
-      </div>
-    </div>
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -623,7 +613,7 @@ function StudentSemesters({ rollNo }) {
     setBusy(true);
     setError("");
     api
-      .get(`/admin/progression/${rollNo}`, { headers: getAdminHeaders() })
+      .get(`/admin/progression/${rollNo}`)
       .then((res) => {
         if (ignore) return;
         setData(res.data);
@@ -650,7 +640,6 @@ function StudentSemesters({ rollNo }) {
       const res = await api.put(
         `/admin/progression/${rollNo}/semester/${semester}`,
         { academicYear: parsed },
-        { headers: getAdminHeaders() },
       );
       setData(res.data);
     } catch (err) {
@@ -676,7 +665,7 @@ function StudentSemesters({ rollNo }) {
         <SemesterTimeline student={data} onSaveYear={saveYear} busy={busy} />
       ) : null}
       {error && (
-        <p className="mt-2 text-xs text-red-600" role="alert">
+        <p className="mt-2 text-xs text-alert" role="alert">
           {error}
         </p>
       )}

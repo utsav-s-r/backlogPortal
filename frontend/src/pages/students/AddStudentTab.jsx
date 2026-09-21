@@ -1,13 +1,14 @@
 import { useState, useMemo } from "react";
 import { BadgeCheck, LoaderCircle, UserPlus } from "lucide-react";
-import MagneticCta from "../../components/ui/MagneticCta";
-import api, { getAdminHeaders } from "../../lib/api";
+import PrimaryCta from "../../components/ui/PrimaryCta";
+import api from "../../lib/api";
 import { findOwnDepartment } from "../../lib/session";
 import AlertBanner from "../../components/AlertBanner";
 import { CURRENT_SEMESTERS, clampEntrySemester, entrySemestersUpTo } from "../../lib/semesters";
+import { FIELD_INPUT } from "../../lib/formClasses";
+import Field from "../../components/ui/Field";
+import { PHONE_ERROR, cleanPhoneInput, isValidOptionalPhone } from "../../lib/phone";
 
-const inputClass =
-  "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60";
 
 const USN_RE = /^1MS\d{2}[A-Za-z]{2}\d{3}$/;
 
@@ -19,9 +20,6 @@ const blank = {
   currentSemester: "2",
   entrySemester: "1",
 };
-
-// keep only digits, max 10
-const cleanPhone = (v) => v.replace(/\D/g, "").slice(0, 10);
 
 // Create one student. Presentational tab: the shell supplies departments and the dept-lock
 // context. DOB is a write-only credential. The server seeds the full entry..8 academic-year
@@ -58,6 +56,10 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
       setError("Name is required.");
       return;
     }
+    if (!isValidOptionalPhone(form.phone)) {
+      setError(PHONE_ERROR);
+      return;
+    }
     if (!form.dateOfBirth) {
       setError("Date of birth is required.");
       return;
@@ -80,7 +82,6 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
           currentSemester: current,
           entrySemester: entry,
         },
-        { headers: getAdminHeaders() },
       );
       setCreatedRollNo(rollNo);
       setForm(blank);
@@ -93,7 +94,7 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
 
   return (
     <div
-      className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-8"
+      className="py-5 sm:py-8"
     >
       <h2 className="mb-2 text-xl font-semibold text-secondary-ink">Add a student</h2>
       <p className="mb-6 text-sm text-ink-muted">
@@ -122,69 +123,57 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
 
       <form onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="rollNo" className="text-xs font-semibold uppercase tracking-[0.08em]">
-              USN *
-            </label>
+          <Field label="USN *" htmlFor="rollNo">
             <input
               id="rollNo"
-              className={`${inputClass} font-mono`}
+              className={`${FIELD_INPUT} font-mono`}
               placeholder="e.g. 1MS22CS001"
               value={form.rollNo}
               onChange={(e) => set("rollNo", e.target.value.toUpperCase())}
               data-cy="student-usn"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="name" className="text-xs font-semibold uppercase tracking-[0.08em]">
-              Name *
-            </label>
+          </Field>
+          <Field label="Name *" htmlFor="name">
             <input
               id="name"
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="Full name"
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
               data-cy="student-name"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="phone" className="text-xs font-semibold uppercase tracking-[0.08em]">
-              Phone
-            </label>
+          </Field>
+          <Field label="Phone" htmlFor="phone">
             <input
               id="phone"
               type="tel"
               inputMode="numeric"
               maxLength={10}
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="optional, 10 digits"
               value={form.phone}
-              onChange={(e) => set("phone", cleanPhone(e.target.value))}
+              onChange={(e) => set("phone", cleanPhoneInput(e.target.value))}
               data-cy="student-phone"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="dob" className="text-xs font-semibold uppercase tracking-[0.08em]">
-              Date of birth * <span className="text-ink-muted">(login credential)</span>
-            </label>
+          </Field>
+          <Field
+            label={<>Date of birth * <span className="text-ink-muted">(login credential)</span></>}
+            htmlFor="dob"
+          >
             <input
               id="dob"
               type="date"
-              className={inputClass}
+              className={FIELD_INPUT}
               value={form.dateOfBirth}
               onChange={(e) => set("dateOfBirth", e.target.value)}
               data-cy="student-dob"
             />
-          </div>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="currentSemester" className="text-xs font-semibold uppercase tracking-[0.08em]">
-                Current sem *
-              </label>
+            <Field label="Current sem *" htmlFor="currentSemester">
               <select
                 id="currentSemester"
-                className={inputClass}
+                className={FIELD_INPUT}
                 value={form.currentSemester}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -203,14 +192,11 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="entrySemester" className="text-xs font-semibold uppercase tracking-[0.08em]">
-                Entry sem
-              </label>
+            </Field>
+            <Field label="Entry sem" htmlFor="entrySemester">
               <select
                 id="entrySemester"
-                className={inputClass}
+                className={FIELD_INPUT}
                 value={form.entrySemester}
                 onChange={(e) => set("entrySemester", e.target.value)}
                 data-cy="student-entry-sem"
@@ -221,7 +207,7 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
                   </option>
                 ))}
               </select>
-            </div>
+            </Field>
           </div>
         </div>
         <p className="text-xs text-ink-muted">
@@ -237,10 +223,10 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
         )}
 
         <div className="border-t border-stroke pt-4">
-          <MagneticCta
+          <PrimaryCta
             type="submit"
             disabled={loading}
-            className="w-full gap-2 rounded-xl"
+            className="w-full gap-2"
             data-cy="student-add-submit"
           >
             {loading ? (
@@ -252,7 +238,7 @@ function AddStudentTab({ departments, adminDepartment, deptLocked }) {
                 <UserPlus size={16} /> Add student
               </>
             )}
-          </MagneticCta>
+          </PrimaryCta>
         </div>
       </form>
     </div>

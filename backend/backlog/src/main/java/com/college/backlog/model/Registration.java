@@ -2,7 +2,7 @@ package com.college.backlog.model;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.BatchSize;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 @Entity
@@ -24,9 +24,17 @@ public class Registration {
     // examCycle), keeping pagination a real SQL LIMIT — a collection fetch-join would force
     // in-memory paging. `subjects` then loads lazily during mapping, which is why that mapping
     // must stay inside RegistrationService.listSummaries' transaction (open-in-view is off);
-    // BatchSize collapses those N loads into a few IN queries per page.
+    // BatchSize collapses those N loads into ONE query per page. It only has to EXCEED the page —
+    // AdminController.MAX_PAGE_SIZE is 200, so 1000 is headroom, NOT a tuned value; below the page
+    // the count climbs in steps of the batch size (at 30: 11 queries for page 200 vs 5). Oversizing
+    // is free, which is why this deliberately isn't pinned to MAX_PAGE_SIZE: the loader binds ONE
+    // Postgres array param (`where reg_id = any (?)`), so SQL text and bind count are independent
+    // of both the declared size and the row count — no padding to pay for. Measured 2026-08-25:
+    // 1000 indistinguishable from 200 at pages 25/100/200. Only this path batches; the three
+    // unpaginated graphs in RegistrationRepository fetch-join `subjects`.
+    // docs/adr/persistence-fetching.md.
     @ManyToMany
-    @BatchSize(size = 30)
+    @BatchSize(size = 1000)
     @JoinTable(
         name = "registration_subjects",
         joinColumns = @JoinColumn(
@@ -38,7 +46,10 @@ public class Registration {
     private List<Subject> subjects;
 
     @Column(name = "registered_at")
-    private LocalDateTime registeredAt;
+    // Instant, matching every other timestamp in the schema (V6). LocalDateTime here stored the
+    // SERVER's wall clock — UTC on Render, IST from a laptop — so the value did not identify a
+    // point in time: the API emitted it without an offset and browsers read it as local.
+    private Instant registeredAt;
 
     // Stored as the enum name (varchar), with a DB CHECK constraint guarding the values.
     @Enumerated(EnumType.STRING)
@@ -84,7 +95,7 @@ public class Registration {
 
     public Registration() {}
 
-    public Registration(Long id, String regId, Student student, List<Subject> subjects, LocalDateTime registeredAt, RegistrationStatus status) {
+    public Registration(Long id, String regId, Student student, List<Subject> subjects, Instant registeredAt, RegistrationStatus status) {
         this.id = id;
         this.regId = regId;
         this.student = student;
@@ -103,10 +114,17 @@ public class Registration {
     public void setStudent(Student student) { this.student = student; }
 
     public List<Subject> getSubjects() { return subjects; }
-    public void setSubjects(List<Subject> subjects) { this.subjects = subjects; }
+    /** Copies, rather than holding the caller's list: Hibernate mutates this collection in place
+     *  when the row is updated, so a {@code List.of(...)} handed in here surfaces later as
+     *  UnsupportedOperationException from inside a flush — on the VERIFY path, as a 500. Mapping
+     *  is field-access, so Hibernate's own load never goes through this setter. Same reason as
+     *  ExamCycle.setBatchLines. */
+    public void setSubjects(List<Subject> subjects) {
+        this.subjects = subjects == null ? null : new java.util.ArrayList<>(subjects);
+    }
 
-    public LocalDateTime getRegisteredAt() { return registeredAt; }
-    public void setRegisteredAt(LocalDateTime registeredAt) { this.registeredAt = registeredAt; }
+    public Instant getRegisteredAt() { return registeredAt; }
+    public void setRegisteredAt(Instant registeredAt) { this.registeredAt = registeredAt; }
 
     public RegistrationStatus getStatus() { return status; }
     public void setStatus(RegistrationStatus status) { this.status = status; }

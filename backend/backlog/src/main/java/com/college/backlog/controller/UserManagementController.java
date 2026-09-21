@@ -1,6 +1,11 @@
 package com.college.backlog.controller;
 
 import com.college.backlog.controller.dto.CreateUserRequest;
+import com.college.backlog.controller.dto.RenameUserRequest;
+import com.college.backlog.model.AdminAuditAction;
+import com.college.backlog.model.AuditTargetType;
+import com.college.backlog.service.AdminAuditService;
+import org.springframework.transaction.annotation.Transactional;
 import com.college.backlog.controller.dto.UserResponse;
 import com.college.backlog.model.Department;
 import com.college.backlog.model.User;
@@ -59,6 +64,9 @@ public class UserManagementController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private AdminAuditService auditService;
+
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD')")
     public List<UserResponse> listUsers(Authentication auth) {
@@ -76,6 +84,7 @@ public class UserManagementController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD')")
+    @Transactional
     public Map<String, String> createUser(@Valid @RequestBody CreateUserRequest req, Authentication auth) {
         User actor = callerScope.requireActor(auth);
 
@@ -89,7 +98,7 @@ public class UserManagementController {
         if (!canManageRole(actor, role)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to create this kind of user");
         }
-        if (userRepository.existsById(username)) {
+        if (userRepository.existsByUsername(username)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A user with that username already exists");
         }
 
@@ -112,12 +121,17 @@ public class UserManagementController {
         user.setRole(role);
         user.setDepartment(department);
         userRepository.save(user);
+        // Same transaction as the save: the account must never exist without the record of who
+        // granted it, and of which role/department it was granted (P3-9).
+        auditService.record(AdminAuditAction.USER_CREATE, actor, AuditTargetType.USER, username,
+                "role=" + role + (department == null ? "" : " dept=" + department.getDeptName()));
 
         return accountResponse(user);
     }
 
     @PostMapping("/{username}/reset")
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD')")
+    @Transactional
     public Map<String, String> resetPassword(@PathVariable String username, Authentication auth) {
         User actor = callerScope.requireActor(auth);
         User target = loadManageableTarget(actor, username);
@@ -127,16 +141,73 @@ public class UserManagementController {
         }
 
         target.setPassword(passwordEncoder.encode(defaultPasswordFor(target.getUsername())));
+        // The point of a reset is that the old credential stops working NOW. Without this the
+        // account's existing sessions ran on for up to the full hour, so resetting the password
+        // of an account you believe is compromised evicted nobody.
+        target.revokeExistingSessions();
+        userRepository.save(target);
+        auditService.record(AdminAuditAction.USER_PASSWORD_RESET, actor, AuditTargetType.USER,
+                target.getUsername(), "reset to the derived default");
+
+        return accountResponse(target);
+    }
+
+    /**
+     * Rename someone else's account. <b>ADMIN only</b> — deliberately narrower than every sibling
+     * here, which admit ADMIN/PRINCIPAL/HOD, and narrower than SecurityConfig's {@code
+     * /api/admin/**} rule. That narrowing IS the feature: PRINCIPAL and HOD are read-only for
+     * renames, so this annotation is the whole control and deleting it must change behaviour.
+     *
+     * <p>Renaming revokes the target's live session on their next request — the JWT subject is the
+     * username, so {@code AccountExistenceFilter} stops resolving it. Their password is untouched,
+     * including an untouched derived default that no longer matches the new name.
+     */
+    @PatchMapping("/{username}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    public Map<String, String> renameUser(@PathVariable String username,
+                                          @Valid @RequestBody RenameUserRequest req,
+                                          Authentication auth) {
+        User actor = callerScope.requireActor(auth);
+        User target = loadManageableTarget(actor, username);
+
+        if (target.getUsername().equals(actor.getUsername())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Use Change Username to rename your own account");
+        }
+
+        String newUsername = req.getNewUsername();
+        if (newUsername.equals(target.getUsername())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "New username must be different from the current one");
+        }
+        if (userRepository.existsByUsername(newUsername)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A user with that username already exists");
+        }
+
+        // Target is the NEW name — the account's current identity — with the old one in the detail,
+        // so a rename chain stays walkable. Same transaction as the save.
+        auditService.record(AdminAuditAction.USER_RENAME, actor, AuditTargetType.USER, newUsername,
+                "from=" + target.getUsername() + " role=" + target.getRole());
+
+        target.setUsername(newUsername);
+        // Belt and braces: the rename already revokes, because the JWT subject is the username
+        // and this row no longer answers to the old one. Stamped anyway so ONE rule covers every
+        // identity change — and so the old name becoming free cannot hand a new account's scope
+        // to the old token.
+        target.revokeExistingSessions();
         userRepository.save(target);
 
         return accountResponse(target);
     }
 
-    // 204 like every other delete here (subjects, departments, students, proctor assignments). The
-    // body it used to return was never read by the only caller.
+    // 204 like every other delete here (subjects, departments, students, proctor assignments):
+    // no body, the caller reads none.
     @DeleteMapping("/{username}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('ADMIN', 'PRINCIPAL', 'HOD')")
+    @Transactional
     public void deleteUser(@PathVariable String username, Authentication auth) {
         User actor = callerScope.requireActor(auth);
         User target = loadManageableTarget(actor, username);
@@ -149,6 +220,10 @@ public class UserManagementController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot delete the last administrator account");
         }
 
+        // Record BEFORE the delete: target.getRole() is read while the row is still loaded, and
+        // the audit row deliberately carries no FK so it survives its subject.
+        auditService.record(AdminAuditAction.USER_DELETE, actor, AuditTargetType.USER,
+                target.getUsername(), "role=" + target.getRole());
         userRepository.delete(target);
     }
 
@@ -156,7 +231,7 @@ public class UserManagementController {
 
     /** Loads a target the actor is allowed to manage, or throws 404/403. */
     private User loadManageableTarget(User actor, String username) {
-        User target = userRepository.findById(username)
+        User target = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if (!canManage(actor, target)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to manage this user");

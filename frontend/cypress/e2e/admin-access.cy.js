@@ -42,7 +42,7 @@ describe("Admin dashboard — role & department scoped access", () => {
         semester: 4,
         subjects: ["Data Structures"],
         status: "SUBMITTED",
-        registeredAt: "2026-04-20T10:20:00",
+        registeredAt: "2026-04-20T10:20:00Z",
       },
       {
         regId: "REG-V",
@@ -51,14 +51,14 @@ describe("Admin dashboard — role & department scoped access", () => {
         semester: 4,
         subjects: ["Operating Systems"],
         status: "VERIFIED",
-        registeredAt: "2026-04-20T10:21:00",
+        registeredAt: "2026-04-20T10:21:00Z",
       },
     ]);
 
     cy.visitAsAdmin("/admin", { role: "HOD", department: "Computer Science" });
     cy.wait("@getRegistrations");
 
-    // department badge in the header
+    // The pinned department, which lives in the SIDEBAR identity block.
     cy.contains("Computer Science").should("be.visible");
 
     // dept roles default to the SUBMITTED filter, so only the pending row shows
@@ -86,7 +86,7 @@ describe("Admin dashboard — role & department scoped access", () => {
         semester: 4,
         subjects: ["Data Structures"],
         status: "SUBMITTED",
-        registeredAt: "2026-04-20T10:20:00",
+        registeredAt: "2026-04-20T10:20:00Z",
       },
     ]);
 

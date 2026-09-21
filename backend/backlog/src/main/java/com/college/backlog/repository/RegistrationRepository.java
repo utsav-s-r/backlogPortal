@@ -9,10 +9,14 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface RegistrationRepository extends JpaRepository<Registration, Long>, JpaSpecificationExecutor<Registration> {
@@ -38,6 +42,22 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
 
     // Delete guard: blocks deleting a subject students have already registered for.
     boolean existsBySubjects_Id(Long subjectId);
+
+    // Batch form of the guard, for the catalog list's `registered` flag: ONE query for a whole
+    // page, never existsBySubjects_Id per row. Callers must skip it on an empty collection — an
+    // empty IN list is not valid SQL.
+    @Query("select distinct s.id from Registration r join r.subjects s where s.id in :subjectIds")
+    Set<Long> findReferencedSubjectIds(@Param("subjectIds") Collection<Long> subjectIds);
+
+    // Edit guard: an exam cycle's name and month are read LIVE by the registrations table and the
+    // printed form, so they freeze once a registration references the cycle (same rule as a
+    // subject's printed fields).
+    boolean existsByExamCycle_Id(Long examCycleId);
+
+    // Batch form, for the cycle list's `referenced` flag: one query for the whole list. Callers
+    // must skip it on an empty collection — an empty IN list is not valid SQL.
+    @Query("select distinct c.id from Registration r join r.examCycle c where c.id in :cycleIds")
+    Set<Long> findReferencedExamCycleIds(@Param("cycleIds") Collection<Long> cycleIds);
 
     // Delete guard: blocks deleting a student referenced by immutable registration history.
     boolean existsByStudent_RollNo(String rollNo);

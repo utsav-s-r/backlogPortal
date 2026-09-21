@@ -4,12 +4,16 @@ import com.college.backlog.controller.dto.SubjectCloneApplyRequest;
 import com.college.backlog.controller.dto.SubjectCloneResult;
 import com.college.backlog.controller.dto.SubjectClonePreviewRequest;
 import com.college.backlog.controller.dto.SubjectClonePreviewResponse;
+import com.college.backlog.model.AdminAuditAction;
+import com.college.backlog.model.AuditTargetType;
 import com.college.backlog.model.Department;
+import com.college.backlog.service.AdminAuditService;
 import com.college.backlog.model.User;
 import com.college.backlog.model.UserRole;
 import com.college.backlog.repository.DepartmentRepository;
 import com.college.backlog.service.AcademicYears;
 import com.college.backlog.service.SubjectCloneService;
+import com.college.backlog.service.Batches;
 import com.college.backlog.service.CallerScope;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -32,6 +36,9 @@ import java.util.Set;
 public class SubjectCloneController {
 
     @Autowired
+    private AdminAuditService auditService;
+
+    @Autowired
     private CallerScope callerScope;
 
     private static final Set<UserRole> DEPT_ROLES = Set.of(UserRole.HOD, UserRole.DEPT_OFFICE);
@@ -49,9 +56,33 @@ public class SubjectCloneController {
 
     @PostMapping("/apply")
     public SubjectCloneResult apply(@RequestBody SubjectCloneApplyRequest req, Authentication auth) {
+        User actor = callerScope.requireActor(auth);
         Department dept = resolveDept(auth, req.getDeptId());
         validateYear(req.getTargetYear());
-        return cloneService.apply(dept.getId(), req.getTargetYear(), req.getRows());
+        Batches.assertWithinLimit(req.getRows() == null ? 0 : req.getRows().size(), "rows");
+        SubjectCloneResult result = cloneService.apply(dept.getId(), req.getTargetYear(), req.getRows());
+        // ONE row for the whole operation, not one per subject: cloning a year's catalog is a single
+        // administrative act. NOT @Transactional here on purpose — SubjectCloneService.apply commits
+        // each row separately by design, so there is no enclosing transaction to join and the audit
+        // row records what actually happened, after it happened.
+        //
+        // The OUTCOME, not the request. This recorded `rows=<requested>` alone, so a 40-row clone
+        // that created 3 and skipped 37 was filed as though it had cloned a catalog — and skipping
+        // is the NORMAL case, since clone exists to carry a year forward onto subjects that are
+        // mostly already there. `requested` is kept beside them because "asked for 40, created 3"
+        // is the reading that matters; the counts come from the result the service returned, which
+        // is the same object the admin sees. Mirrors the SUBJECT_IMPORT row in SubjectController.
+        int requested = req.getRows() == null ? 0 : req.getRows().size();
+        // Best-effort: the rows are already committed, so a failed audit write must not 500 a
+        // request that succeeded and take the per-row result table with it. It returns the
+        // warning the admin sees instead.
+        result.setWarning(auditService.recordBestEffort(
+                AdminAuditAction.SUBJECT_CLONE, actor, AuditTargetType.DEPARTMENT,
+                String.valueOf(dept.getId()),
+                "targetYear=" + req.getTargetYear() + " requested=" + requested
+                    + " created=" + result.getCreated() + " skipped=" + result.getSkipped()
+                    + " errors=" + result.getErrors()));
+        return result;
     }
 
     /** Department the caller may act on: own for HOD/DEPT_OFFICE, any for ADMIN/PRINCIPAL. */

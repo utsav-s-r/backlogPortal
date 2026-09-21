@@ -97,4 +97,41 @@ class JwtServiceTest {
         assertThatThrownBy(() -> newService("too-short", 3_600_000L))   // < 32 bytes
                 .isInstanceOf(IllegalStateException.class);
     }
+
+    /**
+     * The length floor CANNOT catch this one: the template placeholder is 40 bytes, so it passed
+     * every check and an unset JWT_SECRET booted green on a key published in this repo. Asserting
+     * the exact string matters — this test's whole job is to pin the value that shipped, so a
+     * revert of the template default is caught rather than re-accepted.
+     */
+    @Test
+    void initRejectsThePublicTemplatePlaceholderEvenThoughItIsLongEnough() {
+        String placeholder = "CHANGE_ME_TO_A_LONG_RANDOM_BASE64_SECRET";
+        assertThat(placeholder.getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                .as("if this is ever < 32 the length check would mask what this test proves")
+                .isGreaterThanOrEqualTo(32);
+
+        assertThatThrownBy(() -> newService(placeholder, 3_600_000L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("placeholder");
+    }
+
+    @Test
+    void placeholderRejectionIgnoresCaseAndSurroundingWhitespace() {
+        // Env vars arrive with stray whitespace often enough to matter, and a host's UI may
+        // normalise case; neither should turn a public key back into an accepted one.
+        assertThatThrownBy(() -> newService("  change_me_to_a_long_random_base64_secret  ", 3_600_000L))
+                .isInstanceOf(IllegalStateException.class);
+        // The .env.example placeholder — 31 bytes, so the length floor already refused it. Pinned
+        // so it stays refused if that string is ever lengthened.
+        assertThatThrownBy(() -> newService("SET_A_LONG_RANDOM_BASE64_SECRET", 3_600_000L))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void aRealSecretThatMerelyContainsPlaceholderWordsIsStillAccepted() {
+        // Exact-match, not substring: the rejection must not start refusing legitimate keys.
+        JwtService service = newService("CHANGE_ME_TO_A_LONG_RANDOM_BASE64_SECRET-plus-real-entropy", 3_600_000L);
+        assertThat(service.validateToken(service.generateToken("admin", "ADMIN"))).isTrue();
+    }
 }

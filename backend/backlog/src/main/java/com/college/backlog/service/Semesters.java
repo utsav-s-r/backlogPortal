@@ -8,7 +8,7 @@ package com.college.backlog.service;
  * Keep it single. {@code StudentManagementService.validateSemesters} bounds
  * {@code Student.currentSemester} by this range and {@code EligibilityService} returns an EMPTY
  * window above 8, so a wider range anywhere silently locks the student out of registering.
- * {@code ProgressionService.backfillLinear} seeds up to {@link #MAX} for the same reason.
+ * {@code ProgressionService.seedLinearTimeline} seeds up to {@link #MAX} for the same reason.
  *
  * <p><b>Parity is NARROWER than the range, and applies to {@code Student} only.</b> A student sits
  * in an even semester (2..8) and joins at an odd one (1..7), because an academic year is a
@@ -18,7 +18,7 @@ package com.college.backlog.service;
  * eligibility window — a sem-2 student's backlogs are in sem 1, so odd semesters must stay
  * registrable. Applying parity to those would lock every student out of half their backlogs.
  *
- * Sibling of {@link AcademicYears} and {@link CourseCodes}. Enforced in application code only —
+ * Sibling of {@link AcademicYears}. Enforced in application code only —
  * {@code student_semester_terms.semester} is a plain integer with no CHECK, by decision.
  */
 public final class Semesters {

@@ -46,7 +46,8 @@ rather than returning a sentinel, so the fail-closed contract is stated once and
 private controller helpers are not, and this repo has no controller tests.
 
 **3. Revocation lives in exactly one place: `AccountExistenceFilter`.** It 401s when an
-admin principal's `users` row no longer exists.
+admin principal's `users` row no longer exists, **or when that row's role no longer matches the
+role the token carries** (a null role counts as no match).
 
 **4. Enforcement is server-side on every admin endpoint.** UI gating is a convenience, never the
 control. Cypress cannot catch a violation here — every spec stubs its API calls.
@@ -67,7 +68,29 @@ loaded that `users` row for the forced-password-change gate, so it cost no extra
 change was removed on 2026-08-15 (see below) and the class renamed; the check stays because the
 other two reasons still hold — it is admin-only, and it covers endpoints that never resolve a
 departmental scope at all (exam cycles, department CRUD), which a scope-resolver-only fix would
-have missed. It is now the class's only job, and a `existsById` rather than a full load.
+have missed. It is now the class's only job.
+
+**Why existence alone was not enough (2026-08-25).** The check was an `existsById`, which asked only
+whether the account still exists — never whether it is still the same account. Staff role is
+immutable by owner decision, so the only way to change one is delete + recreate under the same
+username, and `username` is the PK; that restores existence while the live cookie still carries the
+OLD role. `JwtAuthenticationFilter` builds authorities from the token's `role` claim and never
+consults the database, so every `@PreAuthorize` decided on a role that could be an hour stale.
+
+The reachable half is the endpoints with no scope to resolve — the same blind spot that motivated
+putting the check here in the first place. `ExamCycleController` is class-annotated
+`hasRole('ADMIN')` and its writes take no `Authentication` at all, so a demoted ADMIN could still
+open and close registration college-wide. `ProgressionController`'s bulk endpoints *do* call
+`CallerScope.requireActor`, but that verifies the row exists and has *some* role, never that it is
+the role the token claims — so a college-wide `current_semester + 2` was reachable the same way.
+
+Now a `findById` (the same single query) plus a comparison against the row's current role. It
+**revokes** rather than silently substituting the row's authorities, because the SPA caches
+`adminRole` in `sessionStorage` at login and gates every admin page on it: substituting would render
+one role's controls while the server enforced another's, and on a promotion would grant powers the
+UI never exposes. 401 routes into the SPA's existing interceptor, and the re-login refreshes the
+cached role as a side effect. A null role fails the comparison deliberately — `CallerScope` answers
+a clearer 403, but only where a scope is resolved, which is exactly not the exam-cycle path.
 
 **Forced password change, removed 2026-08-15.** Accounts were created and reset with a random
 one-time password (`TempPasswordGenerator`), shown once in the UI, with a `users.must_change_password`

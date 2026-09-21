@@ -23,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class SubjectService {
@@ -41,22 +42,13 @@ public class SubjectService {
 
     @Transactional
     public Subject createSubject(SubjectCreateRequest request) {
-        // Authoritative year check — must run BEFORE the prefix check below, which only compares
-        // the code against whatever year was sent and so accepts any absurd year with a matching
-        // prefix (year 0 + "00CS44", year 9999 + "99CS44" both pass it). The DTO's @Min is only a
-        // floor; the upper bound is relative to now and can't be expressed as an annotation.
+        // The year is the binding key, so it is the ONLY thing constraining the offering — the
+        // course code is free text. The DTO's @Min is only a floor; the upper bound is relative to
+        // now and can't be expressed as an annotation.
         try {
             AcademicYears.assertInRange(request.getAcademicYearOffered());
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
-        }
-
-        // prefix=year invariant: the code's first two digits are the academic-year start. The UI
-        // locks the prefix; this is the server backstop against a crafted request.
-        if (!CourseCodes.matchesYear(request.getCourseCode(), request.getAcademicYearOffered())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Course code must start with the academic year's two digits ("
-                    + CourseCodes.prefixForYear(request.getAcademicYearOffered()) + ").");
         }
 
         // 400, not 404: the deptId comes from the REQUEST BODY, so the resource addressed by the
@@ -76,9 +68,11 @@ public class SubjectService {
         subject.setDepartment(department);
 
         SubjectType type = resolveSubjectType(request.getSubjectType());
+        assertElectiveNamesItsDepartments(type, request.getEligibleDeptIds());
         subject.setSubjectType(type);
 
-        if (type == SubjectType.ELECTIVE && request.getEligibleDeptIds() != null && !request.getEligibleDeptIds().isEmpty()) {
+        // No emptiness test needed — the guard above already refused an ELECTIVE without ids.
+        if (type == SubjectType.ELECTIVE) {
             subject.setEligibleDepartments(resolveEligibleDepartments(request.getEligibleDeptIds()));
         }
 
@@ -86,9 +80,9 @@ public class SubjectService {
     }
 
     /**
-     * Edit a subject. The academic year is NOT editable (it is the binding key), so the
-     * course-code prefix stays locked to it. callerDeptId is non-null for HOD/DEPT_OFFICE, who may
-     * only touch their own department.
+     * Edit a subject. The academic year is NOT editable — it is the binding key, and moving an
+     * offering between years would re-point every backlog that resolves through it. callerDeptId
+     * is non-null for HOD/DEPT_OFFICE, who may only touch their own department.
      */
     @Transactional
     public Subject updateSubject(Long id, SubjectUpdateRequest request, Long callerDeptId) {
@@ -101,12 +95,7 @@ public class SubjectService {
                 "You can only edit subjects for your own department.");
         }
 
-        // year is fixed, so the prefix must still match it — suffix-only edits
-        if (!CourseCodes.matchesYear(request.getCourseCode(), subject.getAcademicYearOffered())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Course code must start with the academic year's two digits ("
-                    + CourseCodes.prefixForYear(subject.getAcademicYearOffered()) + ").");
-        }
+        assertPrintedFieldsUnchangedOnceRegistered(subject, request);
 
         subject.setSubjectName(request.getSubjectName());
         subject.setCourseCode(request.getCourseCode());
@@ -114,11 +103,14 @@ public class SubjectService {
         subject.setCredits(request.getCredits());
 
         SubjectType type = resolveSubjectType(request.getSubjectType());
+        assertElectiveNamesItsDepartments(type, request.getEligibleDeptIds());
         subject.setSubjectType(type);
-        if (type == SubjectType.ELECTIVE
-                && request.getEligibleDeptIds() != null && !request.getEligibleDeptIds().isEmpty()) {
+        if (type == SubjectType.ELECTIVE) {
             subject.setEligibleDepartments(resolveEligibleDepartments(request.getEligibleDeptIds()));
         } else {
+            // REGULAR carries no eligibility list, so clear anything left from when this subject
+            // was an ELECTIVE. Before the guard above, this branch ALSO caught an ELECTIVE whose
+            // ids were merely omitted from the payload, silently wiping real eligibility.
             subject.setEligibleDepartments(new ArrayList<>());
         }
 
@@ -135,6 +127,40 @@ public class SubjectService {
                 "Another subject with course code '" + request.getCourseCode()
                     + "' already exists for this academic year.");
         }
+    }
+
+    /**
+     * The four fields a registration DISPLAYS but does not snapshot — the admin table, the student
+     * list and both PDFs read them live off this row. Editing one after a student has registered
+     * rewrites the form they already signed, silently and retroactively. Frozen once referenced,
+     * for the same reason {@link #deleteSubject} refuses: registrations are immutable history.
+     * Correct a mistake by offering a new subject, not by moving this one.
+     *
+     * <p>Compares FIRST, then queries: called before the setters (a managed entity is written back
+     * by dirty checking), and a type/eligibility-only edit — those two stay editable, being future
+     * eligibility rather than printed history — never pays for the existence check.
+     */
+    private void assertPrintedFieldsUnchangedOnceRegistered(Subject subject, SubjectUpdateRequest request) {
+        List<String> changed = new ArrayList<>();
+        if (!Objects.equals(subject.getSubjectName(), request.getSubjectName())) {
+            changed.add("subject name");
+        }
+        if (!Objects.equals(subject.getCourseCode(), request.getCourseCode())) {
+            changed.add("course code");
+        }
+        if (subject.getSemester() != request.getSemester()) {
+            changed.add("semester");
+        }
+        if (subject.getCredits() != request.getCredits()) {
+            changed.add("credits");
+        }
+        if (changed.isEmpty() || !registrationRepository.existsBySubjects_Id(subject.getId())) {
+            return;
+        }
+        throw new ResponseStatusException(HttpStatus.CONFLICT,
+            "This subject is referenced by existing registrations, so its "
+                + String.join(", ", changed) + " cannot be changed — it would alter forms students "
+                + "have already submitted. Add a new subject for the corrected details instead.");
     }
 
     /** Delete a subject, dept-scoped; blocked if any registration references it, since removing
@@ -166,8 +192,8 @@ public class SubjectService {
      *     the predicate would leak every department's subjects to a proctor.
      */
     public List<Subject> findDistinctSubjectsByRegistrationFilters(
-            Long departmentId, String subjectType, String searchQuery, Integer semester,
-            Collection<String> studentRollNos) {
+            Long departmentId, String departmentCode, String subjectType, String searchQuery,
+            Integer semester, Collection<String> studentRollNos) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Subject> query = cb.createQuery(Subject.class);
         Root<Registration> registrationRoot = query.from(Registration.class);
@@ -176,14 +202,23 @@ public class SubjectService {
         query.select(subjectJoin).distinct(true);
 
         List<Predicate> predicates = new ArrayList<>();
-        boolean needsStudent = (searchQuery != null && !searchQuery.isBlank()) || semester != null;
+        boolean needsStudent = (searchQuery != null && !searchQuery.isBlank()) || semester != null
+                || (departmentCode != null && !departmentCode.isBlank());
         Join<Registration, Student> studentJoin =
-                needsStudent ? registrationRoot.join("student") : null;
+                needsStudent ? registrationRoot.join("student", JoinType.LEFT) : null;
 
         if (departmentId != null) {
+            // Same three arms as RegistrationSpecification, including the student's own
+            // department — the dropdown must offer exactly the subjects the list can show.
             Predicate offeredBy = cb.equal(subjectJoin.join("department", JoinType.LEFT).get("id"), departmentId);
             Predicate eligibleFor = cb.equal(subjectJoin.join("eligibleDepartments", JoinType.LEFT).get("id"), departmentId);
-            predicates.add(cb.or(offeredBy, eligibleFor));
+            if (departmentCode != null && !departmentCode.isBlank()) {
+                Predicate ownStudent = cb.equal(
+                        cb.lower(studentJoin.get("branch")), departmentCode.toLowerCase(java.util.Locale.ROOT));
+                predicates.add(cb.or(offeredBy, eligibleFor, ownStudent));
+            } else {
+                predicates.add(cb.or(offeredBy, eligibleFor));
+            }
         }
 
         SubjectType subjectTypeFilter = SubjectType.fromNullable(subjectType);
@@ -192,9 +227,9 @@ public class SubjectService {
         }
 
         if (searchQuery != null && !searchQuery.isBlank()) {
-            Predicate namePredicate = cb.like(cb.lower(studentJoin.get("name")), "%" + searchQuery.toLowerCase() + "%");
-            Predicate usnPredicate = cb.like(cb.lower(studentJoin.get("rollNo")), "%" + searchQuery.toLowerCase() + "%");
-            predicates.add(cb.or(namePredicate, usnPredicate));
+            // The same predicate the list uses, not a copy of it — the dropdown must offer
+            // exactly the subjects the list can show.
+            predicates.add(RegistrationSearch.studentMatches(cb, registrationRoot, studentJoin, searchQuery));
         }
 
         if (semester != null) {
@@ -224,7 +259,7 @@ public class SubjectService {
      * "the form only sends REGULAR or ELECTIVE", but the clone path builds these requests from
      * client-supplied rows, so that was a client-trust assumption on a write path.
      */
-    private SubjectType resolveSubjectType(String raw) {
+    static SubjectType resolveSubjectType(String raw) {
         if (raw == null || raw.isBlank()) {
             return SubjectType.REGULAR;
         }
@@ -241,6 +276,32 @@ public class SubjectService {
      * ids, so a stale one silently saved the subject with narrower eligibility than the admin
      * chose. Same size check RegistrationService already applies to subject ids.
      */
+    /**
+     * {@link SubjectType} states the invariant — "ELECTIVE carries an eligible-department list" —
+     * and nothing enforced it. An ELECTIVE saved with an empty list is registrable by NOBODY and
+     * says so nowhere: {@code StudentController.branchMatches} and {@code RegistrationService}'s
+     * elective check both {@code anyMatch} over that collection, and an empty stream is false for
+     * every student. The subject still lists in the admin catalog, so the only way to notice is to
+     * diff the catalog against what students can actually see.
+     *
+     * <p>400, matching {@code resolveSubjectType}'s unknown-type refusal: the submission is wrong
+     * and the caller can resubmit. Both React forms already block this
+     * ({@code AddSubjectTab}, {@code ManageTab}), so this is the server-side half of a rule the UI
+     * was enforcing alone — "UI gating is a convenience, never the control" (docs/adr/auth-scoping.md).
+     * It is reachable today by any direct API call, and by clone if a source elective were ever in
+     * this state (clone forwards the source's list and cannot edit it).
+     *
+     * <p>Checking the REQUEST ids is sufficient: {@link #resolveEligibleDepartments} 400s on an id
+     * that resolves to nothing rather than dropping it, so a non-empty request cannot become an
+     * empty persisted list.
+     */
+    static void assertElectiveNamesItsDepartments(SubjectType type, Collection<Long> eligibleDeptIds) {
+        if (type == SubjectType.ELECTIVE && (eligibleDeptIds == null || eligibleDeptIds.isEmpty())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "An elective must have at least one eligible department.");
+        }
+    }
+
     private List<Department> resolveEligibleDepartments(Collection<Long> ids) {
         List<Department> found = departmentRepository.findAllById(ids);
         if (found.size() != new java.util.HashSet<>(ids).size()) {

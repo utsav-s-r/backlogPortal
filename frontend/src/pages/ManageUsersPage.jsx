@@ -1,28 +1,33 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  ArrowLeft,
   KeyRound,
   LoaderCircle,
+  PencilLine,
   Trash2,
   UserPlus,
   Users,
   X,
 } from "lucide-react";
 import AlertBanner from "../components/AlertBanner";
-import { Link, useNavigate } from "react-router-dom";
-import BrandHeader from "../components/layout/BrandHeader";
-import MagneticCta from "../components/ui/MagneticCta";
-import api, { getAdminHeaders } from "../lib/api";
+import AdminPageShell from "../components/layout/AdminPageShell";
+import PrimaryCta from "../components/ui/PrimaryCta";
+import api from "../lib/api";
 import { reportLoadError } from "../lib/loadError";
 import { findOwnDepartment } from "../lib/session";
+import { DEPT_PINNED, ROLE, USER_MANAGEMENT_ROLES } from "../lib/roles";
+import { useRoleGuard } from "../hooks/useRoleGuard";
+import { FIELD_INPUT } from "../lib/formClasses";
+import Field from "../components/ui/Field";
+import { btn } from "../lib/buttonClasses";
 
-// Roles each actor may create. The server enforces the same rules; this only shapes the UI.
+// Roles each actor may create. The server enforces the same rules; this only shapes the UI. Kept
+// as an explicit ladder rather than assembled from lib/roles' subsets — it is page policy keyed by
+// actor, not the role vocabulary, and each row must stay readable on its own line.
 const CREATABLE_ROLES = {
   ADMIN: ["ADMIN", "PRINCIPAL", "HOD", "DEPT_OFFICE", "PROCTOR"],
   PRINCIPAL: ["HOD", "DEPT_OFFICE", "PROCTOR"],
   HOD: ["DEPT_OFFICE", "PROCTOR"],
 };
-const DEPT_ROLES = new Set(["HOD", "DEPT_OFFICE", "PROCTOR"]);
 const ROLE_LABELS = {
   ADMIN: "Administrator",
   PRINCIPAL: "Principal / Registrar / COE",
@@ -32,13 +37,15 @@ const ROLE_LABELS = {
 };
 
 function ManageUsersPage() {
-  const navigate = useNavigate();
   const adminRole = sessionStorage.getItem("adminRole") || "";
   const adminDepartment = sessionStorage.getItem("adminDepartment") || "";
   const creatableRoles = CREATABLE_ROLES[adminRole] || [];
   // HOD manages only their own department's accounts. The server enforces it; pinning the
   // dropdown just keeps the UI honest.
-  const deptLocked = adminRole === "HOD";
+  const deptLocked = adminRole === ROLE.HOD;
+  // Renaming somebody else is ADMIN only, narrower than the create/reset/delete ladder above.
+  // Mirrors PATCH /api/admin/users/{username}'s @PreAuthorize, which is the actual control.
+  const canRename = adminRole === ROLE.ADMIN;
 
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -59,19 +66,14 @@ function ManageUsersPage() {
   const [notice, setNotice] = useState(null); // { username, label }
   const [busyUser, setBusyUser] = useState(""); // username currently being reset/deleted
 
-  // Only ADMIN / PRINCIPAL / HOD may be here — the redirect below and the fetch guard share this.
-  const canManageUsers = creatableRoles.length > 0;
-
-  useEffect(() => {
-    if (!canManageUsers) {
-      navigate("/admin");
-    }
-  }, [canManageUsers, navigate]);
+  // Only ADMIN / PRINCIPAL / HOD may be here. The guard redirects; `creatableRoles` still drives
+  // WHICH roles the form may create, which is a narrower question than "may I be on this page".
+  const canManageUsers = useRoleGuard(USER_MANAGEMENT_ROLES);
 
   const loadUsers = useCallback(() => {
     setLoading(true);
     api
-      .get("/admin/users", { headers: getAdminHeaders() })
+      .get("/admin/users")
       .then((res) => {
         setUsers(res.data);
         setLoading(false);
@@ -124,17 +126,15 @@ function ManageUsersPage() {
       setError("Username is required.");
       return;
     }
-    if (DEPT_ROLES.has(newRole) && !newDeptId) {
+    if (DEPT_PINNED.includes(newRole) && !newDeptId) {
       setError("Please select a department for this role.");
       return;
     }
     setCreating(true);
     try {
       const payload = { username: newUsername.trim(), role: newRole };
-      if (DEPT_ROLES.has(newRole)) payload.departmentId = Number(newDeptId);
-      const res = await api.post("/admin/users", payload, {
-        headers: getAdminHeaders(),
-      });
+      if (DEPT_PINNED.includes(newRole)) payload.departmentId = Number(newDeptId);
+      const res = await api.post("/admin/users", payload);
       setNotice({ username: res.data.username, label: "Account created" });
       setNewUsername("");
       if (!deptLocked) setNewDeptId("");
@@ -151,15 +151,39 @@ function ManageUsersPage() {
     setError("");
     setBusyUser(username);
     try {
-      const res = await api.post(
-        `/admin/users/${encodeURIComponent(username)}/reset`,
-        {},
-        { headers: getAdminHeaders() },
-      );
+      const res = await api.post(`/admin/users/${encodeURIComponent(username)}/reset`, {});
       setNotice({ username: res.data.username, label: "Password reset" });
       loadUsers();
     } catch (apiError) {
       setError(apiError.response?.data?.message || "Could not reset password.");
+    } finally {
+      setBusyUser("");
+    }
+  };
+
+  // ADMIN only — PRINCIPAL and HOD are read-only for renames. The server's @PreAuthorize is the
+  // control; this only keeps the UI from offering a button that 403s.
+  const handleRename = async (username) => {
+    const next = window.prompt(`New username for "${username}":`, username);
+    if (next === null) return; // cancelled
+    const trimmed = next.trim();
+    if (!trimmed || trimmed === username) return;
+
+    setError("");
+    setBusyUser(username);
+    try {
+      const res = await api.patch(
+        `/admin/users/${encodeURIComponent(username)}`,
+        { newUsername: trimmed },
+      );
+      setNotice({
+        username: res.data.username,
+        label: "Account renamed",
+        renamedFrom: username,
+      });
+      loadUsers();
+    } catch (apiError) {
+      setError(apiError.response?.data?.message || "Could not rename user.");
     } finally {
       setBusyUser("");
     }
@@ -172,9 +196,7 @@ function ManageUsersPage() {
     setError("");
     setBusyUser(username);
     try {
-      await api.delete(`/admin/users/${encodeURIComponent(username)}`, {
-        headers: getAdminHeaders(),
-      });
+      await api.delete(`/admin/users/${encodeURIComponent(username)}`);
       loadUsers();
     } catch (apiError) {
       setError(apiError.response?.data?.message || "Could not delete user.");
@@ -183,262 +205,258 @@ function ManageUsersPage() {
     }
   };
 
-  const inputClass =
-    "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring";
+  // useRoleGuard redirects from an effect, which commits AFTER this render — without this the
+  // whole page paints for a frame to a role that may not manage anybody.
+  if (!canManageUsers) return null;
 
   return (
-    <div className="min-h-screen bg-surface-1 px-4 py-8 text-ink sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-5xl pb-8">
-        <BrandHeader className="mb-6">
-          <div className="flex gap-2">
-            <Link
-              to="/admin/change-password"
-              className="inline-flex items-center gap-1 rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              <KeyRound size={15} className="mr-0.5" /> My Password
-            </Link>
-            <Link
-              to="/admin"
-              aria-label="Back to admin dashboard"
-              className="inline-flex items-center rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              <ArrowLeft size={15} className="mr-1" /> Dashboard
-            </Link>
-          </div>
-        </BrandHeader>
+    <AdminPageShell containerClassName="max-w-5xl pb-8">
 
-        <div
-          className="space-y-6"
-        >
-          <div>
-            <h1 className="mb-1 flex items-center gap-2 text-2xl font-semibold text-secondary-ink sm:text-3xl">
-              <Users size={26} /> Users
-            </h1>
-            <p className="text-sm text-ink">
-              Create, reset, and remove staff accounts you're authorised to
-              manage.
-            </p>
-          </div>
+      <div
+        className="space-y-6"
+      >
+        <div>
+          <h1 className="mb-1 flex items-center gap-2 text-2xl font-semibold text-secondary-ink sm:text-3xl">
+            <Users size={26} /> Users
+          </h1>
+          <p className="text-sm text-ink">
+            Create, reset, and remove staff accounts you're authorised to
+            manage.
+          </p>
+        </div>
 
-          {error && (
-            <AlertBanner tone="error" role="alert">
-              {error}
-            </AlertBanner>
-          )}
+        {error && (
+          <AlertBanner tone="error" role="alert">
+            {error}
+          </AlertBanner>
+        )}
 
-          {/* Its own banner: the create form below depends on this list, and folding it into
-              `error` let a user action's message overwrite it (or vice versa). */}
-          {departmentsError && (
-            <AlertBanner
-              tone="warning"
-              role="alert"
-              data-cy="users-departments-error"
-            >
-              {departmentsError}
-            </AlertBanner>
-          )}
+        {/* Its own banner: the create form below depends on this list, and folding it into
+            `error` let a user action's message overwrite it (or vice versa). */}
+        {departmentsError && (
+          <AlertBanner
+            tone="warning"
+            role="alert"
+            data-cy="users-departments-error"
+          >
+            {departmentsError}
+          </AlertBanner>
+        )}
 
-          {/* No secret to transport: the password is derived from the username, so this states the
-              convention rather than revealing a value that can never be shown again. */}
-          {notice && (
-            <div
-              role="status"
-              className="flex items-start justify-between gap-3 rounded-xl border border-stroke bg-primary-tint px-4 py-3 text-sm text-ink"
-            >
+        {/* No secret to transport: the password is derived from the username, so this states the
+            convention rather than revealing a value that can never be shown again.
+            A RENAME must not use that wording — it leaves the password untouched, so the derived
+            default (if they are still on one) still matches their OLD name. */}
+        {notice && (
+          <div
+            role="status"
+            className="flex items-start justify-between gap-3 rounded-lg bg-surface-muted px-4 py-3 text-sm text-ink"
+          >
+            {notice.renamedFrom ? (
+              <p>
+                <strong>{notice.label}.</strong>{" "}
+                <strong>{notice.renamedFrom}</strong> is now{" "}
+                <strong>{notice.username}</strong>. Their password is unchanged, and they have
+                been signed out — they sign back in with the new username.
+              </p>
+            ) : (
               <p>
                 <strong>{notice.label}.</strong> The password for{" "}
                 <strong>{notice.username}</strong> is{" "}
                 <code className="select-all font-mono">{notice.username}4321</code> — they can
                 change it any time from My Password.
               </p>
-              <button
-                type="button"
-                onClick={() => setNotice(null)}
-                aria-label="Dismiss"
-                className="rounded-full p-1 text-ink-muted hover:bg-surface-muted"
+            )}
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              aria-label="Dismiss"
+              className="rounded-lg p-1.5 text-ink-muted transition-colors hover:bg-surface-muted"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Create user */}
+        <section className="py-5 sm:py-6">
+          <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-secondary-ink">
+            <UserPlus size={18} /> Create New User
+          </h2>
+          {/* The derived default, stated where the account is made. The dismissible notice below
+              reports it for ONE created account; this says it up front for every one. */}
+          <p className="mb-4 text-sm text-ink-muted">
+            A new account starts on the derived default password,{" "}
+            <code className="rounded bg-surface-muted px-1 py-0.5 font-mono text-xs">
+              username4321
+            </code>
+            .
+          </p>
+          <form
+            onSubmit={handleCreate}
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end"
+          >
+            <Field label="Username *" htmlFor="new-username">
+              <input
+                id="new-username"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                className={FIELD_INPUT}
+                placeholder="e.g., cse_office"
+              />
+            </Field>
+            <Field label="Role *" htmlFor="new-role">
+              <select
+                id="new-role"
+                value={newRole}
+                onChange={(e) => {
+                  setNewRole(e.target.value);
+                  if (!DEPT_PINNED.includes(e.target.value) && !deptLocked) setNewDeptId("");
+                }}
+                className={FIELD_INPUT}
               >
-                <X size={16} />
-              </button>
+                {creatableRoles.map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label={`Department ${DEPT_PINNED.includes(newRole) ? "*" : ""}`}
+              htmlFor="new-dept"
+            >
+              <select
+                id="new-dept"
+                value={newDeptId}
+                onChange={(e) => setNewDeptId(e.target.value)}
+                className={FIELD_INPUT}
+                disabled={!DEPT_PINNED.includes(newRole) || deptLocked}
+              >
+                <option value="">
+                  {DEPT_PINNED.includes(newRole) ? "Select department" : "Not applicable"}
+                </option>
+                {(deptLocked
+                  ? departments.filter((d) => d.id === findOwnDepartment(departments, adminDepartment)?.id)
+                  : departments
+                ).map((d) => (
+                  <option key={d.id} value={String(d.id)}>
+                    {d.deptName}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <PrimaryCta
+              type="submit"
+              disabled={creating}
+              className="w-full gap-2"
+              aria-label="Create user"
+            >
+              {creating ? (
+                <LoaderCircle size={16} className="animate-spin" />
+              ) : (
+                <UserPlus size={16} />
+              )}{" "}
+              Create
+            </PrimaryCta>
+          </form>
+        </section>
+
+        {/* User list */}
+        <section className="py-5 sm:py-6">
+          <h2 className="mb-4 text-lg font-semibold text-secondary-ink">
+            Existing Users
+          </h2>
+
+          {loading ? (
+            <div className="flex items-center gap-2 py-8 text-sm text-ink-muted">
+              <LoaderCircle size={16} className="animate-spin" /> Loading
+              users…
+            </div>
+          ) : users.length === 0 ? (
+            // "none exist" holds only if the fetch succeeded; with `error` set the list is
+            // unknown, and an empty result beside the failure reads as a permissions verdict the
+            // server never gave.
+            <p className="py-8 text-center text-sm text-ink-muted">
+              {error ? "Users could not be loaded." : "No users you can manage yet."}
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-stroke text-left text-xs uppercase tracking-[0.08em] text-ink-muted">
+                    <th className="py-2.5 pr-4 font-semibold">Username</th>
+                    <th className="py-2.5 pr-4 font-semibold">Role</th>
+                    <th className="py-2.5 pr-4 font-semibold">Department</th>
+                    <th className="py-2.5 pr-4 text-right font-semibold">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => {
+                    const busy = busyUser === u.username;
+                    return (
+                      <tr
+                        key={u.username}
+                        className="border-b border-stroke last:border-0"
+                      >
+                        <td className="py-3 pr-4 font-medium text-ink">
+                          {u.username}
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span className="inline-flex rounded-full bg-surface-muted px-2.5 py-1 text-xs font-medium">
+                            {ROLE_LABELS[u.role] || u.role}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 text-ink-muted">
+                          {u.departmentName || "—"}
+                        </td>
+                        <td className="py-3 pr-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleReset(u.username)}
+                              disabled={busy}
+                              className={btn("neutral", "sm")}
+                            >
+                              {busy ? (
+                                <LoaderCircle size={13} className="animate-spin" />
+                              ) : (
+                                <KeyRound size={13} />
+                              )}{" "}
+                              Reset
+                            </button>
+                            {canRename && (
+                              <button
+                                type="button"
+                                onClick={() => handleRename(u.username)}
+                                disabled={busy}
+                                className={btn("neutral", "sm")}
+                              >
+                                <PencilLine size={13} /> Rename
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(u.username)}
+                              disabled={busy}
+                              className={btn("danger", "sm")}
+                            >
+                              <Trash2 size={13} /> Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
-
-          {/* Create user */}
-          <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-secondary-ink">
-              <UserPlus size={18} /> Create New User
-            </h2>
-            <form
-              onSubmit={handleCreate}
-              className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end"
-            >
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="new-username"
-                  className="text-xs font-semibold uppercase tracking-[0.08em]"
-                >
-                  Username *
-                </label>
-                <input
-                  id="new-username"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                  className={inputClass}
-                  placeholder="e.g., cse_office"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="new-role"
-                  className="text-xs font-semibold uppercase tracking-[0.08em]"
-                >
-                  Role *
-                </label>
-                <select
-                  id="new-role"
-                  value={newRole}
-                  onChange={(e) => {
-                    setNewRole(e.target.value);
-                    if (!DEPT_ROLES.has(e.target.value) && !deptLocked) setNewDeptId("");
-                  }}
-                  className={inputClass}
-                >
-                  {creatableRoles.map((r) => (
-                    <option key={r} value={r}>
-                      {ROLE_LABELS[r]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="new-dept"
-                  className="text-xs font-semibold uppercase tracking-[0.08em]"
-                >
-                  Department {DEPT_ROLES.has(newRole) ? "*" : ""}
-                </label>
-                <select
-                  id="new-dept"
-                  value={newDeptId}
-                  onChange={(e) => setNewDeptId(e.target.value)}
-                  className={inputClass}
-                  disabled={!DEPT_ROLES.has(newRole) || deptLocked}
-                >
-                  <option value="">
-                    {DEPT_ROLES.has(newRole) ? "Select department" : "Not applicable"}
-                  </option>
-                  {(deptLocked
-                    ? departments.filter((d) => d.id === findOwnDepartment(departments, adminDepartment)?.id)
-                    : departments
-                  ).map((d) => (
-                    <option key={d.id} value={String(d.id)}>
-                      {d.deptName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <MagneticCta
-                type="submit"
-                disabled={creating}
-                className="w-full gap-2 rounded-xl"
-                aria-label="Create user"
-              >
-                {creating ? (
-                  <LoaderCircle size={16} className="animate-spin" />
-                ) : (
-                  <UserPlus size={16} />
-                )}{" "}
-                Create
-              </MagneticCta>
-            </form>
-          </section>
-
-          {/* User list */}
-          <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
-            <h2 className="mb-4 text-lg font-semibold text-secondary-ink">
-              Existing Users
-            </h2>
-
-            {loading ? (
-              <div className="flex items-center gap-2 py-8 text-sm text-ink-muted">
-                <LoaderCircle size={16} className="animate-spin" /> Loading
-                users…
-              </div>
-            ) : users.length === 0 ? (
-              // "none exist" holds only if the fetch succeeded; with `error` set the list is
-              // unknown, and an empty result beside the failure reads as a permissions verdict the
-              // server never gave.
-              <p className="py-8 text-center text-sm text-ink-muted">
-                {error ? "Users could not be loaded." : "No users you can manage yet."}
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-stroke text-left text-xs uppercase tracking-[0.08em] text-ink-muted">
-                      <th className="py-2.5 pr-4 font-semibold">Username</th>
-                      <th className="py-2.5 pr-4 font-semibold">Role</th>
-                      <th className="py-2.5 pr-4 font-semibold">Department</th>
-                      <th className="py-2.5 pr-4 text-right font-semibold">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((u) => {
-                      const busy = busyUser === u.username;
-                      return (
-                        <tr
-                          key={u.username}
-                          className="border-b border-stroke last:border-0"
-                        >
-                          <td className="py-3 pr-4 font-medium text-ink">
-                            {u.username}
-                          </td>
-                          <td className="py-3 pr-4">
-                            <span className="inline-flex rounded-full bg-surface-muted px-2.5 py-1 text-xs font-medium">
-                              {ROLE_LABELS[u.role] || u.role}
-                            </span>
-                          </td>
-                          <td className="py-3 pr-4 text-ink-muted">
-                            {u.departmentName || "—"}
-                          </td>
-                          <td className="py-3 pr-4">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleReset(u.username)}
-                                disabled={busy}
-                                className="inline-flex items-center gap-1 rounded-lg border border-stroke px-2.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-primary hover:text-primary-ink disabled:opacity-50"
-                              >
-                                {busy ? (
-                                  <LoaderCircle size={13} className="animate-spin" />
-                                ) : (
-                                  <KeyRound size={13} />
-                                )}{" "}
-                                Reset
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(u.username)}
-                                disabled={busy}
-                                className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
-                              >
-                                <Trash2 size={13} /> Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        </div>
+        </section>
       </div>
-
-    </div>
+    </AdminPageShell>
   );
 }
 

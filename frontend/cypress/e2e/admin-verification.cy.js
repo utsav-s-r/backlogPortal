@@ -13,7 +13,7 @@ describe("Admin verification flow", () => {
     subjects: ["Data Structures"],
     status: "SUBMITTED",
     verifiedBy: null,
-    registeredAt: "2026-04-20T10:20:00",
+    registeredAt: "2026-04-20T10:20:00Z",
     ...overrides,
   });
   const pageOf = (rows) => ({
@@ -49,7 +49,10 @@ describe("Admin verification flow", () => {
     cy.get('[data-cy="admin-counts-error"]').should("contain", "Counts backend is down.");
     cy.contains("Total").parent().should("contain", "—").and("not.contain", "0");
     // the table itself is unaffected
-    cy.contains("1MS22CS001").should("be.visible");
+    // Scoped to the ROW, not the cell: the list is a table inside an overflow-x-auto scroller, so
+    // a <td> can be clipped at a narrow viewport (or on a runner whose font metrics widen the
+    // columns) and Cypress rightly calls it not visible. The <tr> spans the table.
+    cy.contains("tr", "1MS22CS001").should("be.visible");
   });
 
   // A failed exam-cycle fetch left examCycleId empty, which the export read as "every cycle".
@@ -90,7 +93,10 @@ describe("Admin verification flow", () => {
     }).as("export");
 
     cy.visitAsAdmin("/admin");
-    cy.contains("1MS22CS001").should("be.visible");
+    // Scoped to the ROW, not the cell: the list is a table inside an overflow-x-auto scroller, so
+    // a <td> can be clipped at a narrow viewport (or on a runner whose font metrics widen the
+    // columns) and Cypress rightly calls it not visible. The <tr> spans the table.
+    cy.contains("tr", "1MS22CS001").should("be.visible");
     cy.get('[data-cy="admin-scope-warning"]').should("not.exist");
     cy.get('[data-cy="admin-cycles-error"]').should("not.exist");
 
@@ -116,6 +122,35 @@ describe("Admin verification flow", () => {
     cy.get('[data-cy="admin-export-pdf"]').click();
 
     cy.wait("@export").its("request.body").should("deep.equal", { regIds: ["REG-2026-1001"] });
+  });
+
+  // Every department INVOLVED in a registration sees it, but only the student's OWN department may
+  // verify or reject — the server decides and says so per row via canVerify. Without the gate the
+  // page would offer a button that 403s on click.
+  it("offers no verify or reject on a row the caller may not action", () => {
+    cy.intercept("GET", "/api/admin/registrations*", {
+      statusCode: 200,
+      body: pageOf([
+        row({ regId: "REG-OWN", canVerify: true }),
+        row({ regId: "REG-OTHER-DEPT", rollNo: "1MS24CV001", studentName: "Civil Student",
+              canVerify: false }),
+      ]),
+    }).as("getRegistrations");
+    stubCounts();
+    stubSideCalls();
+
+    cy.visitAsAdmin("/admin", { role: "HOD", username: "hod", department: "CSE", departmentId: 1 });
+    cy.wait("@getRegistrations");
+
+    cy.contains("tr", "Civil Student").find('[data-cy="admin-verify"]').should("not.exist");
+    cy.contains("tr", "Civil Student").find('[data-cy="admin-reject"]').should("not.exist");
+    cy.contains("tr", "Civil Student").find('[data-cy="admin-other-dept"]')
+      .should("contain", "Student's department verifies");
+
+    // The control: the caller's own student keeps both buttons, so this cannot pass on a page
+    // that simply stopped rendering them.
+    cy.contains("tr", "Student One").find('[data-cy="admin-verify"]').should("exist");
+    cy.contains("tr", "Student One").find('[data-cy="admin-reject"]').should("exist");
   });
 
   it("logs in as admin and verifies pending registration", () => {
@@ -366,6 +401,60 @@ describe("Admin verification flow", () => {
     // row now reflects true server state: verified, action buttons gone
     cy.contains("td", "Verified").should("exist");
     cy.get('[data-cy="admin-verify"]').should("not.exist");
+  });
+
+  // Verifying the only row on the last page under a status tab refetched that same page index,
+  // which the server answers with an empty page (it doesn't clamp): "No registrations match",
+  // pager hidden, no way back short of changing a filter.
+  it("steps back a page when an action empties the last page", () => {
+    let lastRowVerified = false;
+    const firstPage = Array.from({ length: 25 }, (_, i) =>
+      row({ regId: `REG-2026-2${String(i).padStart(3, "0")}`, rollNo: `1MS22CS${100 + i}` }),
+    );
+    // Pending tab: 26 rows over 2 pages until the last one is verified, then 25 on 1 page. The
+    // server echoes the requested index even past the end, as Spring's PageRequest does.
+    cy.intercept("GET", "/api/admin/registrations*", (req) => {
+      const page = Number(req.query.page);
+      if (req.query.status !== "SUBMITTED") {
+        req.reply({ statusCode: 200, body: { content: firstPage, totalElements: 25, totalPages: 1, number: 0 } });
+        return;
+      }
+      const lastRow = [row({ regId: "REG-2026-9999", rollNo: "1MS22CS999" })];
+      const content = page === 0 ? firstPage : lastRowVerified ? [] : lastRow;
+      req.reply({
+        statusCode: 200,
+        body: {
+          content,
+          totalElements: lastRowVerified ? 25 : 26,
+          totalPages: lastRowVerified ? 1 : 2,
+          number: page,
+        },
+      });
+    }).as("getRegistrations");
+    stubCounts();
+    stubSideCalls();
+    cy.intercept("PUT", "/api/register/verify/REG-2026-9999", (req) => {
+      lastRowVerified = true;
+      req.reply({ statusCode: 200, body: { message: "ok" } });
+    }).as("verifyLast");
+
+    cy.visitAsAdmin("/admin");
+    cy.get('[data-cy="admin-filter-submitted"]').click();
+    cy.get('[data-cy="admin-page-info"]').should("contain", "Page 1 of 2");
+    cy.get('[data-cy="admin-page-next"]').click();
+    cy.get('[data-cy="admin-page-info"]').should("contain", "Page 2 of 2");
+
+    cy.contains("tr", "1MS22CS999").find('[data-cy="admin-verify"]').click();
+    cy.wait("@verifyLast");
+
+    cy.contains("tr", "1MS22CS100").should("be.visible");
+    cy.get('[data-cy="admin-empty"]').should("not.exist");
+    cy.get('[data-cy="admin-page-info"]').should("not.exist"); // one page left: no pager
+    // the empty page-2 reply was followed by a refetch of page 1, not rendered
+    cy.get("@getRegistrations.all").then((calls) => {
+      const pages = calls.map((c) => c.request.query.page);
+      expect(pages.slice(-2)).to.deep.equal(["1", "0"]);
+    });
   });
 
   it("redirects unauthenticated visitors to the admin login", () => {

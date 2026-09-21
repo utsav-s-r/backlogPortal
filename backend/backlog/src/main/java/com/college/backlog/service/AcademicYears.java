@@ -14,7 +14,7 @@ import java.time.Year;
  * subject-create, where {@code @NotNull} on a primitive {@code int} silently validated nothing.
  * A DTO annotation can only be a coarse floor; this is the authoritative check.
  *
- * Sibling of {@link CourseCodes}, which owns the related prefix==year invariant.
+ * Sibling of {@link Semesters}, which owns the semester ranges.
  */
 public final class AcademicYears {
 

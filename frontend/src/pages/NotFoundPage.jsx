@@ -1,19 +1,17 @@
 import { FileQuestion } from "lucide-react";
 import { Link } from "react-router-dom";
-import BrandHeader from "../components/layout/BrandHeader";
-import MagneticCta from "../components/ui/MagneticCta";
+import PageLayout from "../components/layout/PageLayout";
+import PrimaryCta from "../components/ui/PrimaryCta";
+import { btn } from "../lib/buttonClasses";
 
-// Catch-all for any unmatched URL. Without this React Router rendered NOTHING — a blank page with
-// no message and no way back, which is what a stale bookmark to a removed route (e.g. the old
-// /admin/add-subject) landed on. Offers all three entry points rather than guessing which
-// audience typed the bad URL.
+// Catch-all for any unmatched URL. Without it React Router renders NOTHING — a blank page with no
+// message and no way back, which is where a stale bookmark to a removed route lands. Offers all
+// three entry points rather than guessing which audience typed the bad URL.
 function NotFoundPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-1 px-4 py-10 text-ink sm:px-6 lg:px-8">
-      <div className="w-full max-w-md rounded-3xl border border-stroke bg-surface-1 p-6 shadow-soft sm:p-8">
-        <BrandHeader className="mb-4" />
-
-        <p className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-surface-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
+    <PageLayout containerClassName="max-w-md">
+      <div className="py-6 sm:py-8">
+        <p className="mb-2 inline-flex items-center gap-1.5 rounded-lg bg-accent-tint px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-accent">
           <FileQuestion size={12} /> Page not found
         </p>
         <h1 className="text-3xl font-semibold text-secondary-ink">
@@ -24,26 +22,26 @@ function NotFoundPage() {
         </p>
 
         <div className="mt-6 flex flex-col gap-2">
-          <MagneticCta as={Link} to="/" className="w-full rounded-xl" data-cy="not-found-home">
+          <PrimaryCta as={Link} to="/" size="lg" className="w-full" data-cy="not-found-home">
             Go to home
-          </MagneticCta>
+          </PrimaryCta>
           <Link
             to="/student/login"
-            className="inline-flex items-center justify-center rounded-xl border border-stroke bg-surface-muted px-5 py-3 text-sm font-semibold text-ink transition-colors hover:border-primary"
+            className={btn("neutral", "lg")}
             data-cy="not-found-student"
           >
             Student login
           </Link>
           <Link
             to="/admin/login"
-            className="inline-flex items-center justify-center rounded-xl border border-stroke bg-surface-muted px-5 py-3 text-sm font-semibold text-ink transition-colors hover:border-primary"
+            className={btn("neutral", "lg")}
             data-cy="not-found-admin"
           >
             Staff login
           </Link>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }
 

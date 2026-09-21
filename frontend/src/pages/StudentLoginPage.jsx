@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, LogIn, LoaderCircle } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import BrandHeader from "../components/layout/BrandHeader";
-import MagneticCta from "../components/ui/MagneticCta";
+import PageLayout from "../components/layout/PageLayout";
+import PrimaryCta from "../components/ui/PrimaryCta";
 import api, { getStudentToken } from "../lib/api";
 import { rememberExpiry } from "../lib/session";
+import { safeRedirect } from "../lib/redirect";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import AlertBanner from "../components/AlertBanner";
+import { FIELD_INPUT, FIELD_LABEL } from "../lib/formClasses";
+import { btn } from "../lib/buttonClasses";
 
 const USN_PATTERN = /^1MS\d{2}[A-Z]{2}\d{3}$/;
 
@@ -17,17 +21,23 @@ function StudentLoginPage() {
   const [dob, setDob] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // New press aborts the old one, so only the latest reply lands. Don't disable Login while
+  // loading: it blocks the retry.
+  const nextSignal = useAbortableRequest();
+  // iOS Chrome fix, keep: on a non-scrollable page, Login/Back die after the date picker closes.
+  // 200px extra height fixes it; scrolling from code does not.
+  const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
-  // Already signed in — skip the form for the dashboard. Same shape as the admin login: the
-  // marker is a presence hint, and an expired cookie returns as ?expired=1 with the marker
-  // already cleared by the 401 interceptor.
+  // Signed in → dashboard. On ?expired=1 the 401 interceptor already cleared the marker.
   useEffect(() => {
     if (!sessionExpired && getStudentToken()) {
       navigate("/student", { replace: true });
     }
   }, [sessionExpired, navigate]);
 
-  const handleLogin = async () => {
+  // <form> submit: iOS "Go" key works even when the keyboard covers Login.
+  const handleLogin = async (e) => {
+    e?.preventDefault();
     if (!usn || !dob) {
       setError("USN and date of birth are required.");
       return;
@@ -43,38 +53,34 @@ function StudentLoginPage() {
       const res = await api.post("/student/auth/login", {
         rollNo: usn,
         dateOfBirth: dob, // native date input gives ISO yyyy-MM-dd
-      });
+      }, { signal: nextSignal() });
       if (res.data.rollNo || res.data.name) {
-        // the server set the JWT in an httpOnly cookie; store only a presence marker, UI state,
-        // and the sign-out deadline
+        // JWT is an httpOnly cookie; store only a marker, UI state and the expiry.
         sessionStorage.setItem("studentToken", "cookie");
         sessionStorage.setItem("studentRollNo", res.data.rollNo || usn);
         sessionStorage.setItem("studentName", res.data.name || "");
         rememberExpiry("student", res.data.expiresIn);
-        // Always land on the dashboard, even when the guard bounced the student here from a
-        // deep link like /register: it is the home base (profile, status, past registrations),
-        // and registration is one CTA click away.
-        navigate("/student");
+        // ?redirect= is attacker-controlled: always through safeRedirect.
+        navigate(safeRedirect(searchParams.get("redirect"), "/student"));
       } else {
         setError("Login failed. Please try again.");
+        setLoading(false);
       }
     } catch (apiError) {
+      // No `finally`: it would clear the newer attempt's spinner. Success leaves it (navigating).
+      if (apiError.code === "ERR_CANCELED") return; // superseded
       setError(apiError.response?.data?.message || "Invalid USN or date of birth.");
-    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-surface-1 px-4 py-10 sm:px-6 lg:px-8">
-      <div
-        className="mx-auto w-full max-w-md rounded-3xl border border-stroke bg-surface-1 p-6 shadow-soft sm:p-8"
-      >
+    <PageLayout
+      containerClassName="max-w-md"
+      fullHeightClassName={isTouch ? "min-h-[calc(100dvh_+_200px)]" : "min-h-screen"}
+    >
+      <div className="py-6 sm:py-8">
         <div className="mb-6 text-left">
-          <BrandHeader className="mb-4" />
-          <p className="mb-2 inline-flex rounded-full border border-primary/30 bg-surface-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
-            Student Login
-          </p>
           <h1 className="text-3xl font-semibold text-secondary-ink">Sign in</h1>
           <p className="mt-2 text-sm text-ink">
             Log in with your USN and date of birth to register for backlog exams and download your forms.
@@ -92,11 +98,11 @@ function StudentLoginPage() {
           </AlertBanner>
         ) : null}
 
-        <div className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label
               htmlFor="student-usn"
-              className="mb-1.5 block text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink"
+              className={`mb-1.5 block text-left ${FIELD_LABEL} text-ink`}
             >
               USN
             </label>
@@ -104,9 +110,13 @@ function StudentLoginPage() {
               id="student-usn"
               placeholder="e.g. 1MS22CS001"
               value={usn}
-              onChange={(e) => setUsn(e.target.value.toUpperCase())}
+              // Clear stale error on edit.
+              onChange={(e) => {
+                setUsn(e.target.value.toUpperCase());
+                setError("");
+              }}
               maxLength={10}
-              className="w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring"
+              className={FIELD_INPUT}
               data-cy="student-usn"
             />
           </div>
@@ -114,7 +124,7 @@ function StudentLoginPage() {
           <div>
             <label
               htmlFor="student-dob"
-              className="mb-1.5 block text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink"
+              className={`mb-1.5 block text-left ${FIELD_LABEL} text-ink`}
             >
               Date of Birth
             </label>
@@ -122,8 +132,11 @@ function StudentLoginPage() {
               id="student-dob"
               type="date"
               value={dob}
-              onChange={(e) => setDob(e.target.value)}
-              className="w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-focus-ring"
+              onChange={(e) => {
+                setDob(e.target.value);
+                setError("");
+              }}
+              className={FIELD_INPUT}
               data-cy="student-dob"
             />
           </div>
@@ -134,27 +147,26 @@ function StudentLoginPage() {
             </AlertBanner>
           ) : null}
 
-          <MagneticCta
-            onClick={handleLogin}
-            className="mt-2 w-full gap-2 rounded-xl"
-            disabled={loading}
+          <PrimaryCta
+            type="submit"
+            className="mt-2 w-full"
             data-cy="student-login-submit"
             aria-label="Student login"
           >
             {loading ? <LoaderCircle size={16} className="animate-spin" /> : <LogIn size={16} />} Login
-          </MagneticCta>
-        </div>
+          </PrimaryCta>
+        </form>
 
         <div className="mt-6 text-center">
           <Link
             to="/"
-            className="login-back-link inline-flex items-center gap-1 text-sm font-medium text-secondary-ink underline-offset-4 hover:underline"
+            className={`${btn()} w-full`}
           >
             <ArrowLeft size={14} /> Back to home
           </Link>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }
 

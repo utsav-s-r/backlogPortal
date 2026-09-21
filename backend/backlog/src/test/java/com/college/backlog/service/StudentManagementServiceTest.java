@@ -27,6 +27,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class StudentManagementServiceTest {
 
+    /** Staff username threaded through for the audit log line; no behaviour depends on it. */
+    private static final String ACTOR = "admin1";
+
     @Mock private StudentRepository studentRepository;
     @Mock private DepartmentRepository departmentRepository;
     @Mock private RegistrationRepository registrationRepository;
@@ -53,9 +56,9 @@ class StudentManagementServiceTest {
     @Test
     void createStudentNormalizesUsnAndDerivesBranchYear() {
         stubCsDept();
-        when(studentRepository.save(any(Student.class))).thenAnswer(i -> i.getArgument(0));
+        when(studentRepository.saveAndFlush(any(Student.class))).thenAnswer(i -> i.getArgument(0));
 
-        Student s = service.createStudent(req("1ms22cs001", 4, 1));
+        Student s = service.createStudent(req("1ms22cs001", 4, 1), ACTOR);
 
         assertThat(s.getRollNo()).isEqualTo("1MS22CS001");
         // stored branch is the stable 2-letter code, not the (editable) dept name
@@ -67,9 +70,9 @@ class StudentManagementServiceTest {
     @Test
     void createAlwaysSetsInstitutionalEmail() {
         stubCsDept();
-        when(studentRepository.save(any(Student.class))).thenAnswer(i -> i.getArgument(0));
+        when(studentRepository.saveAndFlush(any(Student.class))).thenAnswer(i -> i.getArgument(0));
 
-        Student s = service.createStudent(req("1ms22cs001", 4, 1));
+        Student s = service.createStudent(req("1ms22cs001", 4, 1), ACTOR);
 
         assertThat(s.getEmail()).isEqualTo("1ms22cs001@msrit.edu");
     }
@@ -85,48 +88,46 @@ class StudentManagementServiceTest {
         u.setName("New Name");
         u.setCurrentSemester(6);
         u.setEntrySemester(3);
-        Student saved = service.updateStudent(s, u);
+        Student saved = service.updateStudent(s, u, ACTOR);
 
         assertThat(saved.getEmail()).isEqualTo("1ms22cs001@msrit.edu");
     }
 
     @Test
-    void createSeedsFullTimelineViaBackfill() {
+    void createSeedsFullTimelineViaSeeder() {
         stubCsDept();
-        when(studentRepository.save(any(Student.class))).thenAnswer(i -> i.getArgument(0));
+        when(studentRepository.saveAndFlush(any(Student.class))).thenAnswer(i -> i.getArgument(0));
 
-        service.createStudent(req("1MS22CS001", 4, 1));
+        service.createStudent(req("1MS22CS001", 4, 1), ACTOR);
 
-        // the whole sem 1..8 academic-year timeline is seeded up front (linear from
-        // the admission year); the per-semester year math is covered in
-        // ProgressionServiceTest.backfillLinear*. currentSemester is never bumped here.
-        verify(progressionService).backfillLinear("1MS22CS001");
+        // currentSemester is never bumped here; the per-semester year math is covered in
+        // ProgressionServiceTest.seedLinearTimeline*.
+        verify(progressionService).seedLinearTimeline("1MS22CS001");
     }
 
     @Test
     void createSeedsFullTimelineForLateralEntryToo() {
         stubCsDept();
-        when(studentRepository.save(any(Student.class))).thenAnswer(i -> i.getArgument(0));
+        when(studentRepository.saveAndFlush(any(Student.class))).thenAnswer(i -> i.getArgument(0));
 
-        service.createStudent(req("1MS22CS001", 6, 3));
+        service.createStudent(req("1MS22CS001", 6, 3), ACTOR);
 
-        // lateral entrants are seeded the same way (backfillLinear ranges entry..8,
-        // leaving pre-entry sems empty) — no special-casing at the create layer.
-        verify(progressionService).backfillLinear("1MS22CS001");
+        // lateral entrants take the same path — no special-casing at the create layer.
+        verify(progressionService).seedLinearTimeline("1MS22CS001");
     }
 
     @Test
     void createRejectsMalformedUsn() {
-        assertThatThrownBy(() -> service.createStudent(req("22CS001", 1, 1)))
+        assertThatThrownBy(() -> service.createStudent(req("22CS001", 1, 1), ACTOR))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("1MS22CS001");
-        verify(studentRepository, never()).save(any());
+        verify(studentRepository, never()).saveAndFlush(any());
     }
 
     @Test
     void createRejectsUnknownBranch() {
         when(departmentRepository.findByCodeIgnoreCase("ZZ")).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> service.createStudent(req("1MS22ZZ001", 1, 1)))
+        assertThatThrownBy(() -> service.createStudent(req("1MS22ZZ001", 1, 1), ACTOR))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Unknown branch");
     }
@@ -136,16 +137,16 @@ class StudentManagementServiceTest {
         stubCsDept();
         // both are individually valid (2 even, 5 odd) — only their ORDER is wrong, so this still
         // exercises the ordering check rather than tripping a parity assert first
-        assertThatThrownBy(() -> service.createStudent(req("1MS22CS001", 2, 5)))
+        assertThatThrownBy(() -> service.createStudent(req("1MS22CS001", 2, 5), ACTOR))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Entry semester");
-        verify(studentRepository, never()).save(any());
+        verify(studentRepository, never()).saveAndFlush(any());
     }
 
     @Test
     void createRejectsOutOfRangeSemester() {
         stubCsDept();
-        assertThatThrownBy(() -> service.createStudent(req("1MS22CS001", 10, 1)))
+        assertThatThrownBy(() -> service.createStudent(req("1MS22CS001", 10, 1), ACTOR))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("2, 4, 6 or 8");
     }
@@ -153,18 +154,60 @@ class StudentManagementServiceTest {
     @Test
     void createRejectsOddCurrentSemester() {
         stubCsDept();
-        assertThatThrownBy(() -> service.createStudent(req("1MS22CS001", 3, 1)))
+        assertThatThrownBy(() -> service.createStudent(req("1MS22CS001", 3, 1), ACTOR))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("2, 4, 6 or 8");
-        verify(studentRepository, never()).save(any());
+        verify(studentRepository, never()).saveAndFlush(any());
     }
 
     @Test
     void createRejectsEvenEntrySemester() {
         stubCsDept();
-        assertThatThrownBy(() -> service.createStudent(req("1MS22CS001", 4, 2)))
+        assertThatThrownBy(() -> service.createStudent(req("1MS22CS001", 4, 2), ACTOR))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("1, 3, 5 or 7");
+        verify(studentRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createRejectsAPartialPhone() {
+        stubCsDept();
+        StudentCreateRequest r = req("1MS22CS001", 4, 1);
+        r.setPhone("999999999");
+        assertThatThrownBy(() -> service.createStudent(r, ACTOR))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("exactly 10 digits");
+        verify(studentRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createStoresABlankPhoneAsNull() {
+        stubCsDept();
+        when(studentRepository.saveAndFlush(any(Student.class))).thenAnswer(i -> i.getArgument(0));
+        StudentCreateRequest r = req("1MS22CS001", 4, 1);
+        r.setPhone("  ");
+
+        assertThat(service.createStudent(r, ACTOR).getPhone()).isNull();
+    }
+
+    @Test
+    void updateRejectsAPartialPhoneBeforeTouchingTheEntity() {
+        Student s = new Student();
+        s.setRollNo("1MS22CS001");
+        s.setName("Old Name");
+        s.setPhone("9999999999");
+
+        StudentUpdateRequest u = new StudentUpdateRequest();
+        u.setName("New Name");
+        u.setPhone("12345");
+        u.setCurrentSemester(6);
+        u.setEntrySemester(3);
+        assertThatThrownBy(() -> service.updateStudent(s, u, ACTOR))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("exactly 10 digits");
+        // managed entity: a setter run before the throw would be dirty state
+        assertThat(s.getName()).isEqualTo("Old Name");
+        assertThat(s.getPhone()).isEqualTo("9999999999");
         verify(studentRepository, never()).save(any());
     }
 
@@ -174,7 +217,7 @@ class StudentManagementServiceTest {
         s.setRollNo("1MS22CS001");
         when(registrationRepository.existsByStudent_RollNo("1MS22CS001")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.deleteStudent(s))
+        assertThatThrownBy(() -> service.deleteStudent(s, ACTOR))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("cannot be deleted");
         verify(studentRepository, never()).delete(any(Student.class));
@@ -186,7 +229,7 @@ class StudentManagementServiceTest {
         s.setRollNo("1MS22CS001");
         when(registrationRepository.existsByStudent_RollNo("1MS22CS001")).thenReturn(false);
 
-        service.deleteStudent(s);
+        service.deleteStudent(s, ACTOR);
 
         verify(studentRepository).delete(s);
     }
@@ -201,7 +244,7 @@ class StudentManagementServiceTest {
         u.setName("New Name");
         u.setCurrentSemester(6);
         u.setEntrySemester(3);
-        Student saved = service.updateStudent(s, u);
+        Student saved = service.updateStudent(s, u, ACTOR);
 
         assertThat(saved.getName()).isEqualTo("New Name");
         assertThat(saved.getCurrentSemester()).isEqualTo(6);

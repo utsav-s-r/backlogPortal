@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 
 /**
@@ -41,18 +42,30 @@ public interface StudentRepository extends JpaRepository<Student, String>, JpaSp
     // department can't be removed while students of that branch exist — they couldn't register.
     boolean existsByBranchIgnoreCase(String branch);
 
+    // Which branch codes actually have students, for the departments list's `hasStudents` flag:
+    // ONE query for the whole list, never existsByBranchIgnoreCase per row. Lower-cased in SQL so
+    // the caller compares like for like.
+    @Query("select distinct lower(s.branch) from Student s where s.branch is not null")
+    Set<String> findDistinctBranchCodes();
+
     // ---- bulk progression ----
 
     // The CASTs are load-bearing, not decoration: Postgres cannot infer the type of a bare
     // parameter in "? IS NULL" and fails the statement with "could not determine data type of
     // parameter". Only reproduces against a real database — no unit test covers it.
-    // lower(), not upper(): V5 created ix_students_branch_lower ON students (lower(branch)), and a
+    // lower(), not upper(): ix_students_branch_lower is ON students (lower(branch)), and a
     // functional index only serves the exact expression it was built on. upper() seq-scans.
     String SELECTION = """
         (CAST(:filterSemester AS integer) IS NULL OR s.current_semester = CAST(:filterSemester AS integer))
         AND (CAST(:filterDeptCode AS text) IS NULL OR lower(s.branch) = lower(CAST(:filterDeptCode AS text)))
         """;
 
+    // These bounds are now BACKED by the database (V8: chk_students_semester_parity,
+    // chk_students_entry_not_after_current), which is why they are not being extended further.
+    // Two reported issues asked for a lower bound on current_semester and an entry <= current
+    // test here; both describe rows that can no longer be stored at all, and adding conditions no
+    // test can exercise — in the one place OUTCOME_CASE says two copies must never disagree — buys
+    // nothing. The rule lives once, in the schema.
     String PROMOTABLE = SELECTION + """
         AND s.roll_no NOT IN (:excluded)
         AND s.current_semester < 8 AND MOD(s.current_semester, 2) = 0
@@ -64,7 +77,12 @@ public interface StudentRepository extends JpaRepository<Student, String>, JpaSp
     String NOT_PROMOTABLE = SELECTION + "AND NOT (" + PROMOTABLE + ")\n";
 
     /** Why a selected student is not moving. Extracted because the preview and the audit MUST
-     *  classify the same student identically — two copies could silently disagree. */
+     *  classify the same student identically — two copies could silently disagree.
+     *
+     *  <p>They still differ on one input, deliberately left alone: a semester-8 student with
+     *  entry 9 is counted at max by {@link #countAtMax} and recorded SKIPPED_INVALID_SEMESTER
+     *  here. V8's CHECK makes that pair unstorable, so the disagreement has no reachable input;
+     *  reconciling it would mean editing progression SQL against data that cannot exist. */
     String OUTCOME_CASE = """
         CASE
           WHEN s.roll_no IN (:excluded) THEN 'EXCLUDED_BY_ADMIN'

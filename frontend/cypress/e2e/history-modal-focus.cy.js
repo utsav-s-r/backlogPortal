@@ -8,9 +8,9 @@
 // Cypress has no native Tab press and no tab plugin is installed (deliberately — not worth a
 // dependency for this), so these dispatch a synthetic Tab keydown.
 //
-// That makes "focus is still inside the dialog" a VACUOUS assertion, and mutation testing caught it
-// on 2026-08-17: a synthetic Tab moves nothing by itself, so with the trap disabled focus simply
-// stayed on the close button and the containment check passed anyway. What proves interception is
+// That makes "focus is still inside the dialog" a VACUOUS assertion, as mutation testing showed: a
+// synthetic Tab moves nothing by itself, so with the trap disabled focus simply stays on the close
+// button and the containment check passes anyway. What proves interception is
 // `defaultPrevented` — the handler must cancel the browser's default Tab. The event therefore MUST
 // be constructed `cancelable: true`, or preventDefault() is a silent no-op and the assertion can
 // never hold.
@@ -28,7 +28,7 @@ describe("History modal focus handling", () => {
     subjects: ["Data Structures"],
     status: "SUBMITTED",
     verifiedBy: null,
-    registeredAt: "2026-04-20T10:20:00",
+    registeredAt: "2026-04-20T10:20:00Z",
   };
 
   // AdminPage fires all of these on mount; an unstubbed /api/admin call 401s and signs the session
@@ -105,6 +105,22 @@ describe("History modal focus handling", () => {
     cy.document().then((doc) => {
       const dialog = doc.querySelector('[data-cy="history-dialog"]');
       expect(dialog.contains(doc.activeElement), "focus was pulled back in").to.be.true;
+    });
+  });
+
+  // Makes the header note's "exactly one focusable descendant" an assertion, not a comment. The
+  // content scroll container is a bare <div>, matching nothing in FOCUSABLE_SELECTOR, so the count
+  // is unchanged — this proves it, and fails the moment a second control appears without the
+  // wrap-destination assertion to match.
+  it("still has exactly one focusable descendant", () => {
+    openHistory();
+    cy.get('[data-cy="history-dialog"]').then(($d) => {
+      const focusable = [
+        ...$d[0].querySelectorAll(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ].filter((el) => el.getClientRects().length > 0);
+      expect(focusable.map((el) => el.dataset.cy)).to.deep.equal(["history-close"]);
     });
   });
 

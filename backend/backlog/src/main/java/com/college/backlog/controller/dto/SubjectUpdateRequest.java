@@ -9,8 +9,9 @@ import java.util.List;
 
 /**
  * Edit payload for an existing subject. {@code academicYearOffered} and the department are
- * intentionally absent: the year is the binding key with the code prefix locked to it, and a
- * subject can't be reassigned. Only suffix/name/credits/semester/type/eligibility change.
+ * intentionally absent: the year is the binding key — moving an offering would re-point every
+ * backlog that resolves through it — and a subject can't be reassigned. Only
+ * code/name/credits/semester/type/eligibility change.
  */
 public class SubjectUpdateRequest {
     @NotBlank(message = "Subject name cannot be empty")

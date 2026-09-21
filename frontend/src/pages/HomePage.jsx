@@ -1,20 +1,20 @@
-import StickyNav from "../components/layout/StickyNav";
+import TopBand from "../components/layout/TopBand";
+import ThemeToggle from "../components/ui/ThemeToggle";
 import HeroSection from "../components/sections/HeroSection";
 import ProcessSection from "../components/sections/ProcessSection";
+import SkipLink from "../components/ui/SkipLink";
 
 function HomePage() {
   return (
-    // bg-surface-1 like every other page — the homepage used to carry its own fixed backdrop layer
-    // (decorative corner blobs in light, a brand gradient in dark). Both are gone: the page now
-    // sits on the same flat surface as the rest of the app.
+    // bg-surface-1 like every other page, with no backdrop layer of its own: a decorative one
+    // (corner blobs, a brand gradient) is the homepage disagreeing with the rest of the app.
     <div className="min-h-screen bg-surface-1 text-ink">
-      <a
-        href="#main-content"
-        className="sr-only left-4 top-4 z-[60] rounded-md bg-cta px-4 py-2 text-sm font-semibold text-cta-text focus:not-sr-only focus:fixed"
-      >
-        Skip to main content
-      </a>
-      <StickyNav />
+      <SkipLink href="#main-content">Skip to main content</SkipLink>
+      {/* TopBand directly, not PageLayout: the hero and process sections are full-bleed and own
+          their own padding, so the layout's centred max-w container would box them in. */}
+      <TopBand>
+        <ThemeToggle />
+      </TopBand>
 
       <main id="main-content">
         <HeroSection />

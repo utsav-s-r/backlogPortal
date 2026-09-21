@@ -8,13 +8,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 
 @Component
@@ -63,8 +63,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String role = jwtService.getRoleFromToken(jwt);
                 List<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
+                // A token with no `iat` cannot be aged against the account's session_valid_from,
+                // so it is treated as unauthenticated rather than trusted: generateToken always
+                // sets one, so the only way here is a token this application did not mint.
+                Instant issuedAt = jwtService.getIssuedAtFromToken(jwt);
+                if (issuedAt == null) {
+                    log.debug("Rejected token with no issued-at claim, continuing as anonymous");
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(username, null, authorities);
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                // Carries the issue time to AccountExistenceFilter, which owns revocation — see
+                // JwtSessionDetails. Replaces the plain WebAuthenticationDetails it extends;
+                // nothing else in the app reads getDetails().
+                authToken.setDetails(new JwtSessionDetails(request, issuedAt));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }

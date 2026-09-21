@@ -55,7 +55,7 @@ describe("Clone Subjects tab", () => {
     // one creatable + one already-existing; only the creatable one is applied
     cy.contains("Create 1 subject(s)").should("be.visible");
 
-    // edit the creatable row's code suffix — prefix "25" is locked to the year
+    // the code is free text: the whole value is editable, nothing is stamped from the year
     cy.get('[data-cy="clone-row-code-4"]').first().clear().type("CSL99");
 
     cy.get('[data-cy="clone-apply"]').click();
@@ -67,7 +67,7 @@ describe("Clone Subjects tab", () => {
         rows: [
           {
             subjectName: "Data Structures",
-            courseCode: "25CSL99",
+            courseCode: "CSL99",
             semester: 4,
             credits: 4,
             subjectType: "REGULAR",
@@ -77,6 +77,89 @@ describe("Clone Subjects tab", () => {
       });
 
     cy.get('[data-cy="clone-result"]').should("contain", "1 created");
+  });
+
+  // A clone commits row by row, so by the time its single audit row is written the subjects
+  // exist. That write used to escape and 500 the request — the admin was told the whole clone
+  // failed when every row had landed, and lost the result. It now completes, keeps the counts,
+  // and says the record is incomplete. The gap cannot be closed (one audit row can never be
+  // atomic with N independent commits), only disclosed.
+  it("keeps the result and warns when the clone could not be written to the audit log", () => {
+    cy.intercept("POST", "/api/admin/subjects/clone/preview", {
+      statusCode: 200,
+      body: {
+        sourceYear: 2024,
+        targetYear: 2025,
+        deptId: 1,
+        rows: [
+          { subjectName: "Data Structures", courseCode: "25CSL44", semester: 4, credits: 4, subjectType: "REGULAR", eligibleDeptIds: [], status: "WOULD_CREATE", message: null },
+        ],
+      },
+    }).as("preview");
+
+    cy.intercept("POST", "/api/admin/subjects/clone/apply", {
+      statusCode: 200,
+      body: {
+        created: 1,
+        skipped: 0,
+        errors: 0,
+        rows: [{ courseCode: "25CSL44", semester: 4, status: "CREATED", message: null }],
+        warning: "This completed, but it could not be written to the audit log. The changes above are saved — tell an administrator so the record can be corrected.",
+      },
+    }).as("apply");
+
+    visit();
+    cy.wait("@getDepartments");
+    cy.get('[data-cy="clone-dept"]').select("1");
+    cy.get('[data-cy="clone-source-year"]').type("2024-25");
+    cy.get('[data-cy="clone-target-year"]').type("2025-26");
+    cy.get('[data-cy="clone-preview"]').click();
+    cy.wait("@preview");
+    cy.get('[data-cy="clone-apply"]').click();
+    cy.wait("@apply");
+
+    // the report survives — this is what the 500 used to destroy
+    cy.get('[data-cy="clone-result"]').should("contain", "1 created");
+    cy.get('[data-cy="clone-warning"]').should("contain", "could not be written to the audit log");
+    // and it must not read as the rows having failed
+    cy.get('[data-cy="clone-warning"]').should("contain", "saved");
+  });
+
+  // The control: a normal clone shows no warning, or the banner cries wolf on every run.
+  it("shows no audit warning on an ordinary clone", () => {
+    cy.intercept("POST", "/api/admin/subjects/clone/preview", {
+      statusCode: 200,
+      body: {
+        sourceYear: 2024,
+        targetYear: 2025,
+        deptId: 1,
+        rows: [
+          { subjectName: "Data Structures", courseCode: "25CSL44", semester: 4, credits: 4, subjectType: "REGULAR", eligibleDeptIds: [], status: "WOULD_CREATE", message: null },
+        ],
+      },
+    }).as("preview");
+    cy.intercept("POST", "/api/admin/subjects/clone/apply", {
+      statusCode: 200,
+      body: {
+        created: 1,
+        skipped: 0,
+        errors: 0,
+        rows: [{ courseCode: "25CSL44", semester: 4, status: "CREATED", message: null }],
+      },
+    }).as("apply");
+
+    visit();
+    cy.wait("@getDepartments");
+    cy.get('[data-cy="clone-dept"]').select("1");
+    cy.get('[data-cy="clone-source-year"]').type("2024-25");
+    cy.get('[data-cy="clone-target-year"]').type("2025-26");
+    cy.get('[data-cy="clone-preview"]').click();
+    cy.wait("@preview");
+    cy.get('[data-cy="clone-apply"]').click();
+    cy.wait("@apply");
+
+    cy.get('[data-cy="clone-result"]').should("contain", "1 created");
+    cy.get('[data-cy="clone-warning"]').should("not.exist");
   });
 
   // The server explains per-row why a clone was skipped or failed. That reason used to be stored
@@ -124,6 +207,49 @@ describe("Clone Subjects tab", () => {
     // the failure reason reaches the admin instead of a bare "Error"
     cy.get('[data-cy="clone-row-detail-4"]').should("contain", "Semester must be between 1 and 8.");
     cy.get('[data-cy="clone-result"]').should("contain", "1 error(s)");
+  });
+
+  // Regression: apply sent the dropdown's CURRENT department, so previewing CS then switching the
+  // dropdown to CV filed every CS subject under CV. Cloned rows keep the previewed department.
+  it("applies to the previewed department even after the dropdown changes", () => {
+    cy.intercept("GET", "/api/departments", {
+      statusCode: 200,
+      body: [
+        { id: 1, deptName: "Computer Science" },
+        { id: 2, deptName: "Civil Engineering" },
+      ],
+    }).as("getDepartments");
+    cy.intercept("POST", "/api/admin/subjects/clone/preview", {
+      statusCode: 200,
+      body: {
+        sourceYear: 2024,
+        targetYear: 2025,
+        deptId: 1,
+        rows: [
+          { subjectName: "Data Structures", courseCode: "CSL44", semester: 4, credits: 4, subjectType: "REGULAR", eligibleDeptIds: [], status: "WOULD_CREATE", message: null },
+        ],
+      },
+    }).as("preview");
+    cy.intercept("POST", "/api/admin/subjects/clone/apply", {
+      statusCode: 200,
+      body: { created: 1, skipped: 0, errors: 0, rows: [{ courseCode: "CSL44", semester: 4, status: "CREATED", message: null }] },
+    }).as("apply");
+
+    cy.visitAsAdmin("/admin/manage-subjects?tab=clone");
+    cy.wait("@getDepartments");
+
+    cy.get('[data-cy="clone-dept"]').select("1");
+    cy.get('[data-cy="clone-source-year"]').type("2024-25");
+    cy.get('[data-cy="clone-target-year"]').type("2025-26");
+    cy.get('[data-cy="clone-preview"]').click();
+    cy.wait("@preview");
+    cy.contains("h2", "Draft for Computer Science").should("be.visible");
+
+    cy.get('[data-cy="clone-dept"]').select("2");
+    cy.get('[data-cy="clone-apply"]').click();
+
+    cy.wait("@apply").its("request.body.deptId").should("eq", 1);
+    cy.contains("h2", "Draft for Computer Science").should("be.visible");
   });
 
   it("narrows to odd semesters via the shortcut", () => {

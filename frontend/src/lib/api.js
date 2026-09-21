@@ -23,16 +23,6 @@ export function getStudentToken() {
   return sessionStorage.getItem("studentToken"); // presence marker, not the JWT
 }
 
-// Cookie-based auth needs no Authorization header. Kept as no-ops so the many
-// `{ headers: getAdminHeaders() }` call sites don't all need editing.
-export function getAdminHeaders() {
-  return {};
-}
-
-export function getStudentHeaders() {
-  return {};
-}
-
 export function clearStudentSession() {
   ["studentToken", "studentRollNo", "studentName", "studentExpiresAt"].forEach((k) =>
     sessionStorage.removeItem(k),
@@ -83,6 +73,10 @@ function isAdminScopedUrl(url = "") {
   if (url.includes("/auth/login")) return false; // the admin login call itself
   if (url.includes("/admin/")) return true; // /api/admin/**
   if (url.includes("/register/verify")) return true;
+  // Self-service account endpoints: a 401 here is a lapsed/revoked session like any other. Safe
+  // because a mistyped currentPassword is a 400 on both. Exact paths, not "/auth/": that also
+  // matches /student/auth/*.
+  if (url.includes("/auth/change-password") || url.includes("/auth/change-username")) return true;
   return false;
 }
 

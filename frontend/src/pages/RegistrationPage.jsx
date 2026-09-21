@@ -10,11 +10,17 @@ import {
 } from "lucide-react";
 import AlertBanner from "../components/AlertBanner";
 import { Link, useNavigate } from "react-router-dom";
-import BrandHeader from "../components/layout/BrandHeader";
-import MagneticCta from "../components/ui/MagneticCta";
-import api, { getStudentHeaders } from "../lib/api";
+import PageLayout from "../components/layout/PageLayout";
+import PrimaryCta from "../components/ui/PrimaryCta";
+import api from "../lib/api";
+import { reportLoadError } from "../lib/loadError";
 import { formatAcademicYear } from "../lib/academicYear";
 import { saveBlob, readBlobErrorMessage } from "../lib/download";
+import { FIELD_CONTROL, FIELD_LABEL } from "../lib/formClasses";
+import Field from "../components/ui/Field";
+import ReadOnlyField from "../components/ui/ReadOnlyField";
+import HeaderPill from "../components/ui/HeaderPill";
+import { btn } from "../lib/buttonClasses";
 
 function RegistrationPage() {
   const navigate = useNavigate();
@@ -39,7 +45,7 @@ function RegistrationPage() {
   // identity comes from the authenticated account, never a form
   useEffect(() => {
     api
-      .get("/student/me", { headers: getStudentHeaders() })
+      .get("/student/me")
       .then((res) => setProfile(res.data))
       .catch((err) => {
         // 401 signs out via the global interceptor; 403 and everything else show in place
@@ -76,21 +82,24 @@ function RegistrationPage() {
   // carves out. A knowing lint error, deliberately not disabled.
   useEffect(() => {
     if (!searchSemester) {
+      // reset EVERY field this effect owns: the previous run's cleanup ignores its reply, so a
+      // spinner or error left set here outlives the semester it belonged to
       setSubjects([]);
       setResolvedAcademicYear(null);
+      setLoadingSubjects(false);
+      setSubjectsError("");
       return;
     }
 
     let ignoreResponse = false;
     // abort a superseded fetch (semester re-picked before the reply landed) so it stops using a
-    // backend connection — the flag alone only hid the response
+    // backend connection — an ignore flag alone only hides the response
     const controller = new AbortController();
     setLoadingSubjects(true);
     setSubjectsError("");
 
     api
       .get("/student/subjects", {
-        headers: getStudentHeaders(),
         params: { semester: searchSemester },
         signal: controller.signal,
       })
@@ -98,20 +107,19 @@ function RegistrationPage() {
         if (ignoreResponse) return;
         setSubjects(Array.isArray(res.data?.subjects) ? res.data.subjects : []);
         setResolvedAcademicYear(res.data?.academicYear ?? null);
+        setLoadingSubjects(false);
       })
       .catch((err) => {
-        if (ignoreResponse || err.code === "ERR_CANCELED") return;
+        if (ignoreResponse) return;
         setSubjects([]);
         setResolvedAcademicYear(null);
-        // surface the server's explanation, e.g. a missing progression record
-        setSubjectsError(
-          err.response?.data?.message || "Unable to load subjects. Please try again.",
-        );
         console.error("Failed to fetch subjects", err);
-      })
-      .finally(() => {
-        if (ignoreResponse) return;
-        setLoadingSubjects(false);
+        // reportLoadError surfaces the server's reason (a missing progression record, say) but
+        // stays silent on ERR_CANCELED and on the 401 api.js is redirecting on. Loading clears
+        // here and in .then, never in a .finally — that would also run on that 401.
+        if (reportLoadError(err, setSubjectsError, "Unable to load subjects. Please try again.")) {
+          setLoadingSubjects(false);
+        }
       });
 
     return () => {
@@ -144,7 +152,6 @@ function RegistrationPage() {
         {
           subjectIds: selectedSubjects.map((s) => s.id),
         },
-        { headers: getStudentHeaders() },
       );
       setRegId(res.data.regId);
       setSubmitted(true);
@@ -163,7 +170,6 @@ function RegistrationPage() {
     setDownloadError("");
     try {
       const res = await api.get(`/student/registrations/${regId}/pdf`, {
-        headers: getStudentHeaders(),
         responseType: "blob",
       });
       saveBlob(res.data, `backlog-registration-${profile?.rollNo || regId}.pdf`, "application/pdf");
@@ -228,9 +234,9 @@ function RegistrationPage() {
           You need a phone number on your profile before you can register for backlog exams. Please
           add it in your dashboard and come back.
         </p>
-        <MagneticCta onClick={() => navigate("/student")} className="gap-2 rounded-xl">
+        <PrimaryCta onClick={() => navigate("/student")} className="gap-2">
           Go to Dashboard
-        </MagneticCta>
+        </PrimaryCta>
       </CenteredCard>
     );
   }
@@ -257,13 +263,13 @@ function RegistrationPage() {
           </AlertBanner>
         )}
         <div className="flex flex-wrap gap-3">
-          <MagneticCta onClick={handleDownloadPdf} disabled={downloading} className="gap-2">
+          <PrimaryCta onClick={handleDownloadPdf} disabled={downloading} className="gap-2">
             {downloading ? <LoaderCircle size={16} className="animate-spin" /> : <Download size={16} />}
             Download PDF
-          </MagneticCta>
+          </PrimaryCta>
           <Link
             to="/student"
-            className="inline-flex items-center justify-center rounded-full border border-stroke bg-surface-1 px-5 py-3 text-sm font-semibold text-secondary-ink transition-colors hover:border-primary hover:text-primary-ink"
+            className={btn("neutral", "lg")}
           >
             <ArrowLeft size={16} /> Back to Dashboard
           </Link>
@@ -274,44 +280,41 @@ function RegistrationPage() {
 
   // ---- main subject-selection form ----
   return (
-    <div className="min-h-screen bg-surface-1 text-ink">
-      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <BrandHeader className="mb-6">
-          <Link
-            to="/student"
-            aria-label="Back to dashboard"
-            className="inline-flex items-center rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-          >
-            <ArrowLeft size={15} className="mr-1" /> Dashboard
-          </Link>
-        </BrandHeader>
-
+    <PageLayout
+      containerClassName="max-w-6xl"
+      actions={
+        <HeaderPill as={Link} to="/student" aria-label="Back to dashboard">
+          <ArrowLeft size={15} /> Dashboard
+        </HeaderPill>
+      }
+    >
+      <div>
         <div
-          className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-8"
+          className="py-5 sm:py-8"
         >
           {/* locked identity summary */}
           <section className="mb-6">
             <h2 className="mb-3 text-xl font-semibold text-ink">Registering as</h2>
-            <div className="grid grid-cols-1 gap-3 rounded-2xl border border-stroke bg-surface-muted p-4 sm:grid-cols-2">
-              <LockedField label="Name" value={profile.name} />
-              <LockedField label="USN" value={profile.rollNo} />
-              <LockedField label="Email" value={profile.email} />
-              <LockedField label="Branch" value={profile.branch} />
-              <LockedField
+            <div className="grid grid-cols-1 gap-3 rounded-lg bg-surface-muted p-4 sm:grid-cols-2">
+              <ReadOnlyField label="Name" value={profile.name} />
+              <ReadOnlyField label="USN" value={profile.rollNo} />
+              <ReadOnlyField label="Email" value={profile.email} />
+              <ReadOnlyField label="Branch" value={profile.branch} />
+              <ReadOnlyField
                 label="Current Semester"
                 value={profile.currentSemester ? `Semester ${profile.currentSemester}` : ""}
               />
-              <LockedField label="Phone" value={profile.phone} />
+              <ReadOnlyField label="Phone" value={profile.phone} />
             </div>
             {profileError ? (
-              <p className="mt-2 text-xs text-red-600">{profileError}</p>
+              <p className="mt-2 text-xs text-alert">{profileError}</p>
             ) : null}
           </section>
 
           <section className="mb-6 border-t border-stroke pt-6">
             <h2 className="mb-4 text-xl font-semibold text-ink">Selected Subjects</h2>
             {selectedSubjects.length === 0 ? (
-              <p className="mb-6 rounded-xl border border-stroke bg-surface-muted px-4 py-3 text-sm">
+              <p className="mb-6 rounded-lg bg-surface-muted px-4 py-3 text-sm">
                 No subjects selected yet. Please search and add subjects below.
               </p>
             ) : (
@@ -319,7 +322,7 @@ function RegistrationPage() {
                 {selectedSubjects.map((subject) => (
                   <div
                     key={`sel-${subject.id}`}
-                    className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary-tint p-3 shadow-sm"
+                    className="flex items-center justify-between rounded-lg bg-accent-tint p-3"
                   >
                     {/* min-w-0: flex items default to min-width:auto, so without it the 4-fact meta
                         line overflowed the card and squeezed Remove on mobile. */}
@@ -344,7 +347,7 @@ function RegistrationPage() {
                     <button
                       type="button"
                       onClick={() => handleSubjectToggle(subject)}
-                      className="ml-3 shrink-0 rounded-md border border-stroke bg-surface-1 px-2 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50"
+                      className={`${btn("danger", "sm")} ml-3 shrink-0`}
                     >
                       Remove
                     </button>
@@ -354,7 +357,7 @@ function RegistrationPage() {
             )}
 
             {selectedSubjects.length > 0 && (
-              <div className="mb-6 flex items-center justify-between rounded-xl border border-stroke bg-surface-muted px-4 py-3 text-sm">
+              <div className="mb-6 flex items-center justify-between rounded-lg bg-surface-muted px-4 py-3 text-sm">
                 <span className="font-semibold text-ink">
                   {selectedSubjects.length}{" "}
                   {selectedSubjects.length === 1 ? "subject" : "subjects"} selected
@@ -368,16 +371,10 @@ function RegistrationPage() {
 
             <h2 className="mb-4 text-xl font-semibold text-ink">Search Backlog Subjects</h2>
             <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="searchSemester"
-                  className="text-xs font-semibold uppercase tracking-[0.08em] text-ink"
-                >
-                  Semester
-                </label>
+              <Field label="Semester" htmlFor="searchSemester" labelClassName="text-ink">
                 <select
                   id="searchSemester"
-                  className="rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60"
+                  className={FIELD_CONTROL}
                   value={searchSemester}
                   onChange={(e) => setSearchSemester(e.target.value)}
                   data-cy="reg-semester"
@@ -391,16 +388,16 @@ function RegistrationPage() {
                   ))}
                 </select>
                 {eligibleSemesters.length === 0 ? (
-                  <p className="mt-1 text-xs text-red-600">
+                  <p className="mt-1 text-xs text-alert">
                     Your current semester isn't set up yet. Please contact the department office.
                   </p>
                 ) : null}
-              </div>
+              </Field>
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-ink">
+                <span className={`${FIELD_LABEL} text-ink`}>
                   Academic Year
                 </span>
-                <div className="flex h-[42px] items-center rounded-xl border border-stroke bg-surface-muted px-3.5 text-sm text-ink">
+                <div className="flex h-[42px] items-center rounded-lg bg-surface-muted px-3.5 text-sm text-ink">
                   {resolvedAcademicYear
                     ? formatAcademicYear(resolvedAcademicYear)
                     : "Set automatically from your record"}
@@ -412,13 +409,13 @@ function RegistrationPage() {
             </div>
 
             {loadingSubjects ? (
-              <p className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-3 text-sm">
+              <p className="inline-flex items-center gap-2 rounded-lg bg-surface-muted px-4 py-3 text-sm">
                 <LoaderCircle size={16} className="animate-spin" /> Loading subjects...
               </p>
             ) : subjectsError ? (
               <AlertBanner tone="error">{subjectsError}</AlertBanner>
             ) : subjects.length === 0 ? (
-              <p className="rounded-xl border border-stroke bg-surface-muted px-4 py-3 text-sm">
+              <p className="rounded-lg bg-surface-muted px-4 py-3 text-sm">
                 {searchSemester
                   ? "No subjects found for the selected semester."
                   : "Select a semester to find subjects."}
@@ -430,10 +427,10 @@ function RegistrationPage() {
                   return (
                     <div
                       key={subject.id}
-                      className={`rounded-xl border p-3 transition-transform duration-200 motion-safe:hover:translate-y-[-2px] ${
+                      className={`rounded-lg p-3 transition-transform duration-200 motion-safe:hover:translate-y-[-2px] ${
                         isSelected
-                          ? "border-primary/45 bg-primary-tint opacity-60"
-                          : "border-stroke bg-surface-muted"
+                          ? "bg-accent-tint opacity-60"
+                          : "bg-surface-muted"
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -442,7 +439,7 @@ function RegistrationPage() {
                           id={`subject-${subject.id}`}
                           checked={isSelected}
                           onChange={() => handleSubjectToggle(subject)}
-                          className="h-4 w-4 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                          className="h-4 w-4 accent-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                         />
                         {/* Stacks under sm; shrink-0/right-align/truncate are sm+ only. Horizontal,
                             the meta's shrink-0 claimed the long deptName's width and the name, the
@@ -486,11 +483,11 @@ function RegistrationPage() {
             </AlertBanner>
           ) : null}
 
-          <MagneticCta
+          <PrimaryCta
             type="button"
             onClick={handleSubmit}
             disabled={selectedSubjects.length === 0 || submitting}
-            className="w-full gap-2 rounded-xl disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full gap-2"
             data-cy="reg-submit"
             aria-label="Submit registration"
           >
@@ -503,55 +500,38 @@ function RegistrationPage() {
                 <CheckCircle2 size={16} /> Submit Registration
               </>
             )}
-          </MagneticCta>
+          </PrimaryCta>
         </div>
       </div>
-    </div>
-  );
-}
-
-function LockedField({ label, value }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">
-        {label}
-      </span>
-      <span className="text-sm font-medium text-ink">{value || "—"}</span>
-    </div>
+    </PageLayout>
   );
 }
 
 function CenteredCard({ icon, eyebrow, title, children }) {
   return (
-    <div className="min-h-screen bg-surface-1 px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mx-auto mb-6 w-full max-w-2xl">
-        <BrandHeader>
-          <Link
-            to="/student"
-            aria-label="Back to dashboard"
-            className="inline-flex items-center rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-          >
-            <ArrowLeft size={15} className="mr-1" /> Dashboard
-          </Link>
-        </BrandHeader>
-      </div>
-      <div
-        className="mx-auto w-full max-w-2xl rounded-3xl border border-stroke bg-surface-1 p-6 shadow-soft sm:p-8"
-      >
+    <PageLayout
+      containerClassName="max-w-2xl"
+      actions={
+        <HeaderPill as={Link} to="/student" aria-label="Back to dashboard">
+          <ArrowLeft size={15} /> Dashboard
+        </HeaderPill>
+      }
+    >
+      <div className="py-6 sm:py-8">
         {eyebrow ? (
-          <p className="mb-2 inline-flex rounded-full border border-primary/30 bg-surface-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-ink">
+          <p className="mb-2 inline-flex rounded-lg bg-accent-tint px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-accent">
             {eyebrow}
           </p>
         ) : null}
         {icon ? (
-          <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-surface-muted text-primary-ink">
+          <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-surface-muted text-accent">
             {icon}
           </span>
         ) : null}
         <h2 className="mb-3 text-3xl font-semibold text-secondary-ink">{title}</h2>
         {children}
       </div>
-    </div>
+    </PageLayout>
   );
 }
 
@@ -559,7 +539,7 @@ function BackLink({ to, label }) {
   return (
     <Link
       to={to}
-      className="inline-flex items-center justify-center gap-2 rounded-full border border-stroke bg-surface-1 px-5 py-3 text-sm font-semibold text-secondary-ink transition-colors hover:border-primary hover:text-primary-ink"
+      className={btn("neutral", "lg")}
     >
       <ArrowLeft size={16} /> {label}
     </Link>

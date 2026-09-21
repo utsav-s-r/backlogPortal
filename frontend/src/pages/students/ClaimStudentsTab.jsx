@@ -1,21 +1,23 @@
 import { useState, useCallback, useEffect } from "react";
 import {
   Check,
-  ChevronLeft,
-  ChevronRight,
   LoaderCircle,
   Search,
   UserCheck,
   UserMinus,
   Users,
 } from "lucide-react";
-import api, { getAdminHeaders } from "../../lib/api";
-import { batchRows } from "./batchResult";
+import api from "../../lib/api";
+import { batchRows } from "../../lib/batchResult";
 import { reportLoadError } from "../../lib/loadError";
+import { useAbortableRequest } from "../../hooks/useAbortableRequest";
 import { ALL_SEMESTERS } from "../../lib/semesters";
+import { ROLE } from "../../lib/roles";
+import { FIELD_INPUT } from "../../lib/formClasses";
+import Field from "../../components/ui/Field";
+import Pager from "../../components/ui/Pager";
+import { btn } from "../../lib/buttonClasses";
 
-const inputClass =
-  "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60";
 
 const PAGE_SIZE = 25;
 
@@ -26,7 +28,7 @@ const PAGE_SIZE = 25;
 //     (assign / unassign / reassign after a conflict).
 // Scope rules are enforced server-side on /api/admin/proctor/**; this UI only mirrors them.
 function ClaimStudentsTab({ adminRole, adminDepartment }) {
-  const isProctor = adminRole === "PROCTOR";
+  const isProctor = adminRole === ROLE.PROCTOR;
 
   // staff callers must name a target proctor
   const [proctors, setProctors] = useState([]);
@@ -55,9 +57,9 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
   useEffect(() => {
     if (isProctor) return;
     api
-      .get("/admin/users", { headers: getAdminHeaders() })
+      .get("/admin/users")
       .then((res) => {
-        setProctors((res.data || []).filter((u) => u.role === "PROCTOR"));
+        setProctors((res.data || []).filter((u) => u.role === ROLE.PROCTOR));
         setError("");
       })
       // without this the target-proctor picker is silently empty and HOD/admin cannot assign
@@ -68,6 +70,11 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
 
   const proctorParam = isProctor ? "" : targetProctor;
   const targetChosen = isProctor || Boolean(targetProctor);
+  // ONE controller each: the two lists load independently, so a shared one would make loading the
+  // claim picker abort the assigned list. Re-pressing a Load aborts only its own predecessor, so a
+  // slow reply cannot render under a proctor or filter it was not fetched for.
+  const nextAssignedSignal = useAbortableRequest();
+  const nextClaimableSignal = useAbortableRequest();
 
   const loadAssigned = useCallback(async () => {
     if (!targetChosen) return;
@@ -76,16 +83,18 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
       const params = {};
       if (proctorParam) params.proctor = proctorParam;
       const res = await api.get("/admin/proctor/students", {
-        headers: getAdminHeaders(),
         params,
+        signal: nextAssignedSignal(),
       });
       setAssigned(Array.isArray(res.data) ? res.data : []);
+      setAssignedBusy(false);
     } catch (err) {
+      // No `finally`: it would clear the flag for the newer load that superseded this one.
+      if (err.code === "ERR_CANCELED") return;
       setError(err.response?.data?.message || "Could not load assigned students.");
-    } finally {
       setAssignedBusy(false);
     }
-  }, [targetChosen, proctorParam]);
+  }, [targetChosen, proctorParam, nextAssignedSignal]);
 
   const loadClaimable = useCallback(
     async (targetPage = 0) => {
@@ -102,8 +111,8 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
         if (fSemester) params.semester = Number(fSemester);
         if (fQuery.trim()) params.query = fQuery.trim();
         const res = await api.get("/admin/proctor/claimable", {
-          headers: getAdminHeaders(),
           params,
+          signal: nextClaimableSignal(),
         });
         const data = res.data || {};
         setRows(Array.isArray(data.content) ? data.content : []);
@@ -113,13 +122,14 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
           totalElements: data.totalElements ?? 0,
         });
         setSelected(new Set());
+        setBusy(false);
       } catch (err) {
+        if (err.code === "ERR_CANCELED") return;
         setError(err.response?.data?.message || "Could not load students.");
-      } finally {
         setBusy(false);
       }
     },
-    [targetChosen, proctorParam, fYear, fSemester, fQuery],
+    [targetChosen, proctorParam, fYear, fSemester, fQuery, nextClaimableSignal],
   );
 
   const toggle = (rollNo) =>
@@ -137,9 +147,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
     try {
       const payload = { rollNos: [...selected] };
       if (proctorParam) payload.proctor = proctorParam;
-      const res = await api.post("/admin/proctor/assignments", payload, {
-        headers: getAdminHeaders(),
-      });
+      const res = await api.post("/admin/proctor/assignments", payload);
       setResults(res.data);
       // refresh both panels: claimed rows flip to "yours" and the list updates
       await Promise.all([loadClaimable(pageInfo.number), loadAssigned()]);
@@ -156,7 +164,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
     setRemovingRoll(rollNo);
     setError("");
     try {
-      await api.delete(`/admin/proctor/assignments/${rollNo}`, { headers: getAdminHeaders() });
+      await api.delete(`/admin/proctor/assignments/${rollNo}`);
       setAssigned((prev) => (prev || []).filter((s) => s.rollNo !== rollNo));
     } catch (err) {
       setError(err.response?.data?.message || "Could not remove the assignment.");
@@ -168,7 +176,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
   return (
     <div className="flex flex-col gap-6">
       {/* ---- current assignments ---- */}
-      <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
+      <section className="py-5 sm:py-6">
         <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-secondary-ink">
           <Users size={18} /> {isProctor ? "Students under your supervision" : "Assigned students"}
         </h2>
@@ -179,10 +187,9 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
         </p>
 
         {!isProctor && (
-          <div className="mb-4 flex max-w-sm flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Proctor</label>
+          <Field label="Proctor" className="mb-4 max-w-sm">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={targetProctor}
               onChange={(e) => {
                 setTargetProctor(e.target.value);
@@ -206,15 +213,15 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
                 No proctor accounts yet — create one under Manage Users.
               </p>
             )}
-          </div>
+          </Field>
         )}
 
         <button
           type="button"
           onClick={loadAssigned}
-          disabled={assignedBusy || !targetChosen}
+          disabled={!targetChosen}
           data-cy="assigned-load"
-          className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-2 text-sm font-semibold transition-colors hover:border-primary disabled:opacity-60"
+          className={btn()}
         >
           {assignedBusy ? <LoaderCircle size={15} className="animate-spin" /> : <Users size={15} />}
           Load assigned students
@@ -224,13 +231,13 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
           <div className="mt-4">
             {assigned.length === 0 ? (
               <p
-                className="rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm"
+                className="rounded-lg bg-surface-muted px-4 py-3 text-sm"
                 data-cy="assigned-empty"
               >
                 No students assigned yet — use the picker below to claim some.
               </p>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-stroke">
+              <div className="overflow-x-auto">
                 <table className="min-w-full border-collapse text-left text-sm" data-cy="assigned-list">
                   <thead>
                     <tr className="bg-surface-muted text-xs uppercase tracking-[0.08em]">
@@ -256,7 +263,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
                             onClick={() => removeAssignment(s.rollNo)}
                             disabled={removingRoll === s.rollNo}
                             data-cy={`assigned-remove-${s.rollNo}`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+                            className={btn("danger", "sm")}
                           >
                             {removingRoll === s.rollNo ? (
                               <LoaderCircle size={13} className="animate-spin" />
@@ -277,7 +284,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
       </section>
 
       {/* ---- claim picker ---- */}
-      <section className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-6">
+      <section className="py-5 sm:py-6">
         <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-secondary-ink">
           <UserCheck size={18} /> Claim students
         </h2>
@@ -288,21 +295,19 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
         </p>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Admission year</label>
+          <Field label="Admission year">
             <input
-              className={inputClass}
+              className={FIELD_INPUT}
               type="text"
               placeholder="e.g. 2024"
               value={fYear}
               onChange={(e) => setFYear(e.target.value)}
               data-cy="claim-year"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">Semester</label>
+          </Field>
+          <Field label="Semester">
             <select
-              className={inputClass}
+              className={FIELD_INPUT}
               value={fSemester}
               onChange={(e) => setFSemester(e.target.value)}
               data-cy="claim-sem"
@@ -315,18 +320,17 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-[0.08em]">USN / name</label>
+          </Field>
+          <Field label="USN / name">
             <input
-              className={inputClass}
+              className={FIELD_INPUT}
               type="text"
               placeholder="search"
               value={fQuery}
               onChange={(e) => setFQuery(e.target.value)}
               data-cy="claim-query"
             />
-          </div>
+          </Field>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
@@ -338,9 +342,9 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
               setResults(null);
               loadClaimable(0);
             }}
-            disabled={busy || !targetChosen}
+            disabled={!targetChosen}
             data-cy="claim-load"
-            className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 py-2 text-sm font-semibold transition-colors hover:border-primary disabled:opacity-60"
+            className={btn()}
           >
             {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Search size={15} />}
             Find students
@@ -350,21 +354,21 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
             onClick={claim}
             disabled={busy || selected.size === 0}
             data-cy="claim-submit"
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            className={btn("accent")}
           >
             <Check size={15} /> Claim selected ({selected.size})
           </button>
         </div>
 
         {error && (
-          <p className="mt-3 text-sm text-red-600" role="alert" data-cy="claim-error">
+          <p className="mt-3 text-sm text-alert" role="alert" data-cy="claim-error">
             {error}
           </p>
         )}
 
         {results && (
           <div
-            className="mt-4 rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm"
+            className="mt-4 rounded-lg bg-surface-muted px-4 py-3 text-sm"
             data-cy="claim-results"
           >
             <p className="font-semibold">
@@ -375,7 +379,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
             {batchRows(results)
               .filter((r) => r.status === "ERROR")
               .map((r) => (
-                <p key={r.rollNo} className="mt-1 text-xs text-red-600">
+                <p key={r.rollNo} className="mt-1 text-xs text-alert">
                   {r.rollNo}: {r.message}
                 </p>
               ))}
@@ -386,14 +390,14 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
           <div className="mt-4">
             {rows.length === 0 ? (
               <p
-                className="rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm"
+                className="rounded-lg bg-surface-muted px-4 py-3 text-sm"
                 data-cy="claim-empty"
               >
                 No students match these filters.
               </p>
             ) : (
               <>
-                <div className="overflow-x-auto rounded-2xl border border-stroke">
+                <div className="overflow-x-auto">
                   <table className="min-w-full border-collapse text-left text-sm">
                     <thead>
                       <tr className="bg-surface-muted text-xs uppercase tracking-[0.08em]">
@@ -424,7 +428,7 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
                             <td className="px-4 py-2.5">{s.currentSemester}</td>
                             <td className="px-4 py-2.5">
                               {s.mine ? (
-                                <span className="rounded-full bg-primary-tint px-2.5 py-0.5 text-xs font-semibold text-primary-ink">
+                                <span className="rounded-full bg-accent-tint px-2.5 py-0.5 text-xs font-semibold text-ink">
                                   {isProctor ? "Yours" : "This proctor's"}
                                 </span>
                               ) : s.proctored ? (
@@ -441,33 +445,14 @@ function ClaimStudentsTab({ adminRole, adminDepartment }) {
                     </tbody>
                   </table>
                 </div>
-                {pageInfo.totalPages > 1 && (
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stroke bg-surface-muted px-4 py-3 text-sm">
-                    <span className="text-ink-muted">
-                      Page {pageInfo.number + 1} of {pageInfo.totalPages} · {pageInfo.totalElements} students
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => loadClaimable(pageInfo.number - 1)}
-                        disabled={busy || pageInfo.number <= 0}
-                        data-cy="claim-prev"
-                        className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary disabled:opacity-40"
-                      >
-                        <ChevronLeft size={13} /> Prev
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => loadClaimable(pageInfo.number + 1)}
-                        disabled={busy || pageInfo.number >= pageInfo.totalPages - 1}
-                        data-cy="claim-next"
-                        className="inline-flex items-center gap-1 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold transition-colors hover:border-primary disabled:opacity-40"
-                      >
-                        Next <ChevronRight size={13} />
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <Pager
+                  pageInfo={pageInfo}
+                  busy={busy}
+                  onGo={loadClaimable}
+                  noun="students"
+                  dataCy="claim"
+                  className="mt-3"
+                />
               </>
             )}
           </div>

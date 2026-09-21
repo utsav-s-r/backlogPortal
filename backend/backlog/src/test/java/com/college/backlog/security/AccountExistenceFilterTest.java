@@ -1,5 +1,9 @@
 package com.college.backlog.security;
 
+import com.college.backlog.model.Student;
+import com.college.backlog.model.User;
+import com.college.backlog.model.UserRole;
+import com.college.backlog.repository.StudentRepository;
 import com.college.backlog.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
@@ -11,6 +15,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,7 +29,9 @@ import static org.mockito.Mockito.when;
 class AccountExistenceFilterTest {
 
     private final UserRepository userRepository = mock(UserRepository.class);
-    private final AccountExistenceFilter filter = new AccountExistenceFilter(userRepository);
+    private final StudentRepository studentRepository = mock(StudentRepository.class);
+    private final AccountExistenceFilter filter =
+            new AccountExistenceFilter(userRepository, studentRepository);
 
     @AfterEach
     void clearContext() {
@@ -35,6 +42,18 @@ class AccountExistenceFilterTest {
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 username, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
         SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
+    /** The `users` row the filter reads. Its role is the one that must win over the token's. */
+    private void accountRowIs(String username, UserRole role) {
+        User u = new User();
+        u.setUsername(username);
+        u.setRole(role);
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(u));
+    }
+
+    private void noAccountRowFor(String username) {
+        when(userRepository.findByUsername(username)).thenReturn(Optional.empty());
     }
 
     private MockHttpServletRequest request(String method, String uri) {
@@ -51,7 +70,7 @@ class AccountExistenceFilterTest {
     @Test
     void deletedAccountIsRejectedEvenWithAValidToken() throws Exception {
         authenticateAs("hodcse", "HOD");
-        when(userRepository.existsById("hodcse")).thenReturn(false);
+        noAccountRowFor("hodcse");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
@@ -67,7 +86,7 @@ class AccountExistenceFilterTest {
     @Test
     void deletedAccountCannotReachTheChangePasswordEndpointEither() throws Exception {
         authenticateAs("admin", "ADMIN");
-        when(userRepository.existsById("admin")).thenReturn(false);
+        noAccountRowFor("admin");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
@@ -80,11 +99,81 @@ class AccountExistenceFilterTest {
     @Test
     void existingAdminPassesThrough() throws Exception {
         authenticateAs("admin", "ADMIN");
-        when(userRepository.existsById("admin")).thenReturn(true);
+        accountRowIs("admin", UserRole.ADMIN);
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
         MockHttpServletRequest req = request("GET", "/api/admin/registrations");
+        filter.doFilter(req, response, chain);
+
+        verify(chain, times(1)).doFilter(req, response);
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    /**
+     * THE privilege-retention case. Role is immutable by owner decision, so changing one means
+     * delete + recreate under the same username — which restores existence while the live cookie
+     * still carries the old role. An existence-only check passes this; every {@code @PreAuthorize}
+     * then decides on the token, and ExamCycleController's writes resolve no caller at all, so
+     * ROLE_ADMIN on a DEPT_OFFICE row would still open and close registration college-wide.
+     */
+    @Test
+    void aDemotedAccountCannotKeepUsingItsOldRolesToken() throws Exception {
+        authenticateAs("admin-user", "ADMIN");          // the token, minted before the demotion
+        accountRowIs("admin-user", UserRole.DEPT_OFFICE); // what the row says now
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request("POST", "/api/admin/exam-cycles"), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(response.getContentAsString()).contains("Your account has changed");
+        verify(chain, never()).doFilter(any(), any());
+    }
+
+    /** The same check has to bind upward, or a recreate that PROMOTES hands a session powers the
+     *  SPA never rendered controls for — it caches adminRole at login. */
+    @Test
+    void aPromotedAccountAlsoHasToSignInAgain() throws Exception {
+        authenticateAs("dept-user", "DEPT_OFFICE");
+        accountRowIs("dept-user", UserRole.ADMIN);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request("GET", "/api/admin/registrations"), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        verify(chain, never()).doFilter(any(), any());
+    }
+
+    /**
+     * users.role is nullable and its CHECK admits NULL (NULL = ANY(...) is NULL, not false), so
+     * such a row is storable. CallerScope answers a clearer 403 — but only on endpoints that
+     * resolve a scope, and the exam-cycle writes do not. Honouring the token against a row that
+     * claims no role would leave exactly that hole open, so fail closed here.
+     */
+    @Test
+    void aRowWithNoRoleAtAllCannotHaveItsTokenTrusted() throws Exception {
+        authenticateAs("broken-user", "ADMIN");
+        accountRowIs("broken-user", null);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request("POST", "/api/admin/exam-cycles"), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        verify(chain, never()).doFilter(any(), any());
+    }
+
+    /** An unchanged dept role must still pass — the check narrows nothing when nothing changed. */
+    @Test
+    void anUnchangedDeptRolePassesThrough() throws Exception {
+        authenticateAs("hod-user", "HOD");
+        accountRowIs("hod-user", UserRole.HOD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        MockHttpServletRequest req = request("GET", "/api/admin/subjects");
         filter.doFilter(req, response, chain);
 
         verify(chain, times(1)).doFilter(req, response);
@@ -121,11 +210,14 @@ class AccountExistenceFilterTest {
         verifyNoInteractions(userRepository);
     }
 
-    // Students authenticate with the same cookie machinery but are not rows in `users`, so
-    // checking existence for them would 401 every student on every request.
+    // Students are not rows in `users`, so the admin branch cannot cover them — they get their
+    // own, against `students`. Added with V7 for the AGE check: a date-of-birth reset (the DOB IS
+    // their login credential) used to leave every session it had opened alive. The existence half
+    // is defence in depth — each student endpoint already 401s on a missing row.
     @Test
-    void studentsAreNotSubjectToThisFilter() throws Exception {
+    void studentsAreCheckedAgainstTheStudentsTableNotUsers() throws Exception {
         authenticateAs("1MS22CS001", "STUDENT");
+        when(studentRepository.findById("1MS22CS001")).thenReturn(Optional.of(new Student()));
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
@@ -133,7 +225,23 @@ class AccountExistenceFilterTest {
         filter.doFilter(req, response, chain);
 
         verify(chain, times(1)).doFilter(req, response);
+        // `users` is never consulted for a student — doing so would 401 every student request.
         verifyNoInteractions(userRepository);
+    }
+
+    /** Not a new protection — StudentController.currentStudent already 401s on a missing row —
+     *  but revocation now states it in one place rather than relying on each handler. */
+    @Test
+    void aDeletedStudentIsRejectedEvenWithAValidToken() throws Exception {
+        authenticateAs("1MS22CS001", "STUDENT");
+        when(studentRepository.findById("1MS22CS001")).thenReturn(Optional.empty());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request("GET", "/api/student/me"), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        verify(chain, never()).doFilter(any(), any());
     }
 
     @Test

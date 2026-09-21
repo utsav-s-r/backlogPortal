@@ -1,0 +1,44 @@
+# Build context is the repo root, so this file is the ONLY thing keeping secrets and junk out of
+# the image. Everything here is either a secret, rebuilt inside the image, or irrelevant to it.
+
+# ---- SECRETS: never let these reach a layer -------------------------------------------------
+# backend/backlog/.env holds the live Neon DB_URL, DB_PASSWORD and JWT_SECRET. Without these
+# rules a local `docker build` bakes production credentials into a layer that `docker history`
+# can read straight back out.
+.env
+.env.*
+!.env.example
+!compose.env.example
+
+# Gitignored local overrides. Excluded so the image is always built from the tracked
+# application.properties.example (see the cp in the Dockerfile) and a laptop build matches a
+# platform build exactly.
+backend/backlog/src/main/resources/application.properties
+backend/backlog/src/main/resources/application-local.properties
+
+# Working notes, INCLUDING test credentials for every staff role and student account.
+claude-work/
+CLAUDE.local.md
+.claude/
+
+# ---- rebuilt inside the image ----------------------------------------------------------------
+frontend/node_modules/
+frontend/dist/
+backend/backlog/target/
+backend/backlog/.mvn/wrapper/maven-wrapper.jar
+
+# ---- never runs in the image ------------------------------------------------------------------
+frontend/cypress/
+frontend/cypress.config.js
+backend/backlog/src/test/
+docs/
+
+# ---- VCS / editor / OS noise -------------------------------------------------------------------
+.git/
+.gitignore
+.idea/
+.vscode/
+*.iml
+.DS_Store
+*.log
+backend/backlog/HELP.md

@@ -2,11 +2,13 @@ package com.college.backlog.model;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.ColumnDefault;
+import org.springframework.data.domain.Persistable;
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
 @Table(name = "students")
-public class Student {
+public class Student implements Persistable<String> {
 
     @Id
     @Column(name = "roll_no")
@@ -38,6 +40,25 @@ public class Student {
 
     private String branch;
 
+    /**
+     * Tokens issued STRICTLY BEFORE this instant are refused (AccountExistenceFilter). Stamped at
+     * creation and on every change to a sign-in credential or to identity, which is what stops a
+     * recreated username inheriting a live session and what makes a password change take effect
+     * now instead of in up to an hour.
+     *
+     * <p>Bump it with {@link #revokeExistingSessions()} rather than by hand, so every write site
+     * reads the same and none of them can set it to anything but "now".
+     */
+    @Column(name = "session_valid_from", nullable = false)
+    private Instant sessionValidFrom = Instant.now();
+
+    // Not stored. The id is the USN we assign, so Spring Data cannot tell new from existing and
+    // save() would MERGE: a create racing another create of the same USN silently overwrote that
+    // student, DOB (the login credential) included. Starting true makes save() INSERT, so the
+    // duplicate fails on students_pkey; loaded or inserted instances flip to false and update normally.
+    @Transient
+    private boolean newEntity = true;
+
     // No all-args constructor on purpose: rollNo/name/email/phone are four adjacent Strings, so a
     // positional swap compiles and throws nothing. Build with setters (as StudentManagementService
     // already does) — each line names its own field. Don't reintroduce one.
@@ -67,7 +88,23 @@ public class Student {
     public int getEntrySemester() { return entrySemester; }
     public void setEntrySemester(int entrySemester) { this.entrySemester = entrySemester; }
 
+    public Instant getSessionValidFrom() { return sessionValidFrom; }
+
+    /** Kill every token issued so far for this student — a date of birth IS the login credential
+     *  here, so resetting one must end the sessions it opened. See User.revokeExistingSessions. */
+    public void revokeExistingSessions() { this.sessionValidFrom = Instant.now(); }
+
     public String getBranch() { return branch; }
     public void setBranch(String branch) { this.branch = branch; }
+
+    @Override
+    public String getId() { return rollNo; }
+
+    @Override
+    public boolean isNew() { return newEntity; }
+
+    @PostLoad
+    @PostPersist
+    void markNotNew() { newEntity = false; }
 
 }

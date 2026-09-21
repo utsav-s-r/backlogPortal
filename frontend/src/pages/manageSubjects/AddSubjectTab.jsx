@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { LoaderCircle, PlusCircle } from "lucide-react";
-import MagneticCta from "../../components/ui/MagneticCta";
-import api, { getAdminHeaders } from "../../lib/api";
-import { formatAcademicYear, buildCourseCode, courseCodeSuffix } from "../../lib/academicYear";
-import CourseCodeField from "../../components/ui/CourseCodeField";
+import PrimaryCta from "../../components/ui/PrimaryCta";
+import api from "../../lib/api";
+import { formatAcademicYear, recentAcademicYears } from "../../lib/academicYear";
 import AlertBanner from "../../components/AlertBanner";
+import { FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
+import Field from "../../components/ui/Field";
+import { btn } from "../../lib/buttonClasses";
 
-const inputClass =
-  "w-full rounded-xl border border-stroke bg-surface-1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-focus-ring";
 
 // Add a single subject. Presentational tab: the shell supplies departments and the dept-lock
 // context, this keeps only form state.
@@ -43,17 +43,6 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // The academic year is authoritative and stamps the course code's locked two-digit prefix;
-  // changing it re-prefixes the code, preserving the suffix.
-  const handleYearChange = (e) => {
-    const year = e.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      academicYearOffered: year,
-      courseCode: buildCourseCode(year, courseCodeSuffix(prev.courseCode)),
-    }));
-  };
-
   const toggleEligibleDept = (id) => {
     setEligibleDeptIds((prev) =>
       prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id],
@@ -70,11 +59,6 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
         setError("All fields are required.");
         return;
       }
-    }
-    // a year stamps only the prefix — the admin still enters the suffix
-    if (!courseCodeSuffix(formData.courseCode)) {
-      setError("Enter the course code.");
-      return;
     }
     if (subjectType === "ELECTIVE" && eligibleDeptIds.length === 0) {
       setError("Please select at least one eligible department for an elective subject.");
@@ -94,9 +78,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
         eligibleDeptIds: subjectType === "ELECTIVE" ? eligibleDeptIds : [],
       };
 
-      await api.post("/admin/subjects", payload, {
-        headers: getAdminHeaders(),
-      });
+      await api.post("/admin/subjects", payload);
 
       setSuccess(
         `Subject "${formData.subjectName}" has been added successfully!`,
@@ -122,24 +104,11 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
     }
   };
 
-  const selectedYear = formData.academicYearOffered
-    ? Number(formData.academicYearOffered)
-    : NaN;
-  // recent years for the dropdown, plus the selected one if outside that window
-  const baseYears = Array.from(
-    { length: 6 },
-    (_, i) => new Date().getFullYear() - i + 1,
-  );
-  const availableYears = Array.from(
-    new Set([
-      ...baseYears,
-      ...(Number.isInteger(selectedYear) ? [selectedYear] : []),
-    ]),
-  ).sort((a, b) => b - a);
+  const availableYears = recentAcademicYears(formData.academicYearOffered);
 
   return (
     <div
-      className="rounded-3xl border border-stroke bg-surface-1 p-5 shadow-soft sm:p-8"
+      className="py-5 sm:py-8"
     >
       <h1 className="mb-2 text-2xl font-semibold text-secondary-ink sm:text-3xl">
         Add New Subject
@@ -150,19 +119,13 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="academicYearOffered"
-              className="text-xs font-semibold uppercase tracking-[0.08em]"
-            >
-              Academic Year Offered *
-            </label>
+          <Field label="Academic Year Offered *" htmlFor="academicYearOffered">
             <select
               id="academicYearOffered"
               name="academicYearOffered"
               value={formData.academicYearOffered}
-              onChange={handleYearChange}
-              className={inputClass}
+              onChange={handleChange}
+              className={FIELD_INPUT}
             >
               <option value="">Select Academic Year</option>
               {availableYears.map((year) => (
@@ -171,57 +134,35 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="subjectName"
-              className="text-xs font-semibold uppercase tracking-[0.08em]"
-            >
-              Subject Name *
-            </label>
+          </Field>
+          <Field label="Subject Name *" htmlFor="subjectName">
             <input
               id="subjectName"
               name="subjectName"
               value={formData.subjectName}
               onChange={handleChange}
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="e.g., Advanced Algorithms"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="courseCode"
-              className="text-xs font-semibold uppercase tracking-[0.08em]"
-            >
-              Course Code *
-            </label>
-            <CourseCodeField
+          </Field>
+          <Field label="Course Code *" htmlFor="courseCode">
+            <input
               id="courseCode"
-              year={formData.academicYearOffered}
+              name="courseCode"
               value={formData.courseCode}
-              onChange={(code) =>
-                setFormData((prev) => ({ ...prev, courseCode: code }))
-              }
-              inputClassName={inputClass}
-              dataCy="course-code-suffix"
+              onChange={handleChange}
+              className={FIELD_INPUT}
+              placeholder="e.g., CSL44"
+              data-cy="course-code"
             />
-            <p className="text-xs text-ink-muted">
-              The first two digits are set from the academic year.
-            </p>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="semester"
-              className="text-xs font-semibold uppercase tracking-[0.08em]"
-            >
-              Semester *
-            </label>
+          </Field>
+          <Field label="Semester *" htmlFor="semester">
             <select
               id="semester"
               name="semester"
               value={formData.semester}
               onChange={handleChange}
-              className={inputClass}
+              className={FIELD_INPUT}
             >
               <option value="">Select Semester</option>
               {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
@@ -230,38 +171,26 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="credits"
-              className="text-xs font-semibold uppercase tracking-[0.08em]"
-            >
-              Credits *
-            </label>
+          </Field>
+          <Field label="Credits *" htmlFor="credits">
             <input
               id="credits"
               name="credits"
               type="number"
               value={formData.credits}
               onChange={handleChange}
-              className={inputClass}
+              className={FIELD_INPUT}
               placeholder="e.g., 4"
               min="0"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="deptId"
-              className="text-xs font-semibold uppercase tracking-[0.08em]"
-            >
-              Department *
-            </label>
+          </Field>
+          <Field label="Department *" htmlFor="deptId">
             <select
               id="deptId"
               name="deptId"
               value={formData.deptId}
               onChange={handleChange}
-              className={inputClass}
+              className={FIELD_INPUT}
               disabled={departments.length === 0 || deptLocked}
             >
               <option value="">Select Department</option>
@@ -276,12 +205,12 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                 Locked to your department: {adminDepartment}
               </p>
             )}
-          </div>
+          </Field>
         </div>
 
         {/* Subject type */}
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold uppercase tracking-[0.08em]">
+          <span className={FIELD_LABEL}>
             Subject Type *
           </span>
           <div className="flex gap-3">
@@ -293,11 +222,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                   setSubjectType(type);
                   setEligibleDeptIds([]);
                 }}
-                className={`rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
-                  subjectType === type
-                    ? "border-primary bg-primary-tint text-primary-ink"
-                    : "border-stroke bg-surface-muted text-ink hover:border-primary"
-                }`}
+                className={btn(subjectType === type ? "accent" : "neutral")}
               >
                 {type.charAt(0) + type.slice(1).toLowerCase()}
               </button>
@@ -308,7 +233,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
         {/* Eligible departments — only for ELECTIVE */}
         {subjectType === "ELECTIVE" && (
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em]">
+            <span className={FIELD_LABEL}>
               Eligible Departments *
             </span>
             <p className="text-xs text-ink-muted">
@@ -321,17 +246,17 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                 return (
                   <label
                     key={dept.id}
-                    className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
+                    className={`flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-colors ${
                       checked
-                        ? "border-primary/40 bg-primary-tint"
-                        : "border-stroke bg-surface-muted hover:border-primary/40"
+                        ? "bg-accent-tint"
+                        : "bg-surface-muted hover:bg-accent-tint"
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={checked}
                       onChange={() => toggleEligibleDept(dept.id)}
-                      className="h-4 w-4 accent-primary"
+                      className="h-4 w-4 accent-accent"
                     />
                     <span className="text-sm text-ink">
                       {dept.deptName}
@@ -361,10 +286,10 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
         )}
 
         <div className="border-t border-stroke pt-4">
-          <MagneticCta
+          <PrimaryCta
             type="submit"
             disabled={loading}
-            className="w-full gap-2 rounded-xl"
+            className="w-full gap-2"
             aria-label="Add new subject"
           >
             {loading ? (
@@ -377,7 +302,7 @@ function AddSubjectTab({ departments, adminDepartment, deptLocked, pinnedDeptId 
                 <PlusCircle size={16} /> Add Subject
               </>
             )}
-          </MagneticCta>
+          </PrimaryCta>
         </div>
       </form>
     </div>
