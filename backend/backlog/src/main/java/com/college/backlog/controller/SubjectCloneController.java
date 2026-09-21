@@ -73,11 +73,15 @@ public class SubjectCloneController {
         // is the reading that matters; the counts come from the result the service returned, which
         // is the same object the admin sees. Mirrors the SUBJECT_IMPORT row in SubjectController.
         int requested = req.getRows() == null ? 0 : req.getRows().size();
-        auditService.record(AdminAuditAction.SUBJECT_CLONE, actor, AuditTargetType.DEPARTMENT,
+        // Best-effort: the rows are already committed, so a failed audit write must not 500 a
+        // request that succeeded and take the per-row result table with it. It returns the
+        // warning the admin sees instead.
+        result.setWarning(auditService.recordBestEffort(
+                AdminAuditAction.SUBJECT_CLONE, actor, AuditTargetType.DEPARTMENT,
                 String.valueOf(dept.getId()),
                 "targetYear=" + req.getTargetYear() + " requested=" + requested
                     + " created=" + result.getCreated() + " skipped=" + result.getSkipped()
-                    + " errors=" + result.getErrors());
+                    + " errors=" + result.getErrors()));
         return result;
     }
 

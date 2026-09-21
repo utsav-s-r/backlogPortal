@@ -177,10 +177,13 @@ public class SubjectController {
         if (!req.isDryRun()) {
             // ONE row for the whole operation, as with SUBJECT_CLONE: importing a catalog is a
             // single administrative act.
-            auditService.record(AdminAuditAction.SUBJECT_IMPORT, actor, AuditTargetType.DEPARTMENT,
+            // Best-effort, as in SubjectCloneController: the rows committed row by row, so a
+            // failed audit write must not report the whole import as a failure.
+            result.setWarning(auditService.recordBestEffort(
+                    AdminAuditAction.SUBJECT_IMPORT, actor, AuditTargetType.DEPARTMENT,
                     String.valueOf(deptId),
                     "year=" + req.getAcademicYearOffered() + " created=" + result.getCreated()
-                        + " skipped=" + result.getSkipped() + " errors=" + result.getErrors());
+                        + " skipped=" + result.getSkipped() + " errors=" + result.getErrors()));
         }
         return result;
     }

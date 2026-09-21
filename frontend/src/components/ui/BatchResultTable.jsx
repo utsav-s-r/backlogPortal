@@ -5,6 +5,7 @@
 // The only thing that varies between callers is what identifies a row — a USN for students, a
 // course code for subjects — so that is a prop rather than a second component.
 
+import AlertBanner from "../AlertBanner";
 import { batchRows } from "../../lib/batchResult";
 import { batchStatusClass } from "../../lib/batchStatus";
 
@@ -24,6 +25,14 @@ function BatchResultTable({ result, verb, dataCy, idLabel, idKey }) {
 
   return (
     <div className="mt-4" data-cy={dataCy}>
+      {/* The operation SUCCEEDED and the counts below are the truth; what failed is the record of
+          it. Shown above them so it cannot read as "these rows did not land", and a warning
+          rather than an error for the same reason. Absent on every normal run. */}
+      {result.warning && (
+        <AlertBanner tone="warning" role="status" data-cy={`${dataCy}-warning`} className="mb-2">
+          {result.warning}
+        </AlertBanner>
+      )}
       <p className="mb-2 text-sm font-medium text-ink">
         {result.dryRun ? "Preview" : verb} — {result.created} created, {result.skipped} skipped,{" "}
         {result.errors} error(s)

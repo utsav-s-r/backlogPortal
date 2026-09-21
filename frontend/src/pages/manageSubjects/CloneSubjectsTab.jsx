@@ -7,6 +7,7 @@ import {
   Trash2,
 } from "lucide-react";
 import PrimaryCta from "../../components/ui/PrimaryCta";
+import AlertBanner from "../../components/AlertBanner";
 import api from "../../lib/api";
 import { formatAcademicYear, parseAcademicYear } from "../../lib/academicYear";
 import { FIELD_CONTROL, FIELD_INPUT, FIELD_LABEL } from "../../lib/formClasses";
@@ -356,9 +357,18 @@ function CloneSubjectsTab({ departments, adminDepartment, deptLocked, pinnedDept
           )}
 
           {result && (
-            <div className="mt-4 rounded-lg bg-surface-muted px-4 py-3 text-sm" data-cy="clone-result">
-              Done — {result.created} created, {result.skipped} skipped, {result.errors} error(s).
-            </div>
+            <>
+              {/* The clone itself succeeded — only its audit row did not. Above the counts so it
+                  cannot be misread as the rows having failed. */}
+              {result.warning && (
+                <AlertBanner tone="warning" role="status" data-cy="clone-warning" className="mt-4">
+                  {result.warning}
+                </AlertBanner>
+              )}
+              <div className="mt-4 rounded-lg bg-surface-muted px-4 py-3 text-sm" data-cy="clone-result">
+                Done — {result.created} created, {result.skipped} skipped, {result.errors} error(s).
+              </div>
+            </>
           )}
         </section>
       )}

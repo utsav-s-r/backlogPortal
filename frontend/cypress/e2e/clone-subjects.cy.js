@@ -79,6 +79,89 @@ describe("Clone Subjects tab", () => {
     cy.get('[data-cy="clone-result"]').should("contain", "1 created");
   });
 
+  // A clone commits row by row, so by the time its single audit row is written the subjects
+  // exist. That write used to escape and 500 the request — the admin was told the whole clone
+  // failed when every row had landed, and lost the result. It now completes, keeps the counts,
+  // and says the record is incomplete. The gap cannot be closed (one audit row can never be
+  // atomic with N independent commits), only disclosed.
+  it("keeps the result and warns when the clone could not be written to the audit log", () => {
+    cy.intercept("POST", "/api/admin/subjects/clone/preview", {
+      statusCode: 200,
+      body: {
+        sourceYear: 2024,
+        targetYear: 2025,
+        deptId: 1,
+        rows: [
+          { subjectName: "Data Structures", courseCode: "25CSL44", semester: 4, credits: 4, subjectType: "REGULAR", eligibleDeptIds: [], status: "WOULD_CREATE", message: null },
+        ],
+      },
+    }).as("preview");
+
+    cy.intercept("POST", "/api/admin/subjects/clone/apply", {
+      statusCode: 200,
+      body: {
+        created: 1,
+        skipped: 0,
+        errors: 0,
+        rows: [{ courseCode: "25CSL44", semester: 4, status: "CREATED", message: null }],
+        warning: "This completed, but it could not be written to the audit log. The changes above are saved — tell an administrator so the record can be corrected.",
+      },
+    }).as("apply");
+
+    visit();
+    cy.wait("@getDepartments");
+    cy.get('[data-cy="clone-dept"]').select("1");
+    cy.get('[data-cy="clone-source-year"]').type("2024-25");
+    cy.get('[data-cy="clone-target-year"]').type("2025-26");
+    cy.get('[data-cy="clone-preview"]').click();
+    cy.wait("@preview");
+    cy.get('[data-cy="clone-apply"]').click();
+    cy.wait("@apply");
+
+    // the report survives — this is what the 500 used to destroy
+    cy.get('[data-cy="clone-result"]').should("contain", "1 created");
+    cy.get('[data-cy="clone-warning"]').should("contain", "could not be written to the audit log");
+    // and it must not read as the rows having failed
+    cy.get('[data-cy="clone-warning"]').should("contain", "saved");
+  });
+
+  // The control: a normal clone shows no warning, or the banner cries wolf on every run.
+  it("shows no audit warning on an ordinary clone", () => {
+    cy.intercept("POST", "/api/admin/subjects/clone/preview", {
+      statusCode: 200,
+      body: {
+        sourceYear: 2024,
+        targetYear: 2025,
+        deptId: 1,
+        rows: [
+          { subjectName: "Data Structures", courseCode: "25CSL44", semester: 4, credits: 4, subjectType: "REGULAR", eligibleDeptIds: [], status: "WOULD_CREATE", message: null },
+        ],
+      },
+    }).as("preview");
+    cy.intercept("POST", "/api/admin/subjects/clone/apply", {
+      statusCode: 200,
+      body: {
+        created: 1,
+        skipped: 0,
+        errors: 0,
+        rows: [{ courseCode: "25CSL44", semester: 4, status: "CREATED", message: null }],
+      },
+    }).as("apply");
+
+    visit();
+    cy.wait("@getDepartments");
+    cy.get('[data-cy="clone-dept"]').select("1");
+    cy.get('[data-cy="clone-source-year"]').type("2024-25");
+    cy.get('[data-cy="clone-target-year"]').type("2025-26");
+    cy.get('[data-cy="clone-preview"]').click();
+    cy.wait("@preview");
+    cy.get('[data-cy="clone-apply"]').click();
+    cy.wait("@apply");
+
+    cy.get('[data-cy="clone-result"]').should("contain", "1 created");
+    cy.get('[data-cy="clone-warning"]').should("not.exist");
+  });
+
   // The server explains per-row why a clone was skipped or failed. That reason used to be stored
   // and never rendered, so a failed row read only "Error" and the subject silently went missing
   // from the new year's catalogue.
