@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  BellRing,
   BookOpen,
   Building2,
   CalendarRange,
@@ -54,7 +55,7 @@ const ROLE_LABELS = {
   PROCTOR: "Proctor",
 };
 
-// The six destinations. Per role that is 6 / 5 / 4 / 3 / 2
+// The seven destinations. Per role that is 7 / 5 / 4 / 3 / 2
 // items for ADMIN / PRINCIPAL / HOD / DEPT_OFFICE / PROCTOR — a proctor's two-item sidebar is thin
 // and was accepted knowingly.
 function destinationsFor(role) {
@@ -69,6 +70,8 @@ function destinationsFor(role) {
     items.push({ icon: BookOpen, label: "Subjects", to: "/admin/manage-subjects" });
   if (ADMIN_ONLY.includes(role))
     items.push({ icon: CalendarRange, label: "Exam cycles", to: "/admin/exam-cycles" });
+  if (ADMIN_ONLY.includes(role))
+    items.push({ icon: BellRing, label: "Reminders", to: "/admin/reminders" });
   if (UNRESTRICTED.includes(role))
     items.push({ icon: Building2, label: "Departments", to: "/admin/departments" });
   if (USER_MANAGEMENT_ROLES.includes(role))

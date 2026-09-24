@@ -59,6 +59,11 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
     @Query("select distinct c.id from Registration r join r.examCycle c where c.id in :cycleIds")
     Set<Long> findReferencedExamCycleIds(@Param("cycleIds") Collection<Long> cycleIds);
 
+    // Reminder audience: every registration of one status in one cycle, student + subjects fetched
+    // (unpaginated, so the collection graph is safe). LOAD for the reason on findByRegId above.
+    @EntityGraph(attributePaths = {"student", "subjects"}, type = EntityGraph.EntityGraphType.LOAD)
+    List<Registration> findByExamCycle_IdAndStatus(Long examCycleId, RegistrationStatus status);
+
     // Delete guard: blocks deleting a student referenced by immutable registration history.
     boolean existsByStudent_RollNo(String rollNo);
 

@@ -219,6 +219,7 @@ describe("Mobile viewport (375x812)", () => {
       "Students",
       "Subjects",
       "Exam cycles",
+      "Reminders",
       "Departments",
       "Users",
       "My password",
