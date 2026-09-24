@@ -50,6 +50,8 @@ describe("Students page", () => {
 
     cy.wait("@updateStudent").its("request.body").should("deep.equal", {
       name: "Asha R",
+      // unchanged, sent as-is: omitting it would also keep it, but the form always sends it
+      email: "asha@example.com",
       phone: "9999999999",
       currentSemester: 6,
       entrySemester: 1,
@@ -67,6 +69,55 @@ describe("Students page", () => {
     cy.get('[data-cy="student-save"]').click();
     cy.get('[data-cy="student-edit-error"]').should("contain", "exactly 10 digits");
     cy.get("@updateSpy").should("not.have.been.called");
+  });
+
+  it("sends a changed email only once it is typed twice", () => {
+    cy.intercept("PUT", "/api/admin/students/1MS22CS001", (req) => {
+      req.reply({ statusCode: 200, body: { ...student, email: req.body.email } });
+    }).as("updateStudent");
+
+    visitManageAndLoad();
+
+    cy.get('[data-cy="student-edit-1MS22CS001"]').click();
+    // unchanged address: no confirm field
+    cy.get('[data-cy="student-edit-email-confirm"]').should("not.exist");
+    cy.get('[data-cy="student-edit-email"]').clear().type("asha@gmail.com");
+    cy.get('[data-cy="student-edit-email-confirm"]').type("asha@gmial.com");
+    cy.get('[data-cy="student-save"]').click();
+    cy.get('[data-cy="student-edit-error"]').should("contain", "don't match");
+
+    cy.get('[data-cy="student-edit-email-confirm"]').clear().type("asha@gmail.com");
+    cy.get('[data-cy="student-save"]').click();
+    cy.wait("@updateStudent").its("request.body.email").should("equal", "asha@gmail.com");
+    cy.contains("tr", "asha@gmail.com").should("be.visible");
+  });
+
+  it("refuses a malformed email on edit without sending it", () => {
+    cy.intercept("PUT", "/api/admin/students/1MS22CS001", cy.spy().as("updateSpy"));
+
+    visitManageAndLoad();
+
+    cy.get('[data-cy="student-edit-1MS22CS001"]').click();
+    cy.get('[data-cy="student-edit-email"]').clear().type("asha@gmail");
+    cy.get('[data-cy="student-edit-email-confirm"]').type("asha@gmail");
+    cy.get('[data-cy="student-save"]').click();
+    cy.get('[data-cy="student-edit-error"]').should("contain", "valid email");
+    cy.get("@updateSpy").should("not.have.been.called");
+  });
+
+  it("a blank email is sent as a reset, with no confirm needed", () => {
+    cy.intercept("PUT", "/api/admin/students/1MS22CS001", {
+      statusCode: 200,
+      body: { ...student, email: "1ms22cs001@msrit.edu" },
+    }).as("updateStudent");
+
+    visitManageAndLoad();
+
+    cy.get('[data-cy="student-edit-1MS22CS001"]').click();
+    cy.get('[data-cy="student-edit-email"]').clear();
+    cy.get('[data-cy="student-edit-email-confirm"]').should("not.exist");
+    cy.get('[data-cy="student-save"]').click();
+    cy.wait("@updateStudent").its("request.body.email").should("equal", "");
   });
 
   it("views and edits a student's semester timeline from the Manage tab", () => {

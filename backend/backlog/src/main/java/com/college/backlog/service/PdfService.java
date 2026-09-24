@@ -346,9 +346,10 @@ public class PdfService {
         // the prefix is added AFTER the check: concatenating first turned a missing branch into the
         // literal "B.E. / null" on the printed form, which no exception and no null check could see
         String branch = "B.E. / " + required(reg, "branch", Registration::getSnapBranch);
-        // contact details — a blank line here is fillable by hand and phone is optional by design
-        String email  = optional(reg, "email", r ->
-                r.getSnapEmail() != null ? r.getSnapEmail() : r.getStudent().getEmail());
+        // Always the college address, derived from the USN — never the student-editable email or
+        // its snap_email copy: a personal address on a signed college form reads as unofficial.
+        String email  = Emails.institutional(usn);
+        // phone: a blank line is fillable by hand and phone is optional by design
         String mobile = optional(reg, "mobile", r ->
                 r.getSnapPhone() != null ? r.getSnapPhone() : r.getStudent().getPhone());
 
@@ -569,7 +570,7 @@ public class PdfService {
         return value;
     }
 
-    /** A field the form is still valid without (email, mobile — phone is optional by design).
+    /** A field the form is still valid without (mobile — phone is optional by design).
      *  Absent prints blank; a THROW is still not swallowed, since that means something else broke. */
     private String optional(Registration reg, String field, Function<Registration, String> fn) {
         try {

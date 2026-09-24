@@ -5,6 +5,7 @@ import {
   Download,
   LoaderCircle,
   LogOut,
+  Mail,
   Pencil,
   Phone,
   Check,
@@ -21,6 +22,13 @@ import ReadOnlyField from "../components/ui/ReadOnlyField";
 import HeaderPill from "../components/ui/HeaderPill";
 import { FIELD_CONTROL, FIELD_LABEL } from "../lib/formClasses";
 import { PHONE_ERROR, PHONE_RE, cleanPhoneInput } from "../lib/phone";
+import {
+  EMAIL_ERROR,
+  EMAIL_MAX,
+  EMAIL_MISMATCH,
+  institutionalEmail,
+  isValidEmail,
+} from "../lib/email";
 
 function statusBadgeClass(status) {
   if (status === "VERIFIED")
@@ -40,6 +48,12 @@ function StudentDashboardPage() {
   const [phoneInput, setPhoneInput] = useState("");
   const [savingPhone, setSavingPhone] = useState(false);
   const [phoneError, setPhoneError] = useState("");
+
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [emailConfirm, setEmailConfirm] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
   const [downloadingId, setDownloadingId] = useState("");
   // per-row, so the message sits next to the form it failed for rather than in a page-level banner
@@ -105,6 +119,44 @@ function StudentDashboardPage() {
       setPhoneError(err.response?.data?.message || "Could not update phone number.");
     } finally {
       setSavingPhone(false);
+    }
+  };
+
+  const startEditEmail = () => {
+    setEmailInput("");
+    setEmailConfirm("");
+    setEmailError("");
+    setEditingEmail(true);
+  };
+
+  const fillCollegeEmail = () => {
+    const college = institutionalEmail(profile?.rollNo);
+    setEmailInput(college);
+    setEmailConfirm(college);
+    setEmailError("");
+  };
+
+  const saveEmail = async () => {
+    const next = emailInput.trim();
+    if (!isValidEmail(next)) {
+      setEmailError(EMAIL_ERROR);
+      return;
+    }
+    // typo guard: a mistyped address silently loses every future email, so it is typed twice
+    if (next !== emailConfirm.trim()) {
+      setEmailError(EMAIL_MISMATCH);
+      return;
+    }
+    setSavingEmail(true);
+    setEmailError("");
+    try {
+      const res = await api.put("/student/me/email", { email: next });
+      setProfile(res.data);
+      setEditingEmail(false);
+    } catch (err) {
+      setEmailError(err.response?.data?.message || "Could not update email.");
+    } finally {
+      setSavingEmail(false);
     }
   };
 
@@ -175,14 +227,100 @@ function StudentDashboardPage() {
               <p className="mb-4 text-sm text-ink-muted">{profile?.rollNo}</p>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <ReadOnlyField label="Email" value={profile?.email} />
                 <ReadOnlyField label="Branch" value={branchLabel} />
                 <ReadOnlyField
                   label="Current Semester"
                   value={profile?.currentSemester ? `Semester ${profile.currentSemester}` : ""}
                 />
 
-                {/* Phone — the only editable field */}
+                {/* Email — editable, same shape and reasons as Phone below */}
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <span className={`${FIELD_LABEL} text-ink-muted`}>Email</span>
+                  {editingEmail ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          value={emailInput}
+                          onChange={(e) => setEmailInput(e.target.value)}
+                          type="email"
+                          maxLength={EMAIL_MAX}
+                          placeholder="New email"
+                          aria-label="New email"
+                          className={`${FIELD_CONTROL} w-72 max-w-full`}
+                          data-cy="email-input"
+                        />
+                        <input
+                          value={emailConfirm}
+                          onChange={(e) => setEmailConfirm(e.target.value)}
+                          type="email"
+                          maxLength={EMAIL_MAX}
+                          placeholder="Type it again"
+                          aria-label="Confirm new email"
+                          className={`${FIELD_CONTROL} w-72 max-w-full`}
+                          data-cy="email-confirm"
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={saveEmail}
+                          disabled={savingEmail}
+                          className={btn("accent")}
+                          data-cy="email-save"
+                        >
+                          {savingEmail ? (
+                            <LoaderCircle size={14} className="animate-spin" />
+                          ) : (
+                            <Check size={14} />
+                          )}
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={fillCollegeEmail}
+                          className={btn("quiet")}
+                          data-cy="email-use-college"
+                        >
+                          Use college email
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingEmail(false);
+                            setEmailError(""); // else a stale "don't match" sits under the saved value
+                          }}
+                          className={btn()}
+                        >
+                          <X size={14} /> Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span
+                        className="inline-flex min-w-0 items-center gap-1.5 break-all text-sm font-medium text-ink"
+                        data-cy="email-value"
+                      >
+                        <Mail size={14} className="shrink-0" /> {profile?.email || "Not set"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={startEditEmail}
+                        className={btn("neutral", "sm")}
+                        data-cy="email-edit"
+                      >
+                        <Pencil size={13} /> Edit
+                      </button>
+                    </div>
+                  )}
+                  {emailError && (
+                    <p className="text-xs text-alert" role="alert" data-cy="email-error">
+                      {emailError}
+                    </p>
+                  )}
+                </div>
+
+                {/* Phone */}
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
                   {/* Not <Field>: this holds an input plus two buttons when editing, the
                       multi-interactive case Field must not wrap. Shares FIELD_LABEL so it stays
@@ -216,7 +354,10 @@ function StudentDashboardPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setEditingPhone(false)}
+                        onClick={() => {
+                          setEditingPhone(false);
+                          setPhoneError("");
+                        }}
                         className={btn()}
                       >
                         <X size={14} /> Cancel

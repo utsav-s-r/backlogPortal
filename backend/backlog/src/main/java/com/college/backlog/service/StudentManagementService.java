@@ -58,8 +58,8 @@ public class StudentManagementService {
         Student s = new Student();
         s.setRollNo(rollNo);
         s.setName(req.getName().trim());
-        // email is system-managed, never client-supplied
-        s.setEmail(institutionalEmail(rollNo));
+        // starts as the institutional address; editable afterwards (update / changeOwnEmail)
+        s.setEmail(Emails.institutional(rollNo));
         s.setPhone(phone);
         s.setDateOfBirth(req.getDateOfBirth());
         s.setCurrentSemester(req.getCurrentSemester());
@@ -92,15 +92,33 @@ public class StudentManagementService {
         }
         // validated before any setter: `existing` is managed, so a half-applied edit is dirty state
         String phone = Phones.normalizeOptional(req.getPhone());
+        // null = field omitted: keep the stored address, so a client that doesn't send it can't
+        // wipe one the student chose. Blank = reset to institutional.
+        String email = req.getEmail() == null
+            ? (existing.getEmail() != null ? existing.getEmail() : Emails.institutional(existing.getRollNo()))
+            : Emails.normalize(req.getEmail(), existing.getRollNo());
         existing.setName(req.getName().trim());
-        // email stays system-managed; re-derive so legacy rows self-heal
-        existing.setEmail(institutionalEmail(existing.getRollNo()));
+        existing.setEmail(email);
         existing.setPhone(phone);
         existing.setCurrentSemester(req.getCurrentSemester());
         existing.setEntrySemester(req.getEntrySemester());
         Student saved = studentRepository.save(existing);
         log.info("STUDENT_UPDATE actor={} rollNo={} currentSem={} entrySem={}",
                 actor, saved.getRollNo(), saved.getCurrentSemester(), saved.getEntrySemester());
+        return saved;
+    }
+
+    /** The student's own email change. Not a credential, so no session revocation.
+     *  Null (field missing) is refused rather than read as a reset — only an explicit blank resets.
+     *  @throws IllegalArgumentException missing or malformed address */
+    @Transactional
+    public Student changeOwnEmail(Student existing, String rawEmail) {
+        if (rawEmail == null) {
+            throw new IllegalArgumentException("Email is required.");
+        }
+        existing.setEmail(Emails.normalize(rawEmail, existing.getRollNo()));
+        Student saved = studentRepository.save(existing);
+        log.info("STUDENT_EMAIL_UPDATE actor=self rollNo={}", saved.getRollNo());
         return saved;
     }
 
@@ -194,10 +212,5 @@ public class StudentManagementService {
         if (s == null) return null;
         String t = s.trim();
         return t.isEmpty() ? null : t;
-    }
-
-    /** Always {@code <usn>@msrit.edu} — never client-editable. */
-    private String institutionalEmail(String rollNo) {
-        return rollNo.toLowerCase() + "@msrit.edu";
     }
 }
