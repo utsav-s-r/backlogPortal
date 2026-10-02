@@ -29,6 +29,7 @@ import { FIELD_INPUT } from "../../lib/formClasses";
 import Field from "../../components/ui/Field";
 import Pager from "../../components/ui/Pager";
 import { PHONE_ERROR, cleanPhoneInput, isValidOptionalPhone } from "../../lib/phone";
+import { EMAIL_ERROR, EMAIL_MAX, EMAIL_MISMATCH, institutionalEmail, isValidEmail } from "../../lib/email";
 import DepartmentOptions from "../../components/ui/DepartmentOptions";
 import { btn } from "../../lib/buttonClasses";
 
@@ -231,6 +232,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
   const [showSems, setShowSems] = useState(false); // toggle the sem-year timeline
   const [name, setName] = useState(student.name || "");
   const [email, setEmail] = useState(student.email || "");
+  const [emailConfirm, setEmailConfirm] = useState("");
   const [phone, setPhone] = useState(student.phone || "");
   const [currentSemester, setCurrentSemester] = useState(String(student.currentSemester));
   const [entrySemester, setEntrySemester] = useState(String(student.entrySemester));
@@ -242,6 +244,7 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
   const startEdit = () => {
     setName(student.name || "");
     setEmail(student.email || "");
+    setEmailConfirm("");
     setPhone(student.phone || "");
     setCurrentSemester(String(student.currentSemester));
     setEntrySemester(String(student.entrySemester));
@@ -251,6 +254,9 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
   };
 
   const semesterChanged = Number(currentSemester) !== student.currentSemester;
+  // Typo guard: a NEW address is typed twice. Blank needs no confirm — it resets to the known
+  // college address.
+  const emailNeedsConfirm = email.trim() !== "" && email.trim() !== (student.email || "");
 
   const save = async () => {
     if (!name.trim()) {
@@ -259,6 +265,14 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
     }
     if (!isValidOptionalPhone(phone)) {
       setError(PHONE_ERROR);
+      return;
+    }
+    if (emailNeedsConfirm && !isValidEmail(email.trim())) {
+      setError(EMAIL_ERROR);
+      return;
+    }
+    if (emailNeedsConfirm && email.trim() !== emailConfirm.trim()) {
+      setError(EMAIL_MISMATCH);
       return;
     }
     if (Number(entrySemester) > Number(currentSemester)) {
@@ -272,6 +286,8 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
         `/admin/students/${student.rollNo}`,
         {
           name: name.trim(),
+          // blank = reset to the college address (server-side)
+          email: email.trim(),
           phone: phone.trim() || null,
           currentSemester: Number(currentSemester),
           entrySemester: Number(entrySemester),
@@ -487,11 +503,6 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
         <Field label="Name">
           <input className={FIELD_INPUT} value={name} onChange={(e) => setName(e.target.value)} data-cy="student-edit-name" />
         </Field>
-        <Field
-          label={<>Email <span className="font-normal normal-case text-ink-muted">(auto, from USN)</span></>}
-        >
-          <input className={FIELD_INPUT} value={email} readOnly tabIndex={-1} />
-        </Field>
         <Field label="Phone">
           <input
             className={FIELD_INPUT}
@@ -504,6 +515,31 @@ function StudentRow({ student, proctorMode, onUpdated, onRemoved }) {
             data-cy="student-edit-phone"
           />
         </Field>
+        <Field
+          label={<>Email <span className="font-normal normal-case text-ink-muted">(blank = college address)</span></>}
+        >
+          <input
+            className={FIELD_INPUT}
+            type="email"
+            maxLength={EMAIL_MAX}
+            placeholder={institutionalEmail(student.rollNo)}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            data-cy="student-edit-email"
+          />
+        </Field>
+        {emailNeedsConfirm && (
+          <Field label="Confirm email">
+            <input
+              className={FIELD_INPUT}
+              type="email"
+              maxLength={EMAIL_MAX}
+              value={emailConfirm}
+              onChange={(e) => setEmailConfirm(e.target.value)}
+              data-cy="student-edit-email-confirm"
+            />
+          </Field>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Field label="Current sem">
             <select

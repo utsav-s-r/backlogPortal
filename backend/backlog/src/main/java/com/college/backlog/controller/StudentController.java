@@ -1,5 +1,6 @@
 package com.college.backlog.controller;
 
+import com.college.backlog.controller.dto.EmailUpdateRequest;
 import com.college.backlog.controller.dto.PhoneUpdateRequest;
 import com.college.backlog.controller.dto.RegistrationSummaryResponse;
 import com.college.backlog.controller.dto.StudentProfileResponse;
@@ -17,6 +18,7 @@ import com.college.backlog.repository.StudentSemesterTermRepository;
 import com.college.backlog.repository.SubjectRepository;
 import com.college.backlog.service.EligibilityService;
 import com.college.backlog.service.PdfService;
+import com.college.backlog.service.StudentManagementService;
 import com.college.backlog.service.Usn;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,6 +62,9 @@ public class StudentController {
 
     @Autowired
     private SubjectRepository subjectRepository;
+
+    @Autowired
+    private StudentManagementService studentManagementService;
 
     private Student currentStudent(Authentication auth) {
         return studentRepository.findByRollNo(auth.getName())
@@ -126,6 +131,18 @@ public class StudentController {
         s.setPhone(request.getPhone());
         studentRepository.save(s);
         return toProfile(s);
+    }
+
+    // Identity from the token, never the body: a student can only ever change their own address.
+    @PutMapping("/me/email")
+    public StudentProfileResponse updateEmail(@RequestBody EmailUpdateRequest request,
+                                              Authentication authentication) {
+        Student s = currentStudent(authentication);
+        try {
+            return toProfile(studentManagementService.changeOwnEmail(s, request.getEmail()));
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
     }
 
     // Branch derives from the USN's 2-letter code (single source of truth), not the stored

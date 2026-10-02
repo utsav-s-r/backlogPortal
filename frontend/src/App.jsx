@@ -17,6 +17,7 @@ const ManageSubjectsPage = lazy(
   () => import("./pages/manageSubjects/ManageSubjectsPage"),
 );
 const ExamCyclePage = lazy(() => import("./pages/ExamCyclePage"));
+const RemindersPage = lazy(() => import("./pages/RemindersPage"));
 const DepartmentsPage = lazy(() => import("./pages/DepartmentsPage"));
 const ManageUsersPage = lazy(() => import("./pages/ManageUsersPage"));
 const StudentsPage = lazy(() => import("./pages/students/StudentsPage"));
@@ -74,6 +75,14 @@ function App() {
                 element={
                   <ProtectedAdminRoute>
                     <ExamCyclePage />
+                  </ProtectedAdminRoute>
+                }
+              />
+              <Route
+                path="/admin/reminders"
+                element={
+                  <ProtectedAdminRoute>
+                    <RemindersPage />
                   </ProtectedAdminRoute>
                 }
               />

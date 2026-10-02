@@ -45,3 +45,6 @@ frontend/coverage/
 frontend/cypress/downloads/
 frontend/cypress/screenshots/
 frontend/cypress/videos/
+.impeccable/config.local.json
+.impeccable/hook.cache.json
+.impeccable/critique/

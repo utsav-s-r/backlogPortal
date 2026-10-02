@@ -294,8 +294,8 @@ class PdfServiceTest {
 
     @Test
     void stillRendersWhenOnlyTheOptionalContactFieldsAreMissing() throws Exception {
-        // phone is optional by design and email is auto-assigned — neither invalidates the form,
-        // so these must NOT refuse the download
+        // phone is optional by design and the printed email derives from the USN — neither
+        // invalidates the form, so these must NOT refuse the download
         Student noContact = new Student();
         noContact.setRollNo("1MS22CS001");
         noContact.setName("Asha Rao");
@@ -313,6 +313,19 @@ class PdfServiceTest {
 
         assertThat(text).contains("1MS22CS001", "ASHA RAO");
         assertThat(text).contains("B.E. / CS");
+        assertThat(text).contains("1ms22cs001@msrit.edu");
+    }
+
+    @Test
+    void printsTheCollegeEmailNeverTheStudentEditedOne() throws Exception {
+        Registration reg = sampleRegistration();
+        reg.getStudent().setEmail("asha.personal@gmail.com");
+        reg.setSnapEmail("asha.personal@gmail.com");
+
+        String text = textOf(service.generateRegistrationPdf(reg));
+
+        assertThat(text).contains("1ms22cs001@msrit.edu");
+        assertThat(text).doesNotContain("asha.personal@gmail.com");
     }
 
     @Test

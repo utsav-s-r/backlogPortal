@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 class EndpointAuthorizationInventoryTest {
 
-    /** The six {@code permitAll} entries in SecurityConfig. Anything added here must be added there
+    /** The seven {@code permitAll} entries in SecurityConfig. Anything added here must be added there
      *  too — the two lists are kept in step by hand, which is why the rot check below exists. */
     private static final Set<String> PUBLIC_ENDPOINTS = Set.of(
             "POST /api/auth/login",
@@ -45,7 +45,10 @@ class EndpointAuthorizationInventoryTest {
             "POST /api/student/auth/login",
             "POST /api/student/auth/logout",
             "GET /api/departments",
-            "GET /api/registration-status");
+            "GET /api/registration-status",
+            // the external cron: no session exists to authorize, so X-Cron-Token in
+            // ReminderTriggerController is the control (ReminderTriggerTest)
+            "POST /api/internal/reminders/run");
 
     /**
      * Authenticated, but deliberately role-agnostic: no {@code @PreAuthorize} and no {@code

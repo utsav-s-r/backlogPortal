@@ -9,8 +9,8 @@ import java.time.LocalDate;
 /**
  * Create one student account. The USN (rollNo) is the primary key and the source of branch +
  * admission year; dateOfBirth is the login credential; currentSemester and entrySemester drive the
- * eligibility window (validated 1 ≤ entry ≤ current ≤ 8 server-side). Email is system-managed
- * ({@code <usn>@msrit.edu}), never client-supplied; phone is optional.
+ * eligibility window (validated 1 ≤ entry ≤ current ≤ 8 server-side). Email starts as
+ * {@code <usn>@msrit.edu}, never client-supplied here (editable after creation); phone is optional.
  */
 public class StudentCreateRequest {
 

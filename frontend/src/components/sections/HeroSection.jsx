@@ -60,6 +60,7 @@ export default function HeroSection() {
             style={{
               fontFamily: '"Playfair Display", Georgia, serif',
               fontSize: "clamp(2.5rem, 5vw, 3.75rem)",
+              fontWeight: 600,
               lineHeight: 1.15,
               margin: 0,
               color: "var(--hero-text)",

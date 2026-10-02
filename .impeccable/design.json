@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-29T00:00:00+05:30",
+  "title": "Design System: MSRIT Backlog Portal",
+  "extensions": {
+    "colorMeta": {
+      "lamp-amber": { "role": "primary", "displayName": "Lamp Amber", "canonical": "#a15c00", "tonalRamp": ["oklch(15% 0.06 65)", "oklch(25% 0.09 65)", "oklch(35% 0.11 65)", "oklch(45% 0.12 65)", "oklch(55% 0.13 65)", "oklch(68% 0.13 70)", "oklch(80% 0.11 75)", "oklch(95% 0.04 80)"] },
+      "lamp-amber-dark": { "role": "primary", "displayName": "Lamp Amber (dark theme)", "canonical": "#e6b866" },
+      "lamp-amber-tint": { "role": "primary", "displayName": "Lamp Amber Tint", "canonical": "rgba(161, 92, 0, 0.17)" },
+      "cleared-green": { "role": "secondary", "displayName": "Cleared Green", "canonical": "#1f6b4d", "tonalRamp": ["oklch(15% 0.04 160)", "oklch(25% 0.06 160)", "oklch(35% 0.07 160)", "oklch(47% 0.08 160)", "oklch(57% 0.09 160)", "oklch(67% 0.09 160)", "oklch(80% 0.07 160)", "oklch(95% 0.03 160)"] },
+      "cleared-green-dark": { "role": "secondary", "displayName": "Cleared Green (dark theme)", "canonical": "#74c49f" },
+      "cleared-green-tint": { "role": "secondary", "displayName": "Cleared Green Tint", "canonical": "rgba(31, 107, 77, 0.13)" },
+      "rejection-rose": { "role": "tertiary", "displayName": "Rejection Rose", "canonical": "#b0304e", "tonalRamp": ["oklch(15% 0.06 10)", "oklch(25% 0.1 10)", "oklch(35% 0.13 10)", "oklch(45% 0.16 10)", "oklch(52% 0.17 10)", "oklch(65% 0.15 10)", "oklch(78% 0.1 10)", "oklch(95% 0.03 10)"] },
+      "rejection-rose-dark": { "role": "tertiary", "displayName": "Rejection Rose (dark theme)", "canonical": "#ef8098" },
+      "rejection-rose-tint": { "role": "tertiary", "displayName": "Rejection Rose Tint", "canonical": "rgba(176, 48, 78, 0.13)" },
+      "ledger-paper": { "role": "neutral", "displayName": "Ledger Paper", "canonical": "#fcfbfd" },
+      "night-registry": { "role": "neutral", "displayName": "Night Registry", "canonical": "#201e3c", "tonalRamp": ["oklch(15% 0.04 285)", "oklch(25% 0.05 285)", "oklch(35% 0.06 285)", "oklch(45% 0.06 285)", "oklch(55% 0.05 285)", "oklch(68% 0.04 285)", "oklch(82% 0.025 290)", "oklch(95% 0.01 295)"] },
+      "desk-lavender": { "role": "neutral", "displayName": "Desk Lavender", "canonical": "#f0eef6" },
+      "desk-lavender-dark": { "role": "neutral", "displayName": "Desk Lavender (dark theme)", "canonical": "#2c2a51" },
+      "hairline-lilac": { "role": "neutral", "displayName": "Hairline Lilac", "canonical": "#dcd8e7" },
+      "hairline-lilac-dark": { "role": "neutral", "displayName": "Hairline Lilac (dark theme)", "canonical": "#45406f" },
+      "indigo-ink": { "role": "neutral", "displayName": "Indigo Ink", "canonical": "#1d1b33" },
+      "indigo-ink-dark": { "role": "neutral", "displayName": "Indigo Ink (dark theme)", "canonical": "#eceaf4" },
+      "faded-ink": { "role": "neutral", "displayName": "Faded Ink", "canonical": "#5f5980" },
+      "faded-ink-dark": { "role": "neutral", "displayName": "Faded Ink (dark theme)", "canonical": "#a9a3c6" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Homepage hero headline only." },
+      "headline": { "displayName": "Headline", "purpose": "Page h1 on student, account and near-empty pages." },
+      "title": { "displayName": "Title", "purpose": "Admin page h1 and section headings." },
+      "body": { "displayName": "Body", "purpose": "Nearly all UI text, tables and form values." },
+      "label": { "displayName": "Label", "purpose": "Uppercase field labels and table column headers, in Faded Ink." }
+    },
+    "shadows": [
+      { "name": "soft-lift", "value": "0 16px 40px rgba(0, 0, 0, 0.14)", "purpose": "Above the page only: primary CTA, dialogs, hero step markers. Dark: 0 18px 45px rgba(0, 0, 0, 0.35)." }
+    ],
+    "motion": [
+      { "name": "color-transition", "value": "150ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Default hover fill change on buttons and nav rows." },
+      { "name": "field-transition", "value": "200ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Form control colour transitions." },
+      { "name": "cta-press", "value": "scale(0.98) on :active, 200ms", "purpose": "Press feedback on the primary CTA only." },
+      { "name": "route-fallback-in", "value": "opacity 150ms ease-out, 300ms delay", "purpose": "Suspense fallback fades in only when a load is slow." }
+    ],
+    "breakpoints": [
+      { "name": "mobile-input-floor", "value": "40rem" },
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Accent Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The thing to press. Lamp Amber fill; the primary CTA variant adds soft lift and a press-in.",
+      "html": "<button class=\"ds-btn ds-btn-accent\">Verify</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 8px; padding: 8px 16px; font: 600 14px/20px Inter, system-ui, sans-serif; cursor: pointer; transition: background-color 150ms, opacity 150ms; } .ds-btn:focus-visible { outline: 2px solid var(--color-focus-ring, #a15c00); outline-offset: 2px; } .ds-btn-accent { background: var(--color-accent, #a15c00); color: var(--color-on-accent, #fcfbfd); } .ds-btn-accent:hover { opacity: 0.9; }"
+    },
+    {
+      "name": "Neutral Button",
+      "kind": "button",
+      "refersTo": "button-neutral",
+      "description": "The workhorse. Desk Lavender fill; hover becomes the amber tint used for selection.",
+      "html": "<button class=\"ds-btn-neutral\">Export PDF</button>",
+      "css": ".ds-btn-neutral { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 8px 16px; font: 600 14px/20px Inter, system-ui, sans-serif; cursor: pointer; background: var(--color-surface-muted, #f0eef6); color: var(--color-ink, #1d1b33); transition: background-color 150ms; } .ds-btn-neutral:hover { background: var(--color-accent-tint, rgba(161, 92, 0, 0.17)); } .ds-btn-neutral:focus-visible { outline: 2px solid var(--color-focus-ring, #a15c00); outline-offset: 2px; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destroys or undoes. A solid rose fill so it can never read as an error message.",
+      "html": "<button class=\"ds-btn-danger\">Reject</button>",
+      "css": ".ds-btn-danger { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 6px 12px; font: 600 12px/16px Inter, system-ui, sans-serif; cursor: pointer; background: var(--color-alert, #b0304e); color: var(--color-on-accent, #fcfbfd); transition: opacity 150ms; } .ds-btn-danger:hover { opacity: 0.9; } .ds-btn-danger:focus-visible { outline: 2px solid var(--color-focus-ring, #a15c00); outline-offset: 2px; }"
+    },
+    {
+      "name": "Labelled Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Uppercase label wrapping a borderless Desk Lavender control; amber ring on focus.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">USN</span><input class=\"ds-input\" placeholder=\"1MS24CS001\"></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; } .ds-field-label { font: 600 12px/16px Inter, system-ui, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-ink-muted, #5f5980); } .ds-input { border: none; border-radius: 8px; padding: 10px 14px; font: 400 14px/20px Inter, system-ui, sans-serif; background: var(--color-surface-muted, #f0eef6); color: var(--color-ink, #1d1b33); outline: none; transition: box-shadow 200ms; } .ds-input::placeholder { color: var(--color-ink-muted, #5f5980); } .ds-input:focus-visible { box-shadow: 0 0 0 2px var(--color-focus-ring, #a15c00); }"
+    },
+    {
+      "name": "Status Pills",
+      "kind": "chip",
+      "refersTo": "status-pill",
+      "description": "Fully round status marks: tint fill, status-coloured text.",
+      "html": "<span class=\"ds-pill ds-pill-ok\">VERIFIED</span> <span class=\"ds-pill ds-pill-bad\">REJECTED</span> <span class=\"ds-pill ds-pill-wait\">SUBMITTED</span>",
+      "css": ".ds-pill { display: inline-flex; border-radius: 9999px; padding: 2px 10px; font: 600 11px/16px Inter, system-ui, sans-serif; } .ds-pill-ok { background: var(--color-success-tint, rgba(31, 107, 77, 0.13)); color: var(--color-success, #1f6b4d); } .ds-pill-bad { background: var(--color-alert-tint, rgba(176, 48, 78, 0.13)); color: var(--color-alert, #b0304e); } .ds-pill-wait { background: var(--color-accent-tint, rgba(161, 92, 0, 0.17)); color: var(--color-ink, #1d1b33); }"
+    },
+    {
+      "name": "Alert Banner",
+      "kind": "custom",
+      "refersTo": "banner-error",
+      "description": "The one status banner: tint fill plus status text, no border.",
+      "html": "<div class=\"ds-banner\" role=\"alert\">Registration is closed for this cycle.</div>",
+      "css": ".ds-banner { border-radius: 8px; padding: 12px 16px; font: 400 14px/20px Inter, system-ui, sans-serif; background: var(--color-alert-tint, rgba(176, 48, 78, 0.13)); color: var(--color-alert, #b0304e); }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Desk Lavender rail with a right hairline; the current row carries the amber tint.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-current\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 11l3 3L22 4\"/><path d=\"M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11\"/></svg>Registrations</a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 19.5A2.5 2.5 0 0 1 6.5 17H20\"/><path d=\"M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z\"/></svg>Subjects</a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 4px; width: 236px; padding: 12px; background: var(--color-surface-muted, #f0eef6); border-right: 1px solid var(--color-stroke, #dcd8e7); } .ds-nav-item { display: flex; align-items: center; gap: 12px; border-radius: 8px; padding: 10px 12px; font: 600 14px/20px Inter, system-ui, sans-serif; color: var(--color-ink, #1d1b33); text-decoration: none; transition: background-color 150ms; } .ds-nav-item:hover { background: var(--color-surface-1, #fcfbfd); } .ds-nav-current { background: var(--color-accent-tint, rgba(161, 92, 0, 0.17)); } .ds-nav-item:focus-visible { outline: 2px solid var(--color-focus-ring, #a15c00); outline-offset: 2px; }"
+    },
+    {
+      "name": "Page Heading",
+      "kind": "custom",
+      "refersTo": "title",
+      "description": "Every admin page opens with a Playfair h1 and a one-sentence subtitle.",
+      "html": "<header class=\"ds-head\"><h1>Registrations</h1><p>Review and verify backlog registrations for your department.</p></header>",
+      "css": ".ds-head h1 { margin: 0; font: 600 24px/32px 'Playfair Display', Georgia, serif; color: var(--color-ink, #1d1b33); } .ds-head p { margin: 4px 0 0; font: 400 14px/20px Inter, system-ui, sans-serif; color: var(--color-ink-muted, #5f5980); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Registrar's Desk",
+    "overview": "The portal is an orderly college office rendered on screen. Surfaces are quiet, paper-like and faintly violet; text is indigo ink; one warm colour, Lamp Amber, marks whatever you can act on. Nothing is painted to look important. The college crest supplies identity, so there is no chrome colour, no branded header bar and no decorative panel. Serif headings give the pages the voice of an official document, and the body is a plain, legible sans.\n\nDensity follows the surface. Student pages are spacious and single-purpose, and admin pages are table-first working screens. Both share one vocabulary: separation comes from a fill, spacing or a hairline rule, never from an outlined box. Components are calm and exact. Sizes are fixed, only colour varies, and hover is always a different fill rather than an edge appearing. Motion is minimal: colour transitions, a slight press on the primary action, and a delayed fade for slow route loads.\n\nDark mode is the same desk at night. The Night Registry navy (#201e3c) is the page, raised surfaces get lighter rather than darker, and every colour is desaturated as well as lightened so nothing glows.",
+    "keyCharacteristics": [
+      "Three colours with fixed meanings (act, went through, went wrong); everything else is neutral.",
+      "Fills, spacing and hairlines, never outlines.",
+      "One button geometry; tone is the only variable.",
+      "Playfair Display headings over Inter body.",
+      "Light and dark are equal citizens; every colour token has both values."
+    ],
+    "rules": [
+      { "name": "The Three Meanings Rule", "body": "Amber = act, green = went through, rose = went wrong. A fourth colour is a new meaning, not a styling choice. If it can't be named in one word, it doesn't ship. Warning shares rose's fill instead of introducing amber-as-warning.", "section": "colors" },
+      { "name": "The Tint-Is-Alpha Rule", "body": "Every -tint is its base colour at low alpha, never a separate hex, so a tint can never drift from the colour it belongs to.", "section": "colors" },
+      { "name": "The Up-Is-Lighter Rule", "body": "In dark mode a raised surface is lighter than the page, never equal and never darker.", "section": "colors" },
+      { "name": "The Serif Speaks First Rule", "body": "Every heading is Playfair Display, and nothing else is. A serif in body copy or a sans headline breaks the document voice.", "section": "typography" },
+      { "name": "The 16px Floor Rule", "body": "Below 40rem every text input, select and textarea renders at 16px, or iOS zooms the page on focus and never zooms back out.", "section": "typography" },
+      { "name": "The Measure-Against-the-Window Rule", "body": "Mobile layout is verified at 375px wide. Widths are measured against the real window, never the viewport constant, because Linux scrollbars eat ~15px.", "section": "layout" },
+      { "name": "The Shadow-Means-Above Rule", "body": "A shadow is never an outline substitute. If it is separating something from the page it sits on, use a fill instead.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do reach for a token utility (bg-surface-muted, text-ink-muted, bg-accent-tint) for every colour, and add a token to index.css when none fits.",
+      "Do separate with a fill, spacing or a single-edge hairline in Hairline Lilac.",
+      "Do build every button from the shared btn(tone, size) system and every labelled control from Field.",
+      "Do give every colour token both a light and a dark value, and check both themes.",
+      "Do keep motion to colour transitions (150–200ms), the CTA press and the 300ms-delayed route fade, all of which collapse under prefers-reduced-motion.",
+      "Do open every admin page with a Playfair h1 and a one-sentence subtitle."
+    ],
+    "donts": [
+      "Don't draw a four-sided outline (border border-stroke, rounded-xl border) or underline links on hover. npm run lint:no-box fails on it.",
+      "Don't add a fourth colour, a Tailwind palette class (bg-red-50) or a raw hex.",
+      "Don't use a shadow for anything but \"above the page\".",
+      "Don't give two adjacent buttons different sizes or radii.",
+      "Don't use pure white text in dark mode, or let a raised surface equal the page.",
+      "Don't add flashy animation or a motion library.",
+      "Don't paint the top band or sidebar in a brand colour. The crest is the identity."
+    ]
+  }
+}

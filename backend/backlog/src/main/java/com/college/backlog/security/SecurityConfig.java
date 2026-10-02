@@ -67,7 +67,9 @@ public class SecurityConfig {
                         .csrfTokenRepository(csrfTokenRepository)
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                         .ignoringRequestMatchers("/api/auth/login", "/api/student/auth/login",
-                                "/api/auth/logout", "/api/student/auth/logout"))
+                                "/api/auth/logout", "/api/student/auth/logout",
+                                // the cron has no session and no token cookie; X-Cron-Token is its control
+                                "/api/internal/reminders/run"))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 // Spring Security's defaults give nosniff + X-Frame-Options: DENY and NOTHING else —
                 // no CSP (Spring sets no default), no Referrer-Policy, no Permissions-Policy.
@@ -144,6 +146,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/student/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/departments").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/registration-status").permitAll()
+                        // external cron: authorized by X-Cron-Token in ReminderTriggerController
+                        .requestMatchers(HttpMethod.POST, "/api/internal/reminders/run").permitAll()
                         // PRINCIPAL deliberately absent: verification is not theirs. In step with
                         // RegistrationController#verifyRegistration's @PreAuthorize and the
                         // dashboard gate; listing it here was dead (both must pass) but made

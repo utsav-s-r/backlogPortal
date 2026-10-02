@@ -77,20 +77,94 @@ class StudentManagementServiceTest {
         assertThat(s.getEmail()).isEqualTo("1ms22cs001@msrit.edu");
     }
 
-    @Test
-    void updateReDerivesInstitutionalEmail() {
+    private Student csStudentWithEmail(String email) {
         Student s = new Student();
         s.setRollNo("1MS22CS001");
-        s.setEmail("stale@example.com");
-        when(studentRepository.save(any(Student.class))).thenAnswer(i -> i.getArgument(0));
+        s.setEmail(email);
+        lenient().when(studentRepository.save(any(Student.class))).thenAnswer(i -> i.getArgument(0));
+        return s;
+    }
 
+    private StudentUpdateRequest updateWithEmail(String email) {
         StudentUpdateRequest u = new StudentUpdateRequest();
         u.setName("New Name");
         u.setCurrentSemester(6);
         u.setEntrySemester(3);
-        Student saved = service.updateStudent(s, u, ACTOR);
+        u.setEmail(email);
+        return u;
+    }
+
+    @Test
+    void updateOmittingEmailKeepsTheStoredAddress() {
+        // the old re-derive would overwrite this with the institutional address on every edit
+        Student saved = service.updateStudent(
+            csStudentWithEmail("asha@gmail.com"), updateWithEmail(null), ACTOR);
+
+        assertThat(saved.getEmail()).isEqualTo("asha@gmail.com");
+    }
+
+    @Test
+    void updateOmittingEmailOnALegacyRowWithNoneDerivesIt() {
+        Student saved = service.updateStudent(csStudentWithEmail(null), updateWithEmail(null), ACTOR);
 
         assertThat(saved.getEmail()).isEqualTo("1ms22cs001@msrit.edu");
+    }
+
+    @Test
+    void updateWithBlankEmailResetsToInstitutional() {
+        Student saved = service.updateStudent(
+            csStudentWithEmail("asha@gmail.com"), updateWithEmail("   "), ACTOR);
+
+        assertThat(saved.getEmail()).isEqualTo("1ms22cs001@msrit.edu");
+    }
+
+    @Test
+    void updateSetsAnyValidEmailTrimmed() {
+        Student saved = service.updateStudent(
+            csStudentWithEmail("1ms22cs001@msrit.edu"), updateWithEmail("  asha@outlook.com "), ACTOR);
+
+        assertThat(saved.getEmail()).isEqualTo("asha@outlook.com");
+    }
+
+    @Test
+    void updateRejectsMalformedEmailBeforeTouchingTheEntity() {
+        Student s = csStudentWithEmail("asha@gmail.com");
+
+        assertThatThrownBy(() -> service.updateStudent(s, updateWithEmail("asha@gmail"), ACTOR))
+            .isInstanceOf(IllegalArgumentException.class);
+        // managed entity: a half-applied edit would be flushed at commit
+        assertThat(s.getName()).isNull();
+        assertThat(s.getEmail()).isEqualTo("asha@gmail.com");
+        verify(studentRepository, never()).save(any());
+    }
+
+    @Test
+    void changeOwnEmailSetsAndBlankResets() {
+        Student s = csStudentWithEmail("1ms22cs001@msrit.edu");
+
+        assertThat(service.changeOwnEmail(s, "asha@gmail.com").getEmail()).isEqualTo("asha@gmail.com");
+        assertThat(service.changeOwnEmail(s, "").getEmail()).isEqualTo("1ms22cs001@msrit.edu");
+    }
+
+    @Test
+    void changeOwnEmailRefusesAMissingFieldInsteadOfResetting() {
+        Student s = csStudentWithEmail("asha@gmail.com");
+
+        assertThatThrownBy(() -> service.changeOwnEmail(s, null))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("Email is required.");
+        assertThat(s.getEmail()).isEqualTo("asha@gmail.com");
+        verify(studentRepository, never()).save(any());
+    }
+
+    @Test
+    void changeOwnEmailRejectsMalformedWithoutSaving() {
+        Student s = csStudentWithEmail("asha@gmail.com");
+
+        assertThatThrownBy(() -> service.changeOwnEmail(s, "not an email"))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThat(s.getEmail()).isEqualTo("asha@gmail.com");
+        verify(studentRepository, never()).save(any());
     }
 
     @Test
