@@ -172,7 +172,7 @@ class ReminderAuthorizationTest {
     void aTestSendWithoutMailConfiguredIsAConflict() throws Exception {
         mockMvc.perform(post(BASE + "/test").with(user(ADMIN).roles("ADMIN")).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"to\":\"me@gmail.com\",\"subject\":\"s\",\"message\":\"m\"}"))
+                        .content("{\"to\":\"me@example.com\",\"subject\":\"s\",\"message\":\"m\"}"))
                 .andExpect(status().isConflict());
     }
 
@@ -200,7 +200,7 @@ class ReminderAuthorizationTest {
                 post(BASE + "/preview").with(u).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body(null, "")),
                 post(BASE + "/1/cancel").with(u).with(csrf()),
                 post(BASE + "/test").with(u).with(csrf()).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"to\":\"me@gmail.com\",\"subject\":\"s\",\"message\":\"m\"}"));
+                        .content("{\"to\":\"me@example.com\",\"subject\":\"s\",\"message\":\"m\"}"));
     }
 
     // ---- the cron door with no token configured (the test profile) ----

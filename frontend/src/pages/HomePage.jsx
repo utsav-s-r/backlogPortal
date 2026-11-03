@@ -24,6 +24,14 @@ function HomePage() {
       <footer className="border-t border-stroke px-4 py-8 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 text-sm text-ink">
           <p className="font-bold">Ramaiah Institute of Technology</p>
+          <a
+            href="https://github.com/utsav-s-r/backlogPortal"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-accent underline underline-offset-4"
+          >
+            Source code on GitHub
+          </a>
         </div>
       </footer>
     </div>
